@@ -1,0 +1,75 @@
+"use client";
+
+import { useLocale, useTranslations } from "next-intl";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { getCompanyById, getUserById } from "@/lib/demo-data";
+import { formatCurrency, formatDate } from "@/lib/format";
+import type { Locale } from "@/i18n/config";
+import type { Client } from "@/types";
+
+interface PersonalDataTabProps {
+  client: Client;
+}
+
+function Field({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <dt className="text-xs text-muted-foreground">{label}</dt>
+      <dd className="text-sm font-medium text-foreground">{value || "—"}</dd>
+    </div>
+  );
+}
+
+export function PersonalDataTab({ client }: PersonalDataTabProps) {
+  const locale = useLocale() as Locale;
+  const t = useTranslations();
+  const company = getCompanyById(client.companyId);
+  const advisor = getUserById(client.assignedAdvisorId);
+  const idTypeLabel =
+    client.idType === "Cédula" ? t("clients.form.idTypeCedula") : t("clients.form.idTypePassport");
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{t("dossier.personalData.title")}</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <Field label={t("dossier.personalData.fullName")} value={client.fullName} />
+          <Field
+            label={t("dossier.personalData.identification")}
+            value={`${idTypeLabel} · ${client.idNumber}`}
+          />
+          <Field label={t("dossier.personalData.phone")} value={client.phone} />
+          <Field label={t("dossier.personalData.email")} value={client.email} />
+          <Field label={t("dossier.personalData.company")} value={company?.name ?? "—"} />
+          <Field label={t("dossier.personalData.position")} value={client.position} />
+          <Field
+            label={t("dossier.personalData.monthlySalary")}
+            value={formatCurrency(client.monthlySalary)}
+          />
+          <Field
+            label={t("dossier.personalData.birthDate")}
+            value={formatDate(client.birthDate, locale)}
+          />
+          <Field label={t("dossier.personalData.nationality")} value={client.nationality} />
+          <Field label={t("dossier.personalData.address")} value={client.address} />
+          <Field
+            label={t("dossier.personalData.assignedAdvisor")}
+            value={advisor?.fullName ?? t("common.unassigned")}
+          />
+          <Field
+            label={t("dossier.personalData.registeredAt")}
+            value={formatDate(client.registeredAt, locale)}
+          />
+          <div className="sm:col-span-2 lg:col-span-3">
+            <Field
+              label={t("dossier.personalData.observations")}
+              value={client.observations ?? t("dossier.personalData.noObservations")}
+            />
+          </div>
+        </dl>
+      </CardContent>
+    </Card>
+  );
+}

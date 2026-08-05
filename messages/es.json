@@ -1,0 +1,610 @@
+{
+  "common": {
+    "search": "Buscar",
+    "globalSearchPlaceholder": "Buscar clientes, solicitudes...",
+    "notifications": "Notificaciones",
+    "loading": "Cargando ODL LoanFlow CRM…",
+    "back": "Volver",
+    "cancel": "Cancelar",
+    "save": "Guardar",
+    "edit": "Editar",
+    "view": "Ver",
+    "actions": "Acciones",
+    "status": "Estado",
+    "all": "Todos",
+    "yes": "Sí",
+    "no": "No",
+    "days": "días",
+    "minutes": "minutos",
+    "unassigned": "Sin asignar",
+    "pagination": {
+      "showing": "Mostrando",
+      "of": "de",
+      "results": "resultados",
+      "previous": "Anterior",
+      "next": "Siguiente",
+      "page": "Página {current} de {total}"
+    },
+    "relativeTime": {
+      "justNow": "hace instantes",
+      "minutes": "hace {count} min",
+      "hours": "hace {count} h",
+      "days": "hace {count} d"
+    },
+    "brand": {
+      "name": "ODL LoanFlow CRM",
+      "company": "ODL Financial Corporation"
+    },
+    "language": {
+      "label": "Idioma",
+      "es": "ES",
+      "en": "EN",
+      "spanish": "Español",
+      "english": "English"
+    }
+  },
+  "navigation": {
+    "dashboard": "Dashboard",
+    "clients": "Clientes",
+    "applications": "Solicitudes",
+    "documents": "Documentos",
+    "alerts": "Alertas",
+    "reports": "Reportes",
+    "settings": "Configuración",
+    "signOut": "Cerrar sesión",
+    "collapseMenu": "Contraer menú",
+    "openMenu": "Abrir menú",
+    "dossierTitle": "Expediente del cliente",
+    "myProfile": "Mi perfil"
+  },
+  "login": {
+    "title": "Acceso al CRM",
+    "subtitle": "Ingrese sus credenciales para continuar a ODL LoanFlow CRM.",
+    "email": "Correo electrónico",
+    "password": "Contraseña",
+    "rememberMe": "Recordarme",
+    "forgotPassword": "¿Olvidó su contraseña?",
+    "forgotPasswordToast": "Recuperación de contraseña no disponible en esta fase de demostración.",
+    "submit": "Iniciar sesión",
+    "submitting": "Ingresando...",
+    "privateNotice": "Sistema privado para personal autorizado de ODL Financial Corporation.",
+    "brandTagline": "Gestión ordenada y segura de clientes y solicitudes de préstamo.",
+    "brandDescription": "Una plataforma interna para el equipo de ODL Financial Corporation: expedientes, documentos, alertas y seguimiento de solicitudes en un solo lugar.",
+    "demoEnvironmentNotice": "Entorno de demostración interno — datos ficticios."
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "description": "Resumen general de la operación de ODL LoanFlow CRM.",
+    "kpis": {
+      "registeredClients": "Clientes registrados",
+      "newApplications": "Solicitudes nuevas",
+      "pendingDocuments": "Documentos pendientes",
+      "applicationsUnderReview": "Solicitudes en evaluación",
+      "approvedApplications": "Solicitudes aprobadas",
+      "notEligibleApplications": "Solicitudes que no aplican"
+    },
+    "recentActivity": "Actividad reciente",
+    "statusDistribution": "Solicitudes por estado",
+    "pendingTasks": {
+      "title": "Tareas pendientes",
+      "task1": "Revisar tres expedientes completos",
+      "task2": "Contactar dos clientes",
+      "task3": "Validar cuatro documentos",
+      "task4": "Dar seguimiento a una solicitud"
+    }
+  },
+  "clients": {
+    "title": "Clientes",
+    "description": "Gestione el registro de clientes y prospectos de ODL Financial Corporation.",
+    "searchPlaceholder": "Buscar por nombre, cédula o correo...",
+    "allStatuses": "Todos los estados",
+    "newClient": "Nuevo cliente",
+    "emptyTitle": "No se encontraron clientes",
+    "emptyDescription": "Ajuste la búsqueda o los filtros para ver más resultados.",
+    "columns": {
+      "fullName": "Nombre completo",
+      "phone": "Teléfono",
+      "idNumber": "Cédula / Pasaporte",
+      "company": "Empresa",
+      "applications": "Solicitudes",
+      "status": "Estado",
+      "registeredAt": "Fecha de registro",
+      "actions": "Acciones"
+    },
+    "rowActions": {
+      "viewDossier": "Ver expediente",
+      "edit": "Editar",
+      "createApplication": "Crear solicitud",
+      "addNote": "Añadir nota",
+      "registerAlert": "Registrar alerta"
+    },
+    "toasts": {
+      "newApplicationDemo": "Nueva solicitud para {name} (demostración).",
+      "clientUpdated": "Cliente actualizado correctamente.",
+      "clientCreated": "Cliente registrado correctamente."
+    },
+    "form": {
+      "titleNew": "Nuevo cliente",
+      "titleEdit": "Editar cliente",
+      "descriptionNew": "Complete la información para registrar un nuevo cliente en el sistema.",
+      "descriptionEdit": "Actualice la información del cliente.",
+      "fullName": "Nombre completo",
+      "idType": "Tipo de identificación",
+      "idTypeCedula": "Cédula",
+      "idTypePassport": "Pasaporte",
+      "idNumber": "Número de identificación",
+      "phone": "Teléfono",
+      "email": "Correo electrónico",
+      "company": "Empresa donde labora",
+      "selectCompany": "Seleccionar empresa",
+      "position": "Cargo",
+      "monthlySalary": "Salario mensual (USD)",
+      "birthDate": "Fecha de nacimiento",
+      "nationality": "Nacionalidad",
+      "address": "Dirección",
+      "observations": "Observaciones",
+      "cancel": "Cancelar",
+      "submitNew": "Registrar cliente",
+      "submitEdit": "Guardar cambios"
+    }
+  },
+  "applications": {
+    "title": "Solicitudes",
+    "description": "Seguimiento de solicitudes de préstamo en todas sus etapas.",
+    "viewTable": "Tabla",
+    "viewKanban": "Kanban",
+    "searchPlaceholder": "Buscar por N.º de solicitud o cliente...",
+    "allStatuses": "Todos los estados",
+    "emptyTitle": "No se encontraron solicitudes",
+    "emptyDescription": "Ajuste la búsqueda o los filtros para ver más resultados.",
+    "noApplicationsInColumn": "Sin solicitudes",
+    "columns": {
+      "number": "N.º de solicitud",
+      "client": "Cliente",
+      "loanType": "Tipo de préstamo",
+      "requestDate": "Fecha de solicitud",
+      "advisor": "Asesor",
+      "status": "Estado",
+      "documentation": "Documentación",
+      "lastActivity": "Última actividad",
+      "actions": "Acciones"
+    },
+    "statusMenu": {
+      "changeStatus": "Cambiar estado",
+      "move": "Mover",
+      "moveTo": "Mover a..."
+    },
+    "toasts": {
+      "statusChanged": "Solicitud movida a \"{status}\"."
+    }
+  },
+  "dossier": {
+    "backToClients": "Volver a clientes",
+    "noApplication": "Sin solicitud asociada",
+    "registeredOn": "Registrado",
+    "createdOn": "Creado",
+    "advisor": "Asesor",
+    "editClient": "Editar",
+    "tabs": {
+      "summary": "Resumen",
+      "personalData": "Datos personales",
+      "documents": "Documentos",
+      "notes": "Notas internas",
+      "alerts": "Alertas",
+      "activity": "Actividad"
+    },
+    "summary": {
+      "mainInfoTitle": "Información principal",
+      "company": "Empresa",
+      "position": "Cargo",
+      "monthlySalary": "Salario mensual",
+      "directDiscount": "Descuento directo",
+      "directDiscountYes": "La empresa sí aplica",
+      "directDiscountNo": "La empresa no aplica",
+      "loanType": "Tipo de préstamo",
+      "nextAction": "Próxima acción",
+      "noNextAction": "Sin acciones pendientes registradas.",
+      "documentStatusTitle": "Estado documental",
+      "requirementsCompleted": "Requisitos completados",
+      "requirementsOf": "{completed} de {total}",
+      "documentSetComplete": "Expediente documental completo",
+      "documentsPendingHint": "Aún faltan documentos por verificar. Revise la pestaña Documentos.",
+      "noApplicationDocuments": "Este cliente no tiene una solicitud asociada con requisitos documentales.",
+      "lastUpdate": "Última actualización"
+    },
+    "personalData": {
+      "title": "Datos personales",
+      "fullName": "Nombre completo",
+      "identification": "Identificación",
+      "phone": "Teléfono",
+      "email": "Correo electrónico",
+      "company": "Empresa",
+      "position": "Cargo",
+      "monthlySalary": "Salario mensual",
+      "birthDate": "Fecha de nacimiento",
+      "nationality": "Nacionalidad",
+      "address": "Dirección",
+      "assignedAdvisor": "Asesor asignado",
+      "registeredAt": "Fecha de registro",
+      "observations": "Observaciones",
+      "noObservations": "Sin observaciones registradas."
+    },
+    "documents": {
+      "noApplicationTitle": "Sin solicitud asociada",
+      "noApplicationDescription": "Este cliente no tiene una solicitud activa, por lo que no hay requisitos documentales que mostrar.",
+      "progressTitle": "Progreso documental",
+      "requirementsCompleted": "{completed} de {total} requisitos completados",
+      "documentSetComplete": "Expediente documental completo",
+      "receivedOn": "Recibido: {date}",
+      "notReceived": "Aún no recibido",
+      "reviewedBy": "Revisado por {name}",
+      "view": "Ver",
+      "replace": "Reemplazar",
+      "changeStatus": "Cambiar estado",
+      "newStatus": "Nuevo estado",
+      "toasts": {
+        "notReceivedYet": "Este documento aún no ha sido recibido.",
+        "previewSimulated": "Vista previa simulada: {fileName}",
+        "statusUpdated": "{document}: estado actualizado a \"{status}\".",
+        "replaced": "{document} reemplazado (simulado). Pendiente de revisión."
+      }
+    },
+    "notes": {
+      "addNote": "Añadir nota",
+      "dialogTitle": "Añadir nota interna",
+      "dialogDescription": "Las notas son de uso interno y nunca se muestran al cliente.",
+      "noteLabel": "Nota",
+      "type": "Tipo",
+      "priority": "Prioridad",
+      "cancel": "Cancelar",
+      "save": "Guardar nota",
+      "emptyTitle": "Sin notas registradas",
+      "emptyDescription": "Aún no se han añadido notas internas para este cliente.",
+      "toastAdded": "Nota agregada correctamente."
+    },
+    "alerts": {
+      "title": "Alertas y restricciones",
+      "subtitle": "Toda alerta debe contar con un motivo documentado.",
+      "registerAlert": "Registrar alerta",
+      "dialogTitle": "Registrar alerta o restricción",
+      "dialogDescription": "Documente el motivo con la mayor claridad posible.",
+      "type": "Tipo",
+      "level": "Nivel",
+      "reason": "Motivo",
+      "observation": "Observación",
+      "cancel": "Cancelar",
+      "emptyTitle": "Sin alertas registradas",
+      "emptyDescription": "Este cliente no tiene alertas ni restricciones activas.",
+      "active": "Activa",
+      "resolved": "Resuelta",
+      "markResolved": "Marcar resuelta",
+      "reactivate": "Reactivar",
+      "responsible": "Responsable",
+      "toastAdded": "Alerta registrada correctamente.",
+      "toastResolved": "Alerta marcada como resuelta.",
+      "toastReactivated": "Alerta reactivada."
+    },
+    "activity": {
+      "emptyTitle": "Sin actividad registrada",
+      "emptyDescription": "Aún no hay eventos registrados para este cliente."
+    }
+  },
+  "documentsModule": {
+    "title": "Documentos",
+    "description": "Vista general de los documentos recibidos y su estado de revisión.",
+    "searchPlaceholder": "Buscar cliente o solicitud...",
+    "allTypes": "Todos los tipos",
+    "allStatuses": "Todos los estados",
+    "allAdvisors": "Todos los asesores",
+    "emptyTitle": "No se encontraron documentos",
+    "emptyDescription": "Ajuste la búsqueda o los filtros para ver más resultados.",
+    "columns": {
+      "client": "Cliente",
+      "application": "Solicitud",
+      "documentType": "Tipo de documento",
+      "status": "Estado",
+      "receivedAt": "Fecha de recepción",
+      "reviewer": "Revisor",
+      "actions": "Acciones"
+    },
+    "menuLabel": "Documento",
+    "viewDocument": "Ver documento",
+    "viewDossier": "Ver expediente",
+    "toasts": {
+      "previewSimulated": "Vista previa simulada: {fileName}",
+      "notReceivedYet": "Este documento aún no ha sido recibido."
+    }
+  },
+  "alertsModule": {
+    "title": "Alertas y restricciones",
+    "description": "Seguimiento de alertas internas registradas sobre los clientes.",
+    "activeAlerts": "Alertas activas",
+    "resolvedAlerts": "Alertas resueltas",
+    "levelLabel": "Nivel {level}",
+    "searchPlaceholder": "Buscar cliente o motivo...",
+    "filterAll": "Todas",
+    "filterActive": "Activas",
+    "filterResolved": "Resueltas",
+    "allLevels": "Todos los niveles",
+    "allTypes": "Todos los tipos",
+    "emptyTitle": "No se encontraron alertas",
+    "emptyDescription": "Ajuste la búsqueda o los filtros para ver más resultados.",
+    "columns": {
+      "client": "Cliente",
+      "type": "Tipo",
+      "level": "Nivel",
+      "reason": "Motivo",
+      "date": "Fecha",
+      "responsible": "Responsable",
+      "status": "Estado",
+      "actions": "Acciones"
+    },
+    "viewDossier": "Ver expediente",
+    "markResolved": "Marcar resuelta",
+    "reactivate": "Reactivar",
+    "active": "Activa",
+    "resolved": "Resuelta",
+    "toasts": {
+      "resolved": "Alerta marcada como resuelta.",
+      "reactivated": "Alerta reactivada."
+    }
+  },
+  "reports": {
+    "title": "Reportes",
+    "description": "Indicadores operativos de ODL LoanFlow CRM. Datos de demostración.",
+    "kpis": {
+      "applicationsReceived": "Solicitudes recibidas",
+      "documentationRate": "Tasa de documentación completa",
+      "documentationRateHint": "Sobre el total de solicitudes activas",
+      "approvedApplications": "Solicitudes aprobadas",
+      "notEligibleApplications": "Solicitudes que no aplican",
+      "ofTotal": "{percent}% del total"
+    },
+    "frequentReasonsTitle": "Motivos frecuentes de no aplicación",
+    "frequentReasons": {
+      "incompleteDocumentation": "Documentación incompleta",
+      "companyNotEligible": "La empresa no aplica a descuento directo",
+      "previousDefault": "Historial de incumplimiento previo",
+      "insufficientIncome": "Ingresos insuficientes",
+      "inconsistentInformation": "Información inconsistente"
+    },
+    "avgTimeTitle": "Tiempo promedio entre estados",
+    "advisorProductivityTitle": "Productividad por asesor",
+    "columns": {
+      "advisor": "Asesor",
+      "managedApplications": "Solicitudes gestionadas",
+      "approved": "Aprobadas",
+      "avgClosingTime": "Tiempo promedio de cierre"
+    }
+  },
+  "settings": {
+    "title": "Configuración",
+    "description": "Ajustes generales del sistema. Pantallas de demostración para esta fase.",
+    "tabs": {
+      "profile": "Perfil",
+      "users": "Usuarios y roles",
+      "applicationStatuses": "Estados de solicitudes",
+      "loanTypes": "Tipos de préstamos",
+      "documentTypes": "Tipos de documentos",
+      "companies": "Empresas",
+      "notifications": "Notificaciones",
+      "security": "Seguridad"
+    },
+    "profile": {
+      "title": "Perfil del usuario",
+      "fullName": "Nombre completo",
+      "email": "Correo electrónico",
+      "role": "Rol",
+      "save": "Guardar cambios",
+      "toastSaved": "Perfil actualizado (demostración)."
+    },
+    "users": {
+      "title": "Usuarios y roles",
+      "invite": "Invitar usuario",
+      "toastInvite": "Invitar usuarios estará disponible en una fase posterior.",
+      "columns": {
+        "name": "Nombre",
+        "email": "Correo electrónico",
+        "role": "Rol",
+        "status": "Estado"
+      },
+      "active": "Activo",
+      "inactive": "Inactivo"
+    },
+    "applicationStatuses": {
+      "title": "Estados de solicitudes",
+      "description": "Estados disponibles para el ciclo de vida de una solicitud de préstamo."
+    },
+    "loanTypes": {
+      "title": "Tipos de préstamos",
+      "description": "Modalidades de préstamo disponibles en ODL Financial Corporation."
+    },
+    "documentTypes": {
+      "title": "Tipos de documentos",
+      "description": "Requisitos documentales oficiales solicitados a los clientes."
+    },
+    "companies": {
+      "title": "Empresas con descuento directo",
+      "description": "Empresas cuyos empleados pueden solicitar préstamos con descuento directo de planilla.",
+      "toastToggleOn": "{name}: descuento directo activado (demostración).",
+      "toastToggleOff": "{name}: descuento directo desactivado (demostración)."
+    },
+    "notifications": {
+      "title": "Notificaciones",
+      "description": "Elija qué eventos desea recibir por correo electrónico dentro del sistema.",
+      "newApplication": "Nuevas solicitudes",
+      "newApplicationDescription": "Cuando se registra una nueva solicitud de préstamo.",
+      "documents": "Documentos pendientes",
+      "documentsDescription": "Recordatorios de documentos pendientes por recibir o revisar.",
+      "alerts": "Alertas y restricciones",
+      "alertsDescription": "Cuando se registra una alerta interna sobre un cliente.",
+      "statusChanges": "Cambios de estado",
+      "statusChangesDescription": "Cuando una solicitud cambia de estado.",
+      "weeklySummary": "Resumen semanal",
+      "weeklySummaryDescription": "Resumen semanal de actividad y reportes operativos."
+    },
+    "security": {
+      "title": "Seguridad de la cuenta",
+      "twoFactor": "Autenticación de dos factores",
+      "twoFactorDescription": "Requiere un código adicional al iniciar sesión.",
+      "sessionTimeout": "Cierre de sesión automático",
+      "sessionTimeoutDescription": "Tiempo de inactividad antes de cerrar sesión.",
+      "minutes15": "15 minutos",
+      "minutes30": "30 minutos",
+      "minutes60": "60 minutos",
+      "password": "Contraseña",
+      "passwordLastUpdate": "Última actualización: hace 3 meses.",
+      "changePassword": "Cambiar contraseña",
+      "toastPasswordDisabled": "Cambio de contraseña no disponible en esta fase de demostración."
+    }
+  },
+  "statuses": {
+    "noteType": {
+      "general": "General",
+      "seguimiento": "Seguimiento",
+      "documentacion": "Documentación",
+      "evaluacion": "Evaluación",
+      "llamada": "Llamada",
+      "importante": "Importante"
+    },
+    "notePriority": {
+      "baja": "Baja",
+      "media": "Media",
+      "alta": "Alta"
+    },
+    "client": {
+      "activo": "Activo",
+      "prospecto": "Prospecto",
+      "en_evaluacion": "En evaluación",
+      "aprobado": "Cliente aprobado",
+      "restringido": "Restringido",
+      "inactivo": "Inactivo"
+    },
+    "loanApplication": {
+      "nueva": "Nueva",
+      "pendiente_documentos": "Pendiente de documentos",
+      "documentacion_completa": "Documentación completa",
+      "en_evaluacion": "En evaluación",
+      "aprobada": "Aprobada",
+      "no_aplica": "No aplica",
+      "cancelada": "Cancelada"
+    },
+    "document": {
+      "pendiente": "Pendiente",
+      "recibido": "Recibido",
+      "en_revision": "En revisión",
+      "verificado": "Verificado",
+      "rechazado": "Rechazado",
+      "requiere_actualizacion": "Requiere actualización"
+    },
+    "alertLevel": {
+      "bajo": "Bajo",
+      "medio": "Medio",
+      "alto": "Alto",
+      "critico": "Crítico"
+    },
+    "alertType": {
+      "documento_inconsistente": "Documento inconsistente",
+      "informacion_pendiente": "Información pendiente de verificar",
+      "solicitud_duplicada": "Solicitud duplicada",
+      "incumplimiento_previo": "Incumplimiento previo",
+      "comportamiento_inapropiado": "Comportamiento inapropiado",
+      "posible_fraude": "Posible fraude",
+      "revision_especial": "Revisión especial",
+      "restriccion_interna": "Restricción interna"
+    },
+    "loanType": {
+      "descuento_directo": "Préstamo con descuento directo",
+      "debito_bancario": "Préstamo mediante débito bancario",
+      "garantia_vehicular": "Préstamo con garantía vehicular",
+      "empresarial": "Préstamo empresarial"
+    },
+    "documentType": {
+      "cedula_pasaporte": "Cédula de identidad o pasaporte",
+      "cedula_pasaporte_description": "Documento de identificación vigente del solicitante.",
+      "carta_trabajo": "Carta de trabajo con deducciones",
+      "carta_trabajo_description": "Emitida por la empresa, con detalle de deducciones.",
+      "ficha_css": "Ficha de la Caja de Seguro Social (CSS)",
+      "ficha_css_description": "Comprobante de afiliación y cotizaciones.",
+      "comprobante_pago": "Último comprobante de pago",
+      "comprobante_pago_description": "Talón o volante de pago más reciente.",
+      "recibo_servicios": "Recibo de servicios a nombre del solicitante",
+      "recibo_servicios_description": "Comprobante de domicilio vigente.",
+      "confirmacion_descuento": "Confirmación de descuento directo",
+      "confirmacion_descuento_description": "Confirmación de si la empresa realiza descuentos directos."
+    }
+  },
+  "roles": {
+    "administrador": "Administrador",
+    "gerente": "Gerente",
+    "analista": "Analista",
+    "asesor": "Asesor",
+    "consulta": "Consulta"
+  },
+  "notificationsDropdown": {
+    "recent": "Notificaciones recientes",
+    "n1Title": "Documento recibido",
+    "n2Title": "Solicitud en evaluación",
+    "n3Title": "Alerta registrada"
+  },
+  "activityLog": {
+    "act001": "Cliente creado en el sistema.",
+    "act002": "Solicitud {number} iniciada.",
+    "act003": "{name} envió su carta de trabajo.",
+    "act004": "Cliente creado en el sistema.",
+    "act005": "Solicitud {number} iniciada.",
+    "act006": "Se verificó la documentación completa de {name}.",
+    "act007": "{name} fue movida a evaluación.",
+    "act008": "Cliente creado en el sistema.",
+    "act009": "Solicitud {number} iniciada.",
+    "act010": "{name} tiene documentos pendientes.",
+    "act011": "Cliente creado en el sistema.",
+    "act012": "Solicitud {number} iniciada.",
+    "act013": "Documentación de {name} verificada en su totalidad.",
+    "act014": "{name} fue aprobada.",
+    "act015": "Cliente creado en el sistema.",
+    "act016": "Solicitud {number} iniciada.",
+    "act017": "{name} recibió una alerta interna.",
+    "act018": "Solicitud de {name} marcada como No aplica.",
+    "act019": "Cliente creado en el sistema.",
+    "act020": "Solicitud {number} iniciada.",
+    "act021": "{name} completó el envío de sus documentos.",
+    "act022": "Solicitud movida a Documentación completa.",
+    "act023": "Cliente creado en el sistema.",
+    "act024": "Solicitud {number} iniciada.",
+    "act025": "Se verificaron 5 de 6 documentos de {name}.",
+    "act026": "Cliente creado en el sistema.",
+    "act027": "Solicitud {number} iniciada.",
+    "act028": "Solicitud de {name} fue aprobada.",
+    "act029": "Cliente creado en el sistema.",
+    "act030": "Solicitud {number} iniciada.",
+    "act031": "Solicitud empresarial de {name} fue aprobada.",
+    "act032": "Cliente creado en el sistema.",
+    "act033": "Cliente marcado como Inactivo por falta de respuesta.",
+    "act034": "Cliente creado en el sistema.",
+    "act035": "Nueva solicitud registrada para {name}.",
+    "act036": "Cliente creado en el sistema.",
+    "act037": "Solicitud {number} iniciada.",
+    "act038": "{name} envió su último comprobante de pago.",
+    "act039": "Cliente creado en el sistema.",
+    "act040": "Se registró una restricción interna para {name}.",
+    "act041": "Solicitud {number} iniciada.",
+    "act042": "Solicitud de {name} fue cancelada.",
+    "act043": "Cliente creado en el sistema.",
+    "act044": "Solicitud {number} iniciada.",
+    "act045": "Solicitud empresarial de {name} fue aprobada.",
+    "act046": "Cliente creado en el sistema.",
+    "act047": "Solicitud {number} iniciada.",
+    "act048": "Se solicitó actualización del recibo de servicios a {name}.",
+    "act049": "Cliente creado en el sistema.",
+    "act050": "Cliente registrado en cartera activa para seguimiento comercial.",
+    "statusChanged": "Estado de la solicitud cambiado a \"{status}\".",
+    "documentStatusChanged": "{document} marcado como \"{status}\".",
+    "documentReplaced": "Se reemplazó el documento: {document}.",
+    "noteAdded": "Se agregó una nueva nota interna.",
+    "alertRegistered": "Se registró una alerta: {type}."
+  },
+  "validation": {
+    "fieldRequired": "Este campo es obligatorio."
+  }
+}
