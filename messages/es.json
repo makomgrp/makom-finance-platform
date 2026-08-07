@@ -48,6 +48,7 @@
     "clients": "Clientes",
     "applications": "Solicitudes",
     "documents": "Documentos",
+    "chat": "Chat",
     "alerts": "Alertas",
     "reports": "Reportes",
     "settings": "Configuración",
@@ -406,6 +407,7 @@
         "name": "Nombre",
         "email": "Correo electrónico",
         "role": "Rol",
+        "language": "Idioma",
         "status": "Estado"
       },
       "active": "Activo",
@@ -456,6 +458,33 @@
       "passwordLastUpdate": "Última actualización: hace 3 meses.",
       "changePassword": "Cambiar contraseña",
       "toastPasswordDisabled": "Cambio de contraseña no disponible en esta fase de demostración."
+    }
+  },
+  "chat": {
+    "title": "Chat",
+    "description": "Mensajería privada interna con traducción automática entre colegas.",
+    "searchPlaceholder": "Buscar conversación...",
+    "noMessagesYet": "Sin mensajes todavía",
+    "noConversationSelectedTitle": "Selecciona una conversación",
+    "noConversationSelectedDescription": "Elige un colega de la lista para ver la conversación.",
+    "messagePlaceholder": "Escribe un mensaje...",
+    "send": "Enviar",
+    "backToList": "Volver a la lista",
+    "translatedFrom": "Traducido del {language}",
+    "viewOriginal": "Ver original",
+    "viewTranslation": "Ver traducción",
+    "translationPending": "Traducción pendiente",
+    "translating": "Traduciendo...",
+    "translatedAutomatically": "Traducido automáticamente",
+    "translationUnavailable": "Traducción no disponible",
+    "retry": "Reintentar",
+    "emptyConversationTitle": "Aún no hay mensajes",
+    "emptyConversationDescription": "Escribe el primer mensaje para iniciar la conversación.",
+    "unread": "{count} sin leer",
+    "languageNames": {
+      "en": "inglés",
+      "es": "español",
+      "fr": "francés"
     }
   },
   "statuses": {

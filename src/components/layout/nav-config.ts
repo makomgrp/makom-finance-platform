@@ -6,6 +6,7 @@ import {
   ShieldAlert,
   BarChart3,
   Settings,
+  MessageCircle,
   type LucideIcon,
 } from "lucide-react";
 
@@ -14,6 +15,7 @@ export type NavKey =
   | "clients"
   | "applications"
   | "documents"
+  | "chat"
   | "alerts"
   | "reports"
   | "settings";
@@ -29,6 +31,7 @@ export const NAV_ITEMS: NavItem[] = [
   { key: "clients", href: "/clientes", icon: Users },
   { key: "applications", href: "/solicitudes", icon: FileText },
   { key: "documents", href: "/documentos", icon: FolderOpen },
+  { key: "chat", href: "/chat", icon: MessageCircle },
   { key: "alerts", href: "/alertas", icon: ShieldAlert },
   { key: "reports", href: "/reportes", icon: BarChart3 },
   { key: "settings", href: "/configuracion", icon: Settings },

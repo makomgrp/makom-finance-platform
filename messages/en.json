@@ -48,6 +48,7 @@
     "clients": "Clients",
     "applications": "Applications",
     "documents": "Documents",
+    "chat": "Chat",
     "alerts": "Alerts",
     "reports": "Reports",
     "settings": "Settings",
@@ -406,6 +407,7 @@
         "name": "Name",
         "email": "Email address",
         "role": "Role",
+        "language": "Language",
         "status": "Status"
       },
       "active": "Active",
@@ -456,6 +458,33 @@
       "passwordLastUpdate": "Last updated: 3 months ago.",
       "changePassword": "Change password",
       "toastPasswordDisabled": "Password change is not available in this demonstration phase."
+    }
+  },
+  "chat": {
+    "title": "Chat",
+    "description": "Private internal messaging with automatic translation between colleagues.",
+    "searchPlaceholder": "Search conversation...",
+    "noMessagesYet": "No messages yet",
+    "noConversationSelectedTitle": "Select a conversation",
+    "noConversationSelectedDescription": "Choose a colleague from the list to see the conversation.",
+    "messagePlaceholder": "Type a message...",
+    "send": "Send",
+    "backToList": "Back to list",
+    "translatedFrom": "Translated from {language}",
+    "viewOriginal": "View original",
+    "viewTranslation": "View translation",
+    "translationPending": "Translation pending",
+    "translating": "Translating...",
+    "translatedAutomatically": "Automatically translated",
+    "translationUnavailable": "Translation unavailable",
+    "retry": "Retry",
+    "emptyConversationTitle": "No messages yet",
+    "emptyConversationDescription": "Send the first message to start the conversation.",
+    "unread": "{count} unread",
+    "languageNames": {
+      "en": "English",
+      "es": "Spanish",
+      "fr": "French"
     }
   },
   "statuses": {

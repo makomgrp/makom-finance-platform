@@ -8,6 +8,7 @@ export const USERS: User[] = [
     role: "administrador",
     initials: "GH",
     active: true,
+    preferredLanguage: "en",
   },
   {
     id: "u-002",
@@ -16,6 +17,7 @@ export const USERS: User[] = [
     role: "gerente",
     initials: "MD",
     active: true,
+    preferredLanguage: "es",
   },
   {
     id: "u-003",
@@ -24,6 +26,7 @@ export const USERS: User[] = [
     role: "analista",
     initials: "RS",
     active: true,
+    preferredLanguage: "es",
   },
   {
     id: "u-004",
@@ -32,6 +35,7 @@ export const USERS: User[] = [
     role: "asesor",
     initials: "FQ",
     active: true,
+    preferredLanguage: "es",
   },
   {
     id: "u-005",
@@ -40,6 +44,7 @@ export const USERS: User[] = [
     role: "asesor",
     initials: "LB",
     active: true,
+    preferredLanguage: "fr",
   },
   {
     id: "u-006",
@@ -48,6 +53,7 @@ export const USERS: User[] = [
     role: "asesor",
     initials: "DE",
     active: true,
+    preferredLanguage: "en",
   },
   {
     id: "u-007",
@@ -56,6 +62,7 @@ export const USERS: User[] = [
     role: "consulta",
     initials: "PR",
     active: true,
+    preferredLanguage: "fr",
   },
 ];
 

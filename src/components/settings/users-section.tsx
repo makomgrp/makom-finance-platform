@@ -14,6 +14,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { StatusBadge } from "@/components/shared/status-badge";
+import { LANGUAGE_CONFIG } from "@/lib/config/language";
 import { USERS } from "@/lib/demo-data";
 
 export function UsersSection() {
@@ -40,6 +41,7 @@ export function UsersSection() {
                 <TableHead>{t("settings.users.columns.name")}</TableHead>
                 <TableHead>{t("settings.users.columns.email")}</TableHead>
                 <TableHead>{t("settings.users.columns.role")}</TableHead>
+                <TableHead>{t("settings.users.columns.language")}</TableHead>
                 <TableHead>{t("settings.users.columns.status")}</TableHead>
               </TableRow>
             </TableHeader>
@@ -50,6 +52,14 @@ export function UsersSection() {
                   <TableCell className="text-muted-foreground">{user.email}</TableCell>
                   <TableCell className="text-muted-foreground">
                     {t(`roles.${user.role}`)}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    <span className="inline-flex items-center gap-1.5">
+                      <span className="rounded border border-border px-1.5 py-0.5 text-[11px] font-medium text-foreground">
+                        {LANGUAGE_CONFIG[user.preferredLanguage].abbreviation}
+                      </span>
+                      {LANGUAGE_CONFIG[user.preferredLanguage].nativeName}
+                    </span>
                   </TableCell>
                   <TableCell>
                     <StatusBadge

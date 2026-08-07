@@ -8,3 +8,4 @@ export * from "./alerts";
 export * from "./activities";
 export * from "./reports";
 export * from "./pending-tasks";
+export * from "./chat";
