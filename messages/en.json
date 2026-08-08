@@ -480,8 +480,11 @@
     "translatedAutomatically": "Automatically translated",
     "translationUnavailable": "Translation unavailable",
     "retry": "Retry",
+    "sendFailed": "Not sent",
     "emptyConversationTitle": "No messages yet",
     "emptyConversationDescription": "Send the first message to start the conversation.",
+    "loadErrorTitle": "Couldn't load the chat",
+    "loadErrorDescription": "We weren't able to connect to the database. Try reloading the page; if the problem continues, contact the technical team.",
     "unread": "{count} unread",
     "languageNames": {
       "en": "English",

@@ -480,8 +480,11 @@
     "translatedAutomatically": "Traducido automáticamente",
     "translationUnavailable": "Traducción no disponible",
     "retry": "Reintentar",
+    "sendFailed": "No enviado",
     "emptyConversationTitle": "Aún no hay mensajes",
     "emptyConversationDescription": "Escribe el primer mensaje para iniciar la conversación.",
+    "loadErrorTitle": "No se pudo cargar el chat",
+    "loadErrorDescription": "No fue posible conectar con la base de datos. Intenta recargar la página; si el problema persiste, contacta al equipo técnico.",
     "unread": "{count} sin leer",
     "languageNames": {
       "en": "inglés",

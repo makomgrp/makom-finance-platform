@@ -8,6 +8,12 @@ import type { SupportedLanguage } from "./user";
 export interface ChatConversation {
   id: string;
   participantIds: [string, string];
+  /** Real Supabase `conversations.id` UUID — needed only to subscribe to
+   * this conversation's Realtime broadcast channel. Not used for anything
+   * else client-side; every other identifier here stays in legacy-id
+   * space. See the chat migration plan for why this is a deliberate,
+   * narrow exception. */
+  realId: string;
 }
 
 /**
