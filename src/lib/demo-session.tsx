@@ -1,23 +1,28 @@
 "use client";
 
 /**
- * TEMPORARY DEMO-SESSION COMPATIBILITY — status as of Milestone 4.
+ * TEMPORARY DEMO-SESSION COMPATIBILITY — status as of Milestone 5A.
  *
- * As of Milestone 4, real Supabase Auth (via proxy.ts's coarse gate and
+ * Since Milestone 4, real Supabase Auth (via proxy.ts's coarse gate and
  * src/app/(app)/layout.tsx's authoritative getCurrentProfile() check) is
  * the ONLY thing deciding whether protected CRM content renders.
- * `isAuthenticated`, `isChecking`, `login`, and `logout` below no longer
- * have any bearing on that decision — nothing in the app calls `login()`
- * or reads `isAuthenticated`/`isChecking` anymore.
+ * `isAuthenticated`, `isChecking`, `login`, and `logout` have had zero
+ * consumers since Milestone 4 — nothing calls `login()`/`logout()` or
+ * reads `isAuthenticated`/`isChecking` anywhere in the app.
  *
- * `user` is the one field still consumed (by Topbar, Sidebar, MobileNav,
- * and the Settings > Profile section) — purely for display (name,
- * initials, role), still hardcoded to CURRENT_USER regardless of who's
- * really signed in. Replacing it with the real resolved profile is
- * Milestone 5's job, alongside removing this provider entirely.
+ * As of Milestone 5A, `user` ALSO has zero consumers: Topbar, Sidebar,
+ * MobileNav, and Settings > Profile were migrated to the real resolved
+ * profile via useCurrentProfile() (src/lib/auth/current-profile-context.tsx).
+ * Chat identity and other write-attribution modules (dossier notes,
+ * documents, alerts) still read CURRENT_USER directly from
+ * src/lib/demo-data, not through this provider — that migration is a
+ * later Milestone 5 step.
  *
- * Left installed, not deleted, per the Milestone 4 scope — do not remove
- * before Milestone 5.
+ * This provider is therefore currently unused end-to-end (still mounted
+ * in app-providers.tsx, with zero remaining useDemoSession() call sites
+ * anywhere — confirmed by grep). Left installed, not deleted, and its
+ * value shape unchanged — do not delete or expand its role before that's
+ * explicitly scheduled.
  */
 import {
   createContext,

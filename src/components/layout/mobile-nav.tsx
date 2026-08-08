@@ -14,16 +14,18 @@ import {
 } from "@/components/ui/sheet";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
-import { useDemoSession } from "@/lib/demo-session";
+import { useCurrentProfile } from "@/lib/auth/current-profile-context";
 import { signOutAction } from "@/lib/auth/actions";
+import { getInitials } from "@/lib/format";
 import { SidebarNavLinks } from "./sidebar-nav-links";
 
 export function MobileNav() {
   const [open, setOpen] = useState(false);
   const router = useRouter();
-  // `user` is display-only (demo session), unrelated to access control —
-  // see the note in src/lib/demo-session.tsx.
-  const { user } = useDemoSession();
+  // Milestone 5A: real authenticated identity, resolved once server-side
+  // by src/app/(app)/layout.tsx and provided via CurrentProfileProvider —
+  // no query happens here.
+  const profile = useCurrentProfile();
   const t = useTranslations();
 
   // Real sign-out: must call signOutAction to actually clear the Supabase
@@ -77,13 +79,13 @@ export function MobileNav() {
         <div className="flex items-center gap-2 p-3">
           <Avatar className="size-9 border border-sidebar-border">
             <AvatarFallback className="bg-sidebar-accent text-sidebar-accent-foreground text-xs font-semibold">
-              {user.initials}
+              {getInitials(profile.fullName)}
             </AvatarFallback>
           </Avatar>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium">{user.fullName}</p>
+            <p className="truncate text-sm font-medium">{profile.fullName}</p>
             <p className="truncate text-[11px] text-sidebar-foreground/60">
-              {t(`roles.${user.role}`)}
+              {t(`roles.${profile.role}`)}
             </p>
           </div>
           <Button

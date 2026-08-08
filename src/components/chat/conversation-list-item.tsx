@@ -4,11 +4,10 @@ import { useLocale, useTranslations } from "next-intl";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { LANGUAGE_CONFIG } from "@/lib/config/language";
 import { getMessageDisplay } from "@/lib/chat-message-display";
-import { CURRENT_USER } from "@/lib/demo-data";
 import { formatRelativeTime, getInitials } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { Locale } from "@/i18n/config";
-import type { ChatMessage, User } from "@/types";
+import type { ChatMessage, SupportedLanguage, User } from "@/types";
 
 interface ConversationListItemProps {
   user: User;
@@ -16,6 +15,9 @@ interface ConversationListItemProps {
   unreadCount: number;
   isActive: boolean;
   onSelect: () => void;
+  /** The real signed-in viewer's preferred language — see
+   * chat-view.tsx's IDENTITY MODEL note. */
+  viewerPreferredLanguage: SupportedLanguage;
 }
 
 export function ConversationListItem({
@@ -24,13 +26,12 @@ export function ConversationListItem({
   unreadCount,
   isActive,
   onSelect,
+  viewerPreferredLanguage,
 }: ConversationListItemProps) {
   const locale = useLocale() as Locale;
   const t = useTranslations();
 
-  const preview = lastMessage
-    ? getMessageDisplay(lastMessage, CURRENT_USER.preferredLanguage).text
-    : null;
+  const preview = lastMessage ? getMessageDisplay(lastMessage, viewerPreferredLanguage).text : null;
 
   return (
     <button

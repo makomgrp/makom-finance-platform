@@ -17,12 +17,12 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { LocaleSwitcher } from "@/components/shared/locale-switcher";
-import { useDemoSession } from "@/lib/demo-session";
+import { useCurrentProfile } from "@/lib/auth/current-profile-context";
 import { signOutAction } from "@/lib/auth/actions";
 import { getSectionTitleKey } from "./nav-config";
 import { MobileNav } from "./mobile-nav";
 import { getActiveAlerts } from "@/lib/demo-data";
-import { formatRelativeTime } from "@/lib/format";
+import { formatRelativeTime, getInitials } from "@/lib/format";
 import type { Locale } from "@/i18n/config";
 
 const DEMO_NOTIFICATIONS = [
@@ -53,10 +53,10 @@ export function Topbar() {
   const pathname = usePathname();
   const router = useRouter();
   const locale = useLocale() as Locale;
-  // `user` still comes from the demo session — display-only, unrelated to
-  // access control (see the "temporary demo-session compatibility" note in
-  // src/lib/demo-session.tsx). Real identity display is Milestone 5's job.
-  const { user } = useDemoSession();
+  // Milestone 5A: real authenticated identity, resolved once server-side
+  // by src/app/(app)/layout.tsx and provided via CurrentProfileProvider —
+  // no query happens here.
+  const profile = useCurrentProfile();
   const t = useTranslations();
   const activeAlertsCount = getActiveAlerts().length;
 
@@ -136,19 +136,19 @@ export function Topbar() {
               <Button variant="ghost" className="gap-2 px-1.5 sm:px-2">
                 <Avatar className="size-7">
                   <AvatarFallback className="bg-primary/10 text-xs font-semibold text-primary">
-                    {user.initials}
+                    {getInitials(profile.fullName)}
                   </AvatarFallback>
                 </Avatar>
-                <span className="hidden text-sm font-medium sm:inline">{user.fullName}</span>
+                <span className="hidden text-sm font-medium sm:inline">{profile.fullName}</span>
               </Button>
             }
           />
           <DropdownMenuContent align="end" className="w-56">
             <DropdownMenuGroup>
               <DropdownMenuLabel>
-                <p className="text-sm font-medium">{user.fullName}</p>
+                <p className="text-sm font-medium">{profile.fullName}</p>
                 <p className="text-xs font-normal text-muted-foreground">
-                  {t(`roles.${user.role}`)}
+                  {t(`roles.${profile.role}`)}
                 </p>
               </DropdownMenuLabel>
             </DropdownMenuGroup>

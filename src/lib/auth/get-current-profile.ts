@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import { createAuthenticatedServerClient } from "@/lib/supabase/server-authenticated";
 import type { SupportedLanguage, UserRole } from "@/types";
 
@@ -18,10 +19,21 @@ import type { SupportedLanguage, UserRole } from "@/types";
  * (see step 6 below) is guaranteed to be applied, and the one place that can
  * change (e.g. caching, additional checks) without hunting down every copy.
  *
- * Milestone 1 scope: this function exists and is independently testable, but
- * nothing in the application calls it yet. CURRENT_USER, DemoSessionProvider,
- * chat identity, and route protection are all untouched — see the Auth
- * migration plan for when each of those is scheduled to adopt this resolver.
+ * Status: route protection (Milestone 4 — proxy.ts + src/app/(app)/layout.tsx),
+ * shell/display identity (Milestone 5A — Topbar, Sidebar, MobileNav,
+ * Settings > Profile, via src/lib/auth/current-profile-context.tsx), and
+ * chat's acting-user identity (Milestone 5B — chat/actions.ts,
+ * chat/page.tsx) all consume this resolver. Other write-attribution
+ * modules (dossier notes, documents, alerts) still use CURRENT_USER/legacy
+ * ids — see the Auth migration plan for when each is scheduled to adopt
+ * this resolver.
+ *
+ * Wrapped in React's cache() (below) so multiple call sites within the same
+ * request (e.g. the (app) layout AND chat/page.tsx, both Server Components
+ * rendered in the same request tree) share one actual session/DB lookup
+ * instead of repeating it — call this freely wherever the current profile
+ * is needed server-side; do not thread it through props "to avoid an extra
+ * call" instead.
  */
 
 /**
@@ -66,7 +78,7 @@ interface ProfileRow {
  * Throws a generic Error only for genuine infrastructure failures (e.g. the
  * database is unreachable) — never for a missing or inactive identity.
  */
-export async function getCurrentProfile(): Promise<Profile | null> {
+export const getCurrentProfile = cache(async (): Promise<Profile | null> => {
   const supabase = await createAuthenticatedServerClient();
 
   // getUser() re-validates the session against the Auth server rather than
@@ -119,4 +131,4 @@ export async function getCurrentProfile(): Promise<Profile | null> {
     avatarUrl: row.avatar_url,
     active: row.active,
   };
-}
+});

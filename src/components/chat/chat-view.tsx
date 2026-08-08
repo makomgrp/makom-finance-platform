@@ -9,28 +9,41 @@ import { ConversationList } from "@/components/chat/conversation-list";
 import { ChatHeader } from "@/components/chat/chat-header";
 import { MessageBubble } from "@/components/chat/message-bubble";
 import { MessageComposer } from "@/components/chat/message-composer";
-import {
-  CURRENT_USER,
-  USERS,
-  getConversationId,
-  getMessagesForConversation,
-} from "@/lib/demo-data";
+import { USERS, getConversationId, getMessagesForConversation } from "@/lib/demo-data";
 import {
   sendChatMessage,
   markChatConversationRead,
   retryChatMessageTranslation,
 } from "@/app/(app)/chat/actions";
 import { getSupabaseClient } from "@/lib/supabase/client";
-import type { ChatConversation, ChatMessage, SupportedLanguage } from "@/types";
+import { useCurrentProfile } from "@/lib/auth/current-profile-context";
+import type { ChatConversation, ChatMessage, SupportedLanguage, User } from "@/types";
 
-// Only active internal users can be reached — mirrors the future rule that
-// inactive accounts cannot participate in chat (see CHAT_ARCHITECTURE.md).
-const COLLEAGUES = USERS.filter((user) => user.active && user.id !== CURRENT_USER.id);
+/**
+ * MILESTONE 5B IDENTITY MODEL — read before touching this file.
+ *
+ * The acting/authenticated user (whoever is really signed in, via
+ * useCurrentProfile()) is always represented by their real `profiles.id`
+ * UUID throughout this component's state — never a legacy id, never
+ * CURRENT_USER. The colleague side of any conversation stays legacy-id-
+ * space (drawn from the static USERS list in src/lib/demo-data), since
+ * colleague selection isn't migrated yet — see src/lib/services/chat.ts's
+ * module doc comment for the full reasoning. Every `*.id`/`senderId`/
+ * `recipientId` comparison below is against `profile.id` (real UUID), not
+ * any legacy constant.
+ */
 
-function mostRecentColleagueId(messages: ChatMessage[]): string | null {
+/** Colleagues are "everyone active except the real signed-in user,"
+ * matched by email since Profile carries no legacy_id (display/targeting
+ * only — see the module doc comment above). */
+function computeColleagues(currentUserEmail: string): User[] {
+  return USERS.filter((user) => user.active && user.email !== currentUserEmail);
+}
+
+function mostRecentColleagueId(messages: ChatMessage[], currentUserId: string, colleagues: User[]): string | null {
   let latest: { userId: string; at: number } | null = null;
-  for (const colleague of COLLEAGUES) {
-    const conversationId = getConversationId(CURRENT_USER.id, colleague.id);
+  for (const colleague of colleagues) {
+    const conversationId = getConversationId(currentUserId, colleague.id);
     const conversationMessages = getMessagesForConversation(conversationId, messages);
     const last = conversationMessages[conversationMessages.length - 1];
     if (last) {
@@ -38,37 +51,46 @@ function mostRecentColleagueId(messages: ChatMessage[]): string | null {
       if (!latest || at > latest.at) latest = { userId: colleague.id, at };
     }
   }
-  return latest?.userId ?? COLLEAGUES[0]?.id ?? null;
+  return latest?.userId ?? colleagues[0]?.id ?? null;
 }
 
 /**
  * The language a message currently needs for display: the colleague's, for
  * one of the viewer's own messages (so the "translated automatically"
  * badge can resolve); the viewer's own, for a message they received.
- * Undefined when the message's recipient isn't in COLLEAGUES (shouldn't
+ * Undefined when the message's recipient isn't in `colleagues` (shouldn't
  * happen for real data, but keeps this total). Pure — no side effects.
  */
-function resolveNeededLanguage(message: ChatMessage): SupportedLanguage | undefined {
-  const isOwnMessage = message.senderId === CURRENT_USER.id;
+function resolveNeededLanguage(
+  message: ChatMessage,
+  currentUserId: string,
+  currentUserLanguage: SupportedLanguage,
+  colleagues: User[]
+): SupportedLanguage | undefined {
+  const isOwnMessage = message.senderId === currentUserId;
   return isOwnMessage
-    ? COLLEAGUES.find((user) => user.id === message.recipientId)?.preferredLanguage
-    : CURRENT_USER.preferredLanguage;
+    ? colleagues.find((user) => user.id === message.recipientId)?.preferredLanguage
+    : currentUserLanguage;
 }
 
 /** Marks a conversation's inbound messages as read. Pure — no side effects. */
-function markConversationRead(messages: ChatMessage[], conversationId: string | null): ChatMessage[] {
+function markConversationRead(
+  messages: ChatMessage[],
+  conversationId: string | null,
+  currentUserId: string
+): ChatMessage[] {
   if (!conversationId) return messages;
   const hasUnread = messages.some(
     (message) =>
       message.conversationId === conversationId &&
-      message.recipientId === CURRENT_USER.id &&
+      message.recipientId === currentUserId &&
       !message.readAt
   );
   if (!hasUnread) return messages;
   const readAt = new Date().toISOString();
   return messages.map((message) =>
     message.conversationId === conversationId &&
-    message.recipientId === CURRENT_USER.id &&
+    message.recipientId === currentUserId &&
     !message.readAt
       ? { ...message, readAt }
       : message
@@ -91,8 +113,14 @@ interface ChatViewProps {
 
 export function ChatView({ initialMessages, initialConversations, hasLoadError }: ChatViewProps) {
   const t = useTranslations();
+  // The one and only source of "who am I" in this component — resolved
+  // once server-side (src/app/(app)/layout.tsx) and provided via context.
+  // See the module doc comment above.
+  const profile = useCurrentProfile();
+  const colleagues = useMemo(() => computeColleagues(profile.email), [profile.email]);
+
   const [selectedUserId, setSelectedUserId] = useState<string | null>(() =>
-    mostRecentColleagueId(initialMessages)
+    mostRecentColleagueId(initialMessages, profile.id, colleagues)
   );
   // The initially auto-selected conversation starts already marked read;
   // manual selections are marked read directly in handleSelectUser below —
@@ -100,7 +128,8 @@ export function ChatView({ initialMessages, initialConversations, hasLoadError }
   const [messages, setMessages] = useState<ChatMessage[]>(() =>
     markConversationRead(
       initialMessages,
-      selectedUserId ? getConversationId(CURRENT_USER.id, selectedUserId) : null
+      selectedUserId ? getConversationId(profile.id, selectedUserId) : null,
+      profile.id
     )
   );
   const [mobileView, setMobileView] = useState<"list" | "chat">("list");
@@ -121,7 +150,7 @@ export function ChatView({ initialMessages, initialConversations, hasLoadError }
   const [translatingIds, setTranslatingIds] = useState<Set<string>>(() => {
     const ids = new Set<string>();
     for (const message of initialMessages) {
-      const neededLanguage = resolveNeededLanguage(message);
+      const neededLanguage = resolveNeededLanguage(message, profile.id, profile.preferredLanguage, colleagues);
       if (neededLanguage && message.originalLanguage !== neededLanguage && !message.translations[neededLanguage]) {
         ids.add(message.id);
       }
@@ -144,16 +173,16 @@ export function ChatView({ initialMessages, initialConversations, hasLoadError }
   const [conversationRealIds, setConversationRealIds] = useState<Record<string, string>>(() => {
     const map: Record<string, string> = {};
     for (const conversation of initialConversations) {
-      const colleagueId = conversation.participantIds.find((id) => id !== CURRENT_USER.id);
+      const colleagueId = conversation.participantIds.find((id) => id !== profile.id);
       if (colleagueId) map[colleagueId] = conversation.realId;
     }
     return map;
   });
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  const selectedUser = COLLEAGUES.find((user) => user.id === selectedUserId) ?? null;
+  const selectedUser = colleagues.find((user) => user.id === selectedUserId) ?? null;
 
-  const conversationId = selectedUser ? getConversationId(CURRENT_USER.id, selectedUser.id) : null;
+  const conversationId = selectedUser ? getConversationId(profile.id, selectedUser.id) : null;
 
   const conversationMessages = useMemo(
     () => (conversationId ? getMessagesForConversation(conversationId, messages) : []),
@@ -207,7 +236,13 @@ export function ChatView({ initialMessages, initialConversations, hasLoadError }
   // MVP scope; the server is still the only thing that ever writes to the
   // database.
   useEffect(() => {
-    if (!activeConversationRealId) return;
+    if (!activeConversationRealId || !selectedUser) return;
+
+    // Recomputed locally rather than closing over the outer `conversationId`
+    // (typed `string | null`) — TypeScript can't trace that it's non-null
+    // here just because `selectedUser` was checked above, and this is a
+    // cheap, pure recomputation anyway.
+    const currentConversationClientId = getConversationId(profile.id, selectedUser.id);
 
     const supabase = getSupabaseClient();
     const channel = supabase.channel(`chat:conversation:${activeConversationRealId}`);
@@ -216,8 +251,7 @@ export function ChatView({ initialMessages, initialConversations, hasLoadError }
       .on("broadcast", { event: "chat.message.created" }, ({ payload }) => {
         const data = payload as {
           id: string;
-          senderLegacyId: string;
-          recipientLegacyId: string;
+          senderProfileId: string;
           originalText: string;
           originalLanguage: SupportedLanguage;
           createdAt: string;
@@ -227,11 +261,17 @@ export function ChatView({ initialMessages, initialConversations, hasLoadError }
           // too (it's already in `messages` from handleSend), not only for
           // the other window.
           if (prev.some((existing) => existing.id === data.id)) return prev;
+          // senderProfileId (the real UUID) tells us whether this is
+          // genuinely from the colleague, or my own send echoed back to a
+          // different tab of my own session — this channel is scoped to
+          // exactly one conversation, but "me" can still show up here from
+          // elsewhere. See src/lib/services/chat.ts's module doc comment.
+          const isFromMe = data.senderProfileId === profile.id;
           const incoming: ChatMessage = {
             id: data.id,
-            conversationId: getConversationId(data.senderLegacyId, data.recipientLegacyId),
-            senderId: data.senderLegacyId,
-            recipientId: data.recipientLegacyId,
+            conversationId: currentConversationClientId,
+            senderId: isFromMe ? profile.id : selectedUser.id,
+            recipientId: isFromMe ? selectedUser.id : profile.id,
             originalText: data.originalText,
             originalLanguage: data.originalLanguage,
             translations: {},
@@ -253,14 +293,14 @@ export function ChatView({ initialMessages, initialConversations, hasLoadError }
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [activeConversationRealId]);
+  }, [activeConversationRealId, selectedUser, profile.id]);
 
   // Fire-and-forget: persists conversation_members.last_read_at for
   // whichever colleague is passed. Never blocks the UI — the optimistic
   // local unread-clearing already happened synchronously wherever this is
   // called from. A failure here shouldn't interrupt chat, just get logged.
   const persistMarkRead = (colleagueLegacyId: string) => {
-    markChatConversationRead({ viewerLegacyId: CURRENT_USER.id, colleagueLegacyId })
+    markChatConversationRead({ colleagueLegacyId })
       .then((result) => {
         if (result.status === "error") {
           console.error("[chat-view] markChatConversationRead failed:", result.code);
@@ -287,7 +327,7 @@ export function ChatView({ initialMessages, initialConversations, hasLoadError }
   const handleSelectUser = (userId: string) => {
     setSelectedUserId(userId);
     setMobileView("chat");
-    setMessages((prev) => markConversationRead(prev, getConversationId(CURRENT_USER.id, userId)));
+    setMessages((prev) => markConversationRead(prev, getConversationId(profile.id, userId), profile.id));
     persistMarkRead(userId);
   };
 
@@ -360,7 +400,7 @@ export function ChatView({ initialMessages, initialConversations, hasLoadError }
   // calling requestTranslation directly here would have.
   useEffect(() => {
     for (const message of initialMessages) {
-      const neededLanguage = resolveNeededLanguage(message);
+      const neededLanguage = resolveNeededLanguage(message, profile.id, profile.preferredLanguage, colleagues);
       if (neededLanguage && message.originalLanguage !== neededLanguage && !message.translations[neededLanguage]) {
         runTranslationRequest(message.id, neededLanguage);
       }
@@ -383,7 +423,6 @@ export function ChatView({ initialMessages, initialConversations, hasLoadError }
 
     sendChatMessage({
       id: message.id,
-      senderLegacyId: message.senderId,
       recipientLegacyId: message.recipientId,
       text: message.originalText,
       originalLanguage: message.originalLanguage,
@@ -420,7 +459,12 @@ export function ChatView({ initialMessages, initialConversations, hasLoadError }
           // so the existing retry affordance (and only that affordance,
           // not a second "send failed" indicator) shows up here too —
           // keeping translation errors and send errors visibly distinct.
-          const neededLanguage = resolveNeededLanguage(result.message);
+          const neededLanguage = resolveNeededLanguage(
+            result.message,
+            profile.id,
+            profile.preferredLanguage,
+            colleagues
+          );
           if (
             neededLanguage &&
             result.message.originalLanguage !== neededLanguage &&
@@ -452,10 +496,10 @@ export function ChatView({ initialMessages, initialConversations, hasLoadError }
     const newMessage: ChatMessage = {
       id: crypto.randomUUID(),
       conversationId,
-      senderId: CURRENT_USER.id,
+      senderId: profile.id,
       recipientId: selectedUser.id,
       originalText: draft.trim(),
-      originalLanguage: CURRENT_USER.preferredLanguage,
+      originalLanguage: profile.preferredLanguage,
       translations: {},
       createdAt: new Date().toISOString(),
     };
@@ -490,10 +534,12 @@ export function ChatView({ initialMessages, initialConversations, hasLoadError }
         }`}
       >
         <ConversationList
-          colleagues={COLLEAGUES}
+          colleagues={colleagues}
           messages={messages}
           selectedUserId={selectedUserId}
           onSelectUser={handleSelectUser}
+          currentUserId={profile.id}
+          viewerPreferredLanguage={profile.preferredLanguage}
         />
       </div>
 
@@ -519,8 +565,8 @@ export function ChatView({ initialMessages, initialConversations, hasLoadError }
                     <MessageBubble
                       key={message.id}
                       message={message}
-                      isOwn={message.senderId === CURRENT_USER.id}
-                      viewerLanguage={CURRENT_USER.preferredLanguage}
+                      isOwn={message.senderId === profile.id}
+                      viewerLanguage={profile.preferredLanguage}
                       counterpartLanguage={selectedUser.preferredLanguage}
                       isTranslating={translatingIds.has(message.id)}
                       hasTranslationError={translationErrorIds.has(message.id)}

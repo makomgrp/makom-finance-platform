@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/layout/app-shell";
 import { getCurrentProfile } from "@/lib/auth/get-current-profile";
+import { CurrentProfileProvider } from "@/lib/auth/current-profile-context";
 
 /**
  * Milestone 4: the authoritative access-control boundary for the entire
@@ -18,6 +19,12 @@ import { getCurrentProfile } from "@/lib/auth/get-current-profile";
  * A Server Component, so this runs before anything under (app) renders on
  * every request — there is no client-side window where protected content
  * is sent to the browser before an auth check has run.
+ *
+ * Milestone 5A: this is also the ONE place getCurrentProfile() is called
+ * for display purposes — the result is handed to CurrentProfileProvider,
+ * which makes it available to every client component under AppShell
+ * (Topbar, Sidebar, MobileNav, Settings > Profile) via useCurrentProfile().
+ * Nothing downstream queries profiles or calls getCurrentProfile() again.
  */
 export default async function AuthenticatedLayout({ children }: { children: ReactNode }) {
   const profile = await getCurrentProfile();
@@ -26,5 +33,9 @@ export default async function AuthenticatedLayout({ children }: { children: Reac
     redirect("/login");
   }
 
-  return <AppShell>{children}</AppShell>;
+  return (
+    <CurrentProfileProvider profile={profile}>
+      <AppShell>{children}</AppShell>
+    </CurrentProfileProvider>
+  );
 }

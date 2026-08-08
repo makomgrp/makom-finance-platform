@@ -6,14 +6,20 @@ import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ConversationListItem } from "@/components/chat/conversation-list-item";
-import { CURRENT_USER, getConversationId, getMessagesForConversation } from "@/lib/demo-data";
-import type { ChatMessage, User } from "@/types";
+import { getConversationId, getMessagesForConversation } from "@/lib/demo-data";
+import type { ChatMessage, SupportedLanguage, User } from "@/types";
 
 interface ConversationListProps {
   colleagues: User[];
   messages: ChatMessage[];
   selectedUserId: string | null;
   onSelectUser: (userId: string) => void;
+  /** The real signed-in user's `profiles.id` UUID — see chat-view.tsx's
+   * IDENTITY MODEL note. Never a legacy id. */
+  currentUserId: string;
+  /** The real signed-in user's preferred language, for rendering each
+   * conversation's message preview in their own language. */
+  viewerPreferredLanguage: SupportedLanguage;
 }
 
 export function ConversationList({
@@ -21,6 +27,8 @@ export function ConversationList({
   messages,
   selectedUserId,
   onSelectUser,
+  currentUserId,
+  viewerPreferredLanguage,
 }: ConversationListProps) {
   const t = useTranslations();
   const [search, setSearch] = useState("");
@@ -28,11 +36,11 @@ export function ConversationList({
   const rows = useMemo(() => {
     return colleagues
       .map((user) => {
-        const conversationId = getConversationId(CURRENT_USER.id, user.id);
+        const conversationId = getConversationId(currentUserId, user.id);
         const conversationMessages = getMessagesForConversation(conversationId, messages);
         const lastMessage = conversationMessages[conversationMessages.length - 1];
         const unreadCount = conversationMessages.filter(
-          (message) => message.recipientId === CURRENT_USER.id && !message.readAt
+          (message) => message.recipientId === currentUserId && !message.readAt
         ).length;
         return { user, lastMessage, unreadCount };
       })
@@ -43,7 +51,7 @@ export function ConversationList({
         if (!b.lastMessage) return -1;
         return new Date(b.lastMessage.createdAt).getTime() - new Date(a.lastMessage.createdAt).getTime();
       });
-  }, [colleagues, messages, search]);
+  }, [colleagues, messages, search, currentUserId]);
 
   return (
     <div className="flex h-full flex-col">
@@ -68,6 +76,7 @@ export function ConversationList({
               unreadCount={unreadCount}
               isActive={user.id === selectedUserId}
               onSelect={() => onSelectUser(user.id)}
+              viewerPreferredLanguage={viewerPreferredLanguage}
             />
           ))}
         </div>

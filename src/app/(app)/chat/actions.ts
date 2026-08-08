@@ -1,31 +1,27 @@
 "use server";
 
 import { sendMessage, markConversationRead, ensureMessageTranslation } from "@/lib/services/chat";
+import { getCurrentProfile } from "@/lib/auth/get-current-profile";
 import { SUPPORTED_LANGUAGE_VALUES } from "@/lib/config/language";
 import type { ChatMessage, SupportedLanguage } from "@/types";
 
 /**
  * Thin Server Action wrappers around src/lib/services/chat.ts — the only
  * database logic here is none: every function below just validates its
- * input, delegates to the chat service, and maps the outcome to a safe,
- * client-facing result. No Supabase query and no DeepL call is ever made
- * directly in this file — sendChatMessage and retryChatMessageTranslation
- * delegate to the chat service, which is the only thing that talks to
- * either.
+ * input, authenticates the caller, delegates to the chat service, and maps
+ * the outcome to a safe, client-facing result. No Supabase query and no
+ * DeepL call is ever made directly in this file.
  *
- * SECURITY NOTE (still true as of Milestone 4): sendChatMessage and
- * markChatConversationRead currently trust senderLegacyId/viewerLegacyId
- * as supplied by the caller — Milestone 4 added real route protection
- * (you must have a valid session + active profile to reach this page at
- * all), but route protection is NOT the same guarantee as "this action
- * verified who's calling it." Nothing here calls getCurrentProfile() yet.
- * A signed-in user could today still invoke this action claiming to be a
- * different legacy id. Closing that gap — deriving the actor from
- * getCurrentProfile() instead of a client-supplied id, per the
+ * MILESTONE 5B: none of these actions accept any parameter whose purpose
+ * is to tell the server who the acting user is — no senderLegacyId,
+ * viewerLegacyId, senderProfileId, viewerProfileId, or currentUserId.
+ * Every one of them calls getCurrentProfile() itself and derives the actor
+ * from that, never from client input. This closes the gap flagged as of
+ * Milestone 4: route protection guarantees a valid session reached this
+ * page, but never guaranteed *this specific action call* verified who's
+ * behind it — these do that independently now, per the
  * "Server Actions never receive client-supplied identity" rule in the Auth
- * migration plan — is Milestone 5's job, alongside the rest of the
- * CURRENT_USER migration. Do not treat proxy.ts/(app)/layout.tsx's route
- * protection as a substitute for that.
+ * migration plan.
  */
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -45,7 +41,9 @@ function isNonEmptyString(value: unknown): value is string {
 
 export interface SendChatMessageInput {
   id: string;
-  senderLegacyId: string;
+  /** The colleague being messaged — still legacy-id-space (see
+   * src/lib/services/chat.ts's module doc comment). Never the acting
+   * user's identity. */
   recipientLegacyId: string;
   text: string;
   originalLanguage: SupportedLanguage;
@@ -53,16 +51,13 @@ export interface SendChatMessageInput {
 
 export type SendChatMessageResult =
   | { status: "success"; message: ChatMessage; conversationRealId: string }
-  | { status: "error"; code: "INVALID_INPUT" | "SEND_FAILED" };
+  | { status: "error"; code: "INVALID_INPUT" | "UNAUTHENTICATED" | "SEND_FAILED" };
 
 export async function sendChatMessage(input: SendChatMessageInput): Promise<SendChatMessageResult> {
   if (!isNonEmptyString(input.id) || !UUID_PATTERN.test(input.id)) {
     return { status: "error", code: "INVALID_INPUT" };
   }
-  if (!isNonEmptyString(input.senderLegacyId) || !isNonEmptyString(input.recipientLegacyId)) {
-    return { status: "error", code: "INVALID_INPUT" };
-  }
-  if (input.senderLegacyId === input.recipientLegacyId) {
+  if (!isNonEmptyString(input.recipientLegacyId)) {
     return { status: "error", code: "INVALID_INPUT" };
   }
   const text = isNonEmptyString(input.text) ? input.text.trim() : "";
@@ -73,10 +68,16 @@ export async function sendChatMessage(input: SendChatMessageInput): Promise<Send
     return { status: "error", code: "INVALID_INPUT" };
   }
 
+  const profile = await getCurrentProfile();
+  if (!profile) {
+    console.error("[chat actions] sendChatMessage rejected: no authenticated profile.");
+    return { status: "error", code: "UNAUTHENTICATED" };
+  }
+
   try {
     const { message, conversationRealId } = await sendMessage({
       id: input.id,
-      senderLegacyId: input.senderLegacyId,
+      senderProfileId: profile.id,
       recipientLegacyId: input.recipientLegacyId,
       text,
       originalLanguage: input.originalLanguage,
@@ -96,26 +97,31 @@ export async function sendChatMessage(input: SendChatMessageInput): Promise<Send
 // ============================================================================
 
 export interface MarkChatConversationReadInput {
-  viewerLegacyId: string;
+  /** Which conversation to mark read, identified by the colleague on the
+   * other side — still legacy-id-space. The viewer is always the caller's
+   * own authenticated identity, never accepted from input. */
   colleagueLegacyId: string;
 }
 
 export type MarkChatConversationReadResult =
   | { status: "success" }
-  | { status: "error"; code: "INVALID_INPUT" | "MARK_READ_FAILED" };
+  | { status: "error"; code: "INVALID_INPUT" | "UNAUTHENTICATED" | "MARK_READ_FAILED" };
 
 export async function markChatConversationRead(
   input: MarkChatConversationReadInput
 ): Promise<MarkChatConversationReadResult> {
-  if (!isNonEmptyString(input.viewerLegacyId) || !isNonEmptyString(input.colleagueLegacyId)) {
-    return { status: "error", code: "INVALID_INPUT" };
-  }
-  if (input.viewerLegacyId === input.colleagueLegacyId) {
+  if (!isNonEmptyString(input.colleagueLegacyId)) {
     return { status: "error", code: "INVALID_INPUT" };
   }
 
+  const profile = await getCurrentProfile();
+  if (!profile) {
+    console.error("[chat actions] markChatConversationRead rejected: no authenticated profile.");
+    return { status: "error", code: "UNAUTHENTICATED" };
+  }
+
   try {
-    await markConversationRead(input.viewerLegacyId, input.colleagueLegacyId);
+    await markConversationRead(profile.id, input.colleagueLegacyId);
     return { status: "success" };
   } catch (error) {
     console.error(
@@ -137,7 +143,7 @@ export interface RetryChatMessageTranslationInput {
 
 export type RetryChatMessageTranslationResult =
   | { status: "success"; text: string }
-  | { status: "error"; code: "INVALID_INPUT" | "TRANSLATION_FAILED" };
+  | { status: "error"; code: "INVALID_INPUT" | "UNAUTHENTICATED" | "TRANSLATION_FAILED" };
 
 export async function retryChatMessageTranslation(
   input: RetryChatMessageTranslationInput
@@ -147,6 +153,16 @@ export async function retryChatMessageTranslation(
   }
   if (!isSupportedLanguage(input.targetLanguage)) {
     return { status: "error", code: "INVALID_INPUT" };
+  }
+
+  // This action never took an actor-identity parameter to begin with, but
+  // per Milestone 5B it must not rely on route protection alone either —
+  // independently confirm a real session is behind this call before
+  // touching translation state at all.
+  const profile = await getCurrentProfile();
+  if (!profile) {
+    console.error("[chat actions] retryChatMessageTranslation rejected: no authenticated profile.");
+    return { status: "error", code: "UNAUTHENTICATED" };
   }
 
   try {
