@@ -15,17 +15,31 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { useDemoSession } from "@/lib/demo-session";
+import { signOutAction } from "@/lib/auth/actions";
 import { SidebarNavLinks } from "./sidebar-nav-links";
 
 export function MobileNav() {
   const [open, setOpen] = useState(false);
   const router = useRouter();
-  const { user, logout } = useDemoSession();
+  // `user` is display-only (demo session), unrelated to access control —
+  // see the note in src/lib/demo-session.tsx.
+  const { user } = useDemoSession();
   const t = useTranslations();
 
-  const handleLogout = () => {
+  // Real sign-out: must call signOutAction to actually clear the Supabase
+  // session cookie server-side — this button previously only cleared the
+  // demo-session flag, which left a real session valid after "logging
+  // out" through here. See the same pattern in Topbar's handleLogout.
+  const handleLogout = async () => {
     setOpen(false);
-    logout();
+    try {
+      await signOutAction();
+    } catch (error) {
+      console.error(
+        "[mobile-nav] signOutAction threw:",
+        error instanceof Error ? error.message : "unknown error"
+      );
+    }
     router.replace("/login");
   };
 

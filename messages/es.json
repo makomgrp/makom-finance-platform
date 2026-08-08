@@ -65,13 +65,37 @@
     "password": "Contraseña",
     "rememberMe": "Recordarme",
     "forgotPassword": "¿Olvidó su contraseña?",
-    "forgotPasswordToast": "Recuperación de contraseña no disponible en esta fase de demostración.",
     "submit": "Iniciar sesión",
     "submitting": "Ingresando...",
+    "invalidCredentials": "Correo electrónico o contraseña incorrectos, o no tiene acceso a este sistema.",
     "privateNotice": "Sistema privado para personal autorizado de ODL Financial Corporation.",
     "brandTagline": "Gestión ordenada y segura de clientes y solicitudes de préstamo.",
     "brandDescription": "Una plataforma interna para el equipo de ODL Financial Corporation: expedientes, documentos, alertas y seguimiento de solicitudes en un solo lugar.",
     "demoEnvironmentNotice": "Entorno de demostración interno — datos ficticios."
+  },
+  "forgotPassword": {
+    "title": "Recuperar contraseña",
+    "subtitle": "Ingrese su correo electrónico y le enviaremos un enlace para restablecer su contraseña.",
+    "email": "Correo electrónico",
+    "submit": "Enviar enlace",
+    "submitting": "Enviando...",
+    "successMessage": "Si existe una cuenta con ese correo electrónico, se ha enviado un enlace para restablecer la contraseña.",
+    "backToLogin": "Volver al inicio de sesión"
+  },
+  "resetPassword": {
+    "title": "Restablecer contraseña",
+    "subtitle": "Ingrese su nueva contraseña.",
+    "newPassword": "Nueva contraseña",
+    "confirmPassword": "Confirmar contraseña",
+    "submit": "Guardar nueva contraseña",
+    "submitting": "Guardando...",
+    "successMessage": "Su contraseña se actualizó correctamente. Ya puede iniciar sesión.",
+    "errorMessage": "No se pudo actualizar la contraseña. Intente nuevamente.",
+    "passwordMismatch": "Las contraseñas no coinciden.",
+    "passwordTooShort": "La contraseña debe tener al menos 8 caracteres.",
+    "linkInvalid": "Este enlace no es válido o ha expirado. Solicite uno nuevo.",
+    "backToLogin": "Volver al inicio de sesión",
+    "requestNewLink": "Solicitar nuevo enlace"
   },
   "dashboard": {
     "title": "Dashboard",

@@ -1,5 +1,24 @@
 "use client";
 
+/**
+ * TEMPORARY DEMO-SESSION COMPATIBILITY — status as of Milestone 4.
+ *
+ * As of Milestone 4, real Supabase Auth (via proxy.ts's coarse gate and
+ * src/app/(app)/layout.tsx's authoritative getCurrentProfile() check) is
+ * the ONLY thing deciding whether protected CRM content renders.
+ * `isAuthenticated`, `isChecking`, `login`, and `logout` below no longer
+ * have any bearing on that decision — nothing in the app calls `login()`
+ * or reads `isAuthenticated`/`isChecking` anymore.
+ *
+ * `user` is the one field still consumed (by Topbar, Sidebar, MobileNav,
+ * and the Settings > Profile section) — purely for display (name,
+ * initials, role), still hardcoded to CURRENT_USER regardless of who's
+ * really signed in. Replacing it with the real resolved profile is
+ * Milestone 5's job, alongside removing this provider entirely.
+ *
+ * Left installed, not deleted, per the Milestone 4 scope — do not remove
+ * before Milestone 5.
+ */
 import {
   createContext,
   useContext,

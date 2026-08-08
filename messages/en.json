@@ -65,13 +65,37 @@
     "password": "Password",
     "rememberMe": "Remember me",
     "forgotPassword": "Forgot your password?",
-    "forgotPasswordToast": "Password recovery is not available in this demonstration phase.",
     "submit": "Sign in",
     "submitting": "Signing in...",
+    "invalidCredentials": "Incorrect email or password, or you do not have access to this system.",
     "privateNotice": "Private system for authorized ODL Financial Corporation personnel.",
     "brandTagline": "Organized and secure management of clients and loan applications.",
     "brandDescription": "An internal platform for the ODL Financial Corporation team: dossiers, documents, alerts, and application tracking all in one place.",
     "demoEnvironmentNotice": "Internal demonstration environment — fictitious data."
+  },
+  "forgotPassword": {
+    "title": "Reset your password",
+    "subtitle": "Enter your email address and we'll send you a link to reset your password.",
+    "email": "Email address",
+    "submit": "Send reset link",
+    "submitting": "Sending...",
+    "successMessage": "If an account exists with that email, a password reset link has been sent.",
+    "backToLogin": "Back to sign in"
+  },
+  "resetPassword": {
+    "title": "Reset password",
+    "subtitle": "Enter your new password.",
+    "newPassword": "New password",
+    "confirmPassword": "Confirm password",
+    "submit": "Save new password",
+    "submitting": "Saving...",
+    "successMessage": "Your password was updated successfully. You can now sign in.",
+    "errorMessage": "We couldn't update your password. Please try again.",
+    "passwordMismatch": "Passwords do not match.",
+    "passwordTooShort": "Password must be at least 8 characters.",
+    "linkInvalid": "This link is invalid or has expired. Please request a new one.",
+    "backToLogin": "Back to sign in",
+    "requestNewLink": "Request new link"
   },
   "dashboard": {
     "title": "Dashboard",

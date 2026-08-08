@@ -10,6 +10,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -17,6 +18,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { LocaleSwitcher } from "@/components/shared/locale-switcher";
 import { useDemoSession } from "@/lib/demo-session";
+import { signOutAction } from "@/lib/auth/actions";
 import { getSectionTitleKey } from "./nav-config";
 import { MobileNav } from "./mobile-nav";
 import { getActiveAlerts } from "@/lib/demo-data";
@@ -51,12 +53,29 @@ export function Topbar() {
   const pathname = usePathname();
   const router = useRouter();
   const locale = useLocale() as Locale;
-  const { user, logout } = useDemoSession();
+  // `user` still comes from the demo session — display-only, unrelated to
+  // access control (see the "temporary demo-session compatibility" note in
+  // src/lib/demo-session.tsx). Real identity display is Milestone 5's job.
+  const { user } = useDemoSession();
   const t = useTranslations();
   const activeAlertsCount = getActiveAlerts().length;
 
-  const handleLogout = () => {
-    logout();
+  // Real sign-out: signOutAction clears the Supabase session cookie
+  // server-side — that alone is what makes the next request to any
+  // protected route bounce back to /login (via proxy.ts/the (app) layout),
+  // regardless of this client-side redirect. router.replace here is purely
+  // immediate UX, not part of the access-control guarantee. The Milestone 3
+  // demo-flag bridge (logout()) is gone — AppShell no longer reads that
+  // flag for anything, so clearing it no longer serves a purpose.
+  const handleLogout = async () => {
+    try {
+      await signOutAction();
+    } catch (error) {
+      console.error(
+        "[topbar] signOutAction threw:",
+        error instanceof Error ? error.message : "unknown error"
+      );
+    }
     router.replace("/login");
   };
 
@@ -125,12 +144,14 @@ export function Topbar() {
             }
           />
           <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuLabel>
-              <p className="text-sm font-medium">{user.fullName}</p>
-              <p className="text-xs font-normal text-muted-foreground">
-                {t(`roles.${user.role}`)}
-              </p>
-            </DropdownMenuLabel>
+            <DropdownMenuGroup>
+              <DropdownMenuLabel>
+                <p className="text-sm font-medium">{user.fullName}</p>
+                <p className="text-xs font-normal text-muted-foreground">
+                  {t(`roles.${user.role}`)}
+                </p>
+              </DropdownMenuLabel>
+            </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={() => router.push("/configuracion")}>
               <UserRound className="size-4" />

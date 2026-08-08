@@ -8,6 +8,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useDemoSession } from "@/lib/demo-session";
+import { signOutAction } from "@/lib/auth/actions";
 import { SidebarNavLinks } from "./sidebar-nav-links";
 
 interface SidebarProps {
@@ -17,11 +18,24 @@ interface SidebarProps {
 
 export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const router = useRouter();
-  const { user, logout } = useDemoSession();
+  // `user` is display-only (demo session), unrelated to access control —
+  // see the note in src/lib/demo-session.tsx.
+  const { user } = useDemoSession();
   const t = useTranslations();
 
-  const handleLogout = () => {
-    logout();
+  // Real sign-out: must call signOutAction to actually clear the Supabase
+  // session cookie server-side — this button previously only cleared the
+  // demo-session flag, which left a real session valid after "logging
+  // out" through here. See the same pattern in Topbar's handleLogout.
+  const handleLogout = async () => {
+    try {
+      await signOutAction();
+    } catch (error) {
+      console.error(
+        "[sidebar] signOutAction threw:",
+        error instanceof Error ? error.message : "unknown error"
+      );
+    }
     router.replace("/login");
   };
 

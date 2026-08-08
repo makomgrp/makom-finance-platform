@@ -12,6 +12,20 @@ import type { ChatMessage, SupportedLanguage } from "@/types";
  * directly in this file — sendChatMessage and retryChatMessageTranslation
  * delegate to the chat service, which is the only thing that talks to
  * either.
+ *
+ * SECURITY NOTE (still true as of Milestone 4): sendChatMessage and
+ * markChatConversationRead currently trust senderLegacyId/viewerLegacyId
+ * as supplied by the caller — Milestone 4 added real route protection
+ * (you must have a valid session + active profile to reach this page at
+ * all), but route protection is NOT the same guarantee as "this action
+ * verified who's calling it." Nothing here calls getCurrentProfile() yet.
+ * A signed-in user could today still invoke this action claiming to be a
+ * different legacy id. Closing that gap — deriving the actor from
+ * getCurrentProfile() instead of a client-supplied id, per the
+ * "Server Actions never receive client-supplied identity" rule in the Auth
+ * migration plan — is Milestone 5's job, alongside the rest of the
+ * CURRENT_USER migration. Do not treat proxy.ts/(app)/layout.tsx's route
+ * protection as a substitute for that.
  */
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
