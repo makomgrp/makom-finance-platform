@@ -411,7 +411,9 @@
         "status": "Estado"
       },
       "active": "Activo",
-      "inactive": "Inactivo"
+      "inactive": "Inactivo",
+      "loadErrorTitle": "No se pudo cargar el directorio de usuarios",
+      "loadErrorDescription": "No fue posible conectar con la base de datos. Intenta recargar la página; si el problema persiste, contacta al equipo técnico."
     },
     "applicationStatuses": {
       "title": "Estados de solicitudes",

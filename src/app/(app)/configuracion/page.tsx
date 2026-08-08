@@ -9,9 +9,11 @@ import { NotificationsSection } from "@/components/settings/notifications-sectio
 import { SecuritySection } from "@/components/settings/security-section";
 import { LOAN_STATUS_BADGE_CLASS, LOAN_STATUS_ORDER, LOAN_TYPE_ORDER } from "@/lib/config/loan-status";
 import { DOCUMENT_TYPE_ORDER } from "@/lib/config/document";
+import { getProfiles } from "@/lib/services/profiles";
 
 export default async function ConfiguracionPage() {
   const t = await getTranslations();
+  const profilesResult = await getProfiles();
 
   return (
     <div>
@@ -34,7 +36,10 @@ export default async function ConfiguracionPage() {
         </TabsContent>
 
         <TabsContent value="usuarios" className="mt-4">
-          <UsersSection />
+          <UsersSection
+            users={profilesResult.status === "ok" ? profilesResult.users : []}
+            hasError={profilesResult.status === "error"}
+          />
         </TabsContent>
 
         <TabsContent value="estados" className="mt-4">

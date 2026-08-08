@@ -411,7 +411,9 @@
         "status": "Status"
       },
       "active": "Active",
-      "inactive": "Inactive"
+      "inactive": "Inactive",
+      "loadErrorTitle": "Couldn't load the user directory",
+      "loadErrorDescription": "We weren't able to connect to the database. Try reloading the page; if the problem continues, contact the technical team."
     },
     "applicationStatuses": {
       "title": "Application statuses",
