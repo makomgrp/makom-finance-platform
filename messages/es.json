@@ -354,27 +354,27 @@
   },
   "documentsModule": {
     "title": "Documentos",
-    "description": "Vista general de los documentos recibidos y su estado de revisión.",
-    "searchPlaceholder": "Buscar cliente o solicitud...",
-    "allTypes": "Todos los tipos",
+    "description": "Vista operativa global de los requisitos documentales y su evidencia en todas las solicitudes.",
+    "searchPlaceholder": "Buscar cliente, solicitud o requisito...",
     "allStatuses": "Todos los estados",
     "allAdvisors": "Todos los asesores",
-    "emptyTitle": "No se encontraron documentos",
+    "allReviewStates": "Todas",
+    "reviewedFilter": "Revisado",
+    "needsReviewFilter": "Pendiente de revisión",
+    "emptyTitle": "No se encontraron requisitos",
     "emptyDescription": "Ajuste la búsqueda o los filtros para ver más resultados.",
+    "noEvidence": "Sin evidencia",
     "columns": {
       "client": "Cliente",
       "application": "Solicitud",
-      "documentType": "Tipo de documento",
+      "requirement": "Requisito",
       "status": "Estado",
-      "receivedAt": "Fecha de recepción",
-      "reviewer": "Revisor",
+      "evidence": "Evidencia",
       "actions": "Acciones"
     },
-    "menuLabel": "Documento",
-    "viewDocument": "Ver documento",
     "viewDossier": "Ver expediente",
     "toasts": {
-      "notReceivedYet": "Este documento aún no ha sido recibido."
+      "refetchError": "No se pudo actualizar la información. Intente recargar la página."
     }
   },
   "alertsModule": {

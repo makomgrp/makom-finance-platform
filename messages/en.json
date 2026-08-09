@@ -354,27 +354,27 @@
   },
   "documentsModule": {
     "title": "Documents",
-    "description": "General overview of received documents and their review status.",
-    "searchPlaceholder": "Search client or application...",
-    "allTypes": "All types",
+    "description": "Global operational view of document requirements and their evidence across every application.",
+    "searchPlaceholder": "Search client, application, or requirement...",
     "allStatuses": "All statuses",
     "allAdvisors": "All advisors",
-    "emptyTitle": "No documents found",
+    "allReviewStates": "All",
+    "reviewedFilter": "Reviewed",
+    "needsReviewFilter": "Needs review",
+    "emptyTitle": "No requirements found",
     "emptyDescription": "Adjust the search or filters to see more results.",
+    "noEvidence": "No evidence",
     "columns": {
       "client": "Client",
       "application": "Application",
-      "documentType": "Document type",
+      "requirement": "Requirement",
       "status": "Status",
-      "receivedAt": "Received date",
-      "reviewer": "Reviewer",
+      "evidence": "Evidence",
       "actions": "Actions"
     },
-    "menuLabel": "Document",
-    "viewDocument": "View document",
     "viewDossier": "View dossier",
     "toasts": {
-      "notReceivedYet": "This document has not been received yet."
+      "refetchError": "Could not refresh the information. Try reloading the page."
     }
   },
   "alertsModule": {

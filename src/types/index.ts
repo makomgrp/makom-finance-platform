@@ -14,3 +14,4 @@ export * from "./requirement-template";
 export * from "./requirement-slot";
 export * from "./application";
 export * from "./document-evidence";
+export * from "./document-workspace";
