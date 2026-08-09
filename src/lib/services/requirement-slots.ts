@@ -6,7 +6,8 @@ import type { LocalizedText, RequirementKind, RequirementSlot, RequirementSlotSo
 /**
  * Server-only service for the Requirement Engine's execution layer
  * (Milestone 10B — see the Milestone 10B architecture review and its
- * critical-review follow-up). Uses the Admin Client, same posture as every
+ * critical-review follow-up — migrated onto a real applications foreign
+ * key in Milestone 11). Uses the Admin Client, same posture as every
  * other service in this app: RLS is enabled on `requirement_slots` with
  * zero policies, so this is the only way to read or write it until a real
  * permissions model exists.
@@ -16,17 +17,17 @@ import type { LocalizedText, RequirementKind, RequirementSlot, RequirementSlotSo
  * copied field is immutable forever once a slot exists (see the migration
  * comment). No delete.
  *
- * No Server Actions wrap this yet, and none are added in this milestone —
- * there is no client UI to bridge to (Configuration UI does not apply to
- * Slots, ever; Execution UI is deferred). Callers (dev/verification
- * scripts today, a future Milestone 11 application-creation flow and,
- * later, an Execution UI's own Server Actions) invoke this service
+ * No Server Actions wrap this yet, and none are added in Milestone 11
+ * either — there is no client UI to bridge to (Configuration UI does not
+ * apply to Slots, ever; Execution UI is deferred). Callers (dev/
+ * verification scripts, src/lib/services/applications.ts#createApplication,
+ * and later an Execution UI's own Server Actions) invoke this service
  * directly, exactly like every other service in this app.
  */
 
 interface RequirementSlotRow {
   id: string;
-  application_legacy_id: string;
+  application_id: string;
   requirement_template_id: string;
   code: string;
   name: Record<string, string>;
@@ -43,13 +44,13 @@ interface RequirementSlotRow {
 }
 
 const REQUIREMENT_SLOT_SELECT =
-  "id, application_legacy_id, requirement_template_id, code, name, description, requirement_kind, required, display_order, status, status_changed_at, status_changed_by_profile_id, status_changed_source, created_at, " +
+  "id, application_id, requirement_template_id, code, name, description, requirement_kind, required, display_order, status, status_changed_at, status_changed_by_profile_id, status_changed_source, created_at, " +
   "status_changed_by:profiles!requirement_slots_status_changed_by_profile_id_fkey(full_name)";
 
 function toRequirementSlot(row: RequirementSlotRow): RequirementSlot {
   return {
     id: row.id,
-    applicationLegacyId: row.application_legacy_id,
+    applicationId: row.application_id,
     requirementTemplateId: row.requirement_template_id,
     code: row.code,
     name: row.name as LocalizedText,
@@ -74,14 +75,14 @@ export type GetRequirementSlotsResult =
  * demo data on failure — callers get an explicit "error" status, matching
  * every other service in this app. */
 export async function getRequirementSlotsByApplicationId(
-  applicationLegacyId: string
+  applicationId: string
 ): Promise<GetRequirementSlotsResult> {
   try {
     const supabase = getSupabaseServerClient();
     const { data, error } = await supabase
       .from("requirement_slots")
       .select(REQUIREMENT_SLOT_SELECT)
-      .eq("application_legacy_id", applicationLegacyId)
+      .eq("application_id", applicationId)
       .order("display_order", { ascending: true });
 
     if (error) {
@@ -114,24 +115,28 @@ export type CreateRequirementSlotsResult =
  * upload.
  *
  * Inactive and draft templates are silently excluded — only active
- * templates produce slots, matching exactly what a real application
- * creation flow (Milestone 11) will need.
+ * templates produce slots, matching exactly what the real application
+ * creation flow (src/lib/services/applications.ts#createApplication,
+ * Milestone 11) needs.
  *
  * Written as a single multi-row INSERT rather than N sequential inserts:
  * Postgres executes one INSERT statement atomically, so either every
  * template produces its slot or none do if a constraint is violated —
  * meaningfully better than looping individual inserts, though still not a
- * true multi-statement transaction spanning the (future) application
- * creation itself. See the architecture review's Risks section for that
- * caveat, which is Milestone 11's concern, not this function's.
+ * true multi-statement transaction spanning the application creation
+ * itself. See src/lib/services/applications.ts#createApplication's doc
+ * comment for how that specific partial-failure window (application
+ * created, slot snapshot failed) is handled — a caller-visible "partial"
+ * result plus safe retry, not silently ignored.
  *
  * Idempotent via the same on-conflict-do-nothing discipline used by every
  * dev seed in this schema: calling this twice for the same application
  * never creates duplicate or conflicting slots, matching the
- * unique(application_legacy_id, requirement_template_id) constraint.
+ * unique(application_id, requirement_template_id) constraint — this is
+ * exactly what makes the retry-on-partial-failure mitigation above safe.
  */
 export async function createRequirementSlotsForApplication(
-  applicationLegacyId: string,
+  applicationId: string,
   productId: string
 ): Promise<CreateRequirementSlotsResult> {
   const supabase = getSupabaseServerClient();
@@ -155,7 +160,7 @@ export async function createRequirementSlotsForApplication(
   }
 
   const rowsToInsert = templates.map((template) => ({
-    application_legacy_id: applicationLegacyId,
+    application_id: applicationId,
     requirement_template_id: template.id,
     code: template.code,
     name: template.name,
@@ -167,14 +172,14 @@ export async function createRequirementSlotsForApplication(
 
   const { error: insertError } = await supabase
     .from("requirement_slots")
-    .upsert(rowsToInsert, { onConflict: "application_legacy_id,requirement_template_id", ignoreDuplicates: true });
+    .upsert(rowsToInsert, { onConflict: "application_id,requirement_template_id", ignoreDuplicates: true });
 
   if (insertError) {
     console.error("[requirement-slots service] Failed to insert requirement slots:", insertError.message);
     return { status: "error", code: "INSERT_FAILED" };
   }
 
-  const result = await getRequirementSlotsByApplicationId(applicationLegacyId);
+  const result = await getRequirementSlotsByApplicationId(applicationId);
   if (result.status !== "ok") {
     return { status: "error", code: "INSERT_FAILED" };
   }

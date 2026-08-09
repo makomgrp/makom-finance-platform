@@ -12,3 +12,4 @@ export * from "./chat-message";
 export * from "./product";
 export * from "./requirement-template";
 export * from "./requirement-slot";
+export * from "./application";

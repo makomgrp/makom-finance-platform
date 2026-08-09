@@ -23,11 +23,12 @@ export type RequirementSlotStatus =
 export type RequirementSlotSource = "crm_manual" | "website_form" | "whatsapp" | "ai";
 
 /**
- * The Requirement Engine's execution layer (Milestone 10B). The
- * per-application instance of a Requirement Template, created by copying
- * the template's defining facts at application-creation time. Every field
- * below except status (and its audit trio) is immutable forever once the
- * slot is created — see the Milestone 10B architecture review.
+ * The Requirement Engine's execution layer (Milestone 10B, migrated onto
+ * a real applications foreign key in Milestone 11). The per-application
+ * instance of a Requirement Template, created by copying the template's
+ * defining facts at application-creation time. Every field below except
+ * status (and its audit trio) is immutable forever once the slot is
+ * created — see the Milestone 10B architecture review.
  *
  * Deliberately has no productId — see the migration's comment on why that
  * would be a genuine, unprotected redundancy: requirementTemplateId
@@ -36,10 +37,11 @@ export type RequirementSlotSource = "crm_manual" | "website_form" | "whatsapp" |
  */
 export interface RequirementSlot {
   id: string;
-  /** TEMPORARY bridge to the existing demo-data application ids (e.g.
-   * "ap-001") — see the migration comment for the recommended replacement
-   * path once a real applications table exists. */
-  applicationLegacyId: string;
+  /** The application this slot belongs to. Formerly a temporary
+   * applicationLegacyId text bridge, fully replaced by this real foreign
+   * key in Milestone 11 — see 20260809150300_finalize_requirement_slots_
+   * application_id.sql. */
+  applicationId: string;
   requirementTemplateId: string;
   /** Copied from the requirement template at creation time, then frozen
    * forever — never re-synced if the template's own value changes. */

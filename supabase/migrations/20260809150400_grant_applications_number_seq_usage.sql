@@ -1,0 +1,56 @@
+-- ============================================================================
+-- applications_number_seq: grant USAGE to service_role (defect correction)
+-- ============================================================================
+--
+-- Fixes a REAL, blocking defect found by the Milestone 11 live verification
+-- pass: every insert into applications performed by service_role — i.e.
+-- every insert the real application ever makes, since src/lib/services/
+-- applications.ts#createApplication never supplies application_number
+-- itself and always relies on the column's DEFAULT — fails outright with:
+--
+--   permission denied for sequence applications_number_seq
+--
+-- Why this happened: 20260809150000_create_applications_table.sql created
+-- the sequence and granted service_role select/insert/update on the
+-- applications TABLE, but never separately granted service_role any
+-- privilege on the SEQUENCE itself. In PostgreSQL these are two
+-- independent, unrelated privilege checks — granting DML on a table never
+-- implies any privilege on objects referenced by that table's column
+-- DEFAULT expressions, even when the DEFAULT lives on that exact table.
+-- A sequence is its own standalone database object (it can be shared
+-- across multiple tables/columns, or used directly via nextval() with no
+-- table involved at all), so PostgreSQL requires its privileges to be
+-- granted on their own — INSERT-on-table and USAGE-on-sequence are not the
+-- same grant, and one does not cascade into the other. This is true even
+-- for the common serial/identity-column pattern, not something specific
+-- to the hand-written DEFAULT expression used here; it is a standing
+-- PostgreSQL privilege-model behavior, not a bug in how this schema's
+-- column happens to be defined.
+--
+-- The fix: grant service_role USAGE on the sequence. USAGE is precisely
+-- the privilege that permits calling nextval() (and currval()) on a
+-- sequence — exactly the two operations application_number's DEFAULT
+-- expression performs — and nothing more; it does not grant the ability
+-- to directly SELECT the sequence's row or to reset it via setval(),
+-- neither of which service_role needs for this to work.
+--
+-- Deliberately does not touch 20260809150000_create_applications_table.sql
+-- — that migration has already been executed successfully in the live
+-- development database, and per this schema's discipline, an applied
+-- migration is never edited retroactively; a gap found after execution is
+-- always corrected with a new, additive migration instead (the same
+-- discipline already followed once in this milestone for
+-- 20260809150200_add_legacy_id_to_applications.sql). Touches nothing else:
+-- no other grant, no other object, no unrelated change.
+--
+-- Idempotent by nature, unlike ADD CONSTRAINT elsewhere in this schema:
+-- GRANT is not additive/cumulative in a way that can conflict with itself
+-- — re-granting a privilege a role already holds is a silent no-op in
+-- PostgreSQL, never an error (there is no "privilege already granted"
+-- failure the way there is a "constraint already exists" failure for ADD
+-- CONSTRAINT). This is exactly the same idempotency reasoning already
+-- used for 20260809150000's `alter sequence ... owned by ...` statement —
+-- no pg_constraint-style existence guard is needed or applicable here,
+-- since GRANT has no such failure mode to guard against.
+
+grant usage on sequence public.applications_number_seq to service_role;
