@@ -76,6 +76,40 @@ export async function getAllProducts(): Promise<GetProductsResult> {
   }
 }
 
+export type GetProductResult = { status: "ok"; product: Product } | { status: "error" };
+
+/** Loads a single product by id — backs the product-detail page
+ * (Configuración > Productos > [product] > Requisitos). Same
+ * no-fallback-on-error contract as getAllProducts; "error" also covers "not
+ * found", since the detail page treats both as "can't show this product"
+ * rather than distinguishing them. */
+export async function getProductById(productId: string): Promise<GetProductResult> {
+  try {
+    const supabase = getSupabaseServerClient();
+    const { data, error } = await supabase
+      .from("products")
+      .select(PRODUCT_SELECT)
+      .eq("id", productId)
+      .maybeSingle<ProductRow>();
+
+    if (error) {
+      console.error("[products service] Failed to load product:", error.message);
+      return { status: "error" };
+    }
+    if (!data) {
+      return { status: "error" };
+    }
+
+    return { status: "ok", product: toProduct(data) };
+  } catch (error) {
+    console.error(
+      "[products service] Unexpected failure loading product:",
+      error instanceof Error ? error.message : "unknown error"
+    );
+    return { status: "error" };
+  }
+}
+
 export interface CreateProductInput {
   code: string;
   name: LocalizedText;

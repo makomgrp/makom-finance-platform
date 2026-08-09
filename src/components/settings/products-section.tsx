@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { toast } from "sonner";
-import { Package, Plus, Pencil, ArrowUp, ArrowDown, Power, RotateCcw, AlertTriangle } from "lucide-react";
+import { Package, Plus, Pencil, ArrowUp, ArrowDown, Power, RotateCcw, AlertTriangle, ListChecks } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -348,6 +349,15 @@ export function ProductsSection({ products: initialProducts, hasError }: Product
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={isBusy}
+                            render={<Link href={`/configuracion/productos/${product.id}`} />}
+                          >
+                            <ListChecks className="size-3.5" />
+                            {t("settings.products.viewRequirements")}
+                          </Button>
                           <Button variant="outline" size="sm" disabled={isBusy} onClick={() => openEditDialog(product)}>
                             <Pencil className="size-3.5" />
                             {t("settings.products.edit")}

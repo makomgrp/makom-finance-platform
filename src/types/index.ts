@@ -10,3 +10,4 @@ export * from "./dossier-alert";
 export * from "./activity-event";
 export * from "./chat-message";
 export * from "./product";
+export * from "./requirement-template";

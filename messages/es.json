@@ -504,7 +504,67 @@
         "updated": "{name}: producto actualizado correctamente.",
         "statusChangeError": "No se pudo actualizar el estado del producto. Intente de nuevo.",
         "statusUpdated": "{name}: estado actualizado a \"{status}\".",
-        "reorderError": "No se pudo reordenar el producto. Intente de nuevo."
+        "reorderError": "No se pudo reordenar el producto. Intente de nuevo.",
+        "viewRequirements": "Requisitos"
+      }
+    },
+    "productDetail": {
+      "backToProducts": "Volver a productos",
+      "code": "Código",
+      "status": "Estado",
+      "loadErrorTitle": "No se pudo cargar el producto",
+      "loadErrorDescription": "No fue posible conectar con la base de datos, o el producto no existe. Intenta recargar la página; si el problema persiste, contacta al equipo técnico.",
+      "requirements": {
+        "title": "Requisitos",
+        "description": "Requisitos configurables para este producto.",
+        "newRequirement": "Nuevo requisito",
+        "createDialogTitle": "Nuevo requisito",
+        "editDialogTitle": "Editar requisito",
+        "dialogDescription": "El código y el tipo identifican el requisito de forma permanente. El nombre, la descripción y si es obligatorio pueden editarse en cualquier momento.",
+        "code": "Código",
+        "codeHint": "Minúsculas, sin espacios (ej. salary_letter). No se podrá modificar después.",
+        "kind": "Tipo de requisito",
+        "nameEs": "Nombre (Español)",
+        "nameEn": "Nombre (Inglés)",
+        "descriptionEs": "Descripción (Español)",
+        "descriptionEn": "Descripción (Inglés)",
+        "required": "Obligatorio",
+        "cancel": "Cancelar",
+        "createRequirement": "Crear requisito",
+        "saveChanges": "Guardar cambios",
+        "edit": "Editar",
+        "activate": "Activar",
+        "deactivate": "Desactivar",
+        "reactivate": "Reactivar",
+        "moveUp": "Mover hacia arriba",
+        "moveDown": "Mover hacia abajo",
+        "columns": {
+          "code": "Código",
+          "name": "Nombre",
+          "kind": "Tipo",
+          "required": "Obligatorio",
+          "status": "Estado",
+          "order": "Orden",
+          "actions": "Acciones"
+        },
+        "requiredYes": "Sí",
+        "requiredNo": "No",
+        "emptyTitle": "No hay requisitos configurados",
+        "emptyDescription": "Cree el primer requisito para este producto.",
+        "loadErrorTitle": "No se pudieron cargar los requisitos",
+        "loadErrorDescription": "No fue posible conectar con la base de datos. Intenta recargar la página; si el problema persiste, contacta al equipo técnico.",
+        "toasts": {
+          "invalidForm": "Complete el nombre y la descripción en ambos idiomas (español e inglés).",
+          "invalidCode": "El código debe estar en minúsculas, sin espacios (ej. salary_letter).",
+          "duplicateCode": "Ya existe un requisito con ese código para este producto.",
+          "createError": "No se pudo crear el requisito. Intente de nuevo.",
+          "created": "{name}: requisito creado correctamente.",
+          "updateError": "No se pudo actualizar el requisito. Intente de nuevo.",
+          "updated": "{name}: requisito actualizado correctamente.",
+          "statusChangeError": "No se pudo actualizar el estado del requisito. Intente de nuevo.",
+          "statusUpdated": "{name}: estado actualizado a \"{status}\".",
+          "reorderError": "No se pudo reordenar el requisito. Intente de nuevo."
+        }
       }
     },
     "applicationStatuses": {
@@ -663,6 +723,21 @@
       "draft": "Borrador",
       "active": "Activo",
       "inactive": "Inactivo"
+    },
+    "requirementStatus": {
+      "draft": "Borrador",
+      "active": "Activo",
+      "inactive": "Inactivo"
+    },
+    "requirementKind": {
+      "document": "Documento",
+      "phone_verification": "Verificación telefónica",
+      "apc_check": "Consulta APC",
+      "visit": "Visita",
+      "internal_approval": "Aprobación interna",
+      "ai_review": "Validación con IA",
+      "signature": "Firma",
+      "manual_confirmation": "Confirmación manual"
     }
   },
   "roles": {

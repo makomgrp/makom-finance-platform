@@ -504,7 +504,67 @@
         "updated": "{name}: product updated successfully.",
         "statusChangeError": "Couldn't update the product's status. Please try again.",
         "statusUpdated": "{name}: status updated to \"{status}\".",
-        "reorderError": "Couldn't reorder the product. Please try again."
+        "reorderError": "Couldn't reorder the product. Please try again.",
+        "viewRequirements": "Requirements"
+      }
+    },
+    "productDetail": {
+      "backToProducts": "Back to products",
+      "code": "Code",
+      "status": "Status",
+      "loadErrorTitle": "Couldn't load the product",
+      "loadErrorDescription": "We weren't able to connect to the database, or the product doesn't exist. Try reloading the page; if the problem continues, contact the technical team.",
+      "requirements": {
+        "title": "Requirements",
+        "description": "Configurable requirements for this product.",
+        "newRequirement": "New requirement",
+        "createDialogTitle": "New requirement",
+        "editDialogTitle": "Edit requirement",
+        "dialogDescription": "The code and kind permanently identify the requirement. The name, description, and whether it's required can be edited at any time.",
+        "code": "Code",
+        "codeHint": "Lowercase, no spaces (e.g. salary_letter). Cannot be changed later.",
+        "kind": "Requirement kind",
+        "nameEs": "Name (Spanish)",
+        "nameEn": "Name (English)",
+        "descriptionEs": "Description (Spanish)",
+        "descriptionEn": "Description (English)",
+        "required": "Required",
+        "cancel": "Cancel",
+        "createRequirement": "Create requirement",
+        "saveChanges": "Save changes",
+        "edit": "Edit",
+        "activate": "Activate",
+        "deactivate": "Deactivate",
+        "reactivate": "Reactivate",
+        "moveUp": "Move up",
+        "moveDown": "Move down",
+        "columns": {
+          "code": "Code",
+          "name": "Name",
+          "kind": "Kind",
+          "required": "Required",
+          "status": "Status",
+          "order": "Order",
+          "actions": "Actions"
+        },
+        "requiredYes": "Yes",
+        "requiredNo": "No",
+        "emptyTitle": "No requirements configured yet",
+        "emptyDescription": "Create the first requirement for this product.",
+        "loadErrorTitle": "Couldn't load requirements",
+        "loadErrorDescription": "We weren't able to connect to the database. Try reloading the page; if the problem continues, contact the technical team.",
+        "toasts": {
+          "invalidForm": "Fill in the name and description in both languages (Spanish and English).",
+          "invalidCode": "The code must be lowercase, with no spaces (e.g. salary_letter).",
+          "duplicateCode": "A requirement with that code already exists for this product.",
+          "createError": "Couldn't create the requirement. Please try again.",
+          "created": "{name}: requirement created successfully.",
+          "updateError": "Couldn't update the requirement. Please try again.",
+          "updated": "{name}: requirement updated successfully.",
+          "statusChangeError": "Couldn't update the requirement's status. Please try again.",
+          "statusUpdated": "{name}: status updated to \"{status}\".",
+          "reorderError": "Couldn't reorder the requirement. Please try again."
+        }
       }
     },
     "applicationStatuses": {
@@ -663,6 +723,21 @@
       "draft": "Draft",
       "active": "Active",
       "inactive": "Inactive"
+    },
+    "requirementStatus": {
+      "draft": "Draft",
+      "active": "Active",
+      "inactive": "Inactive"
+    },
+    "requirementKind": {
+      "document": "Document",
+      "phone_verification": "Phone verification",
+      "apc_check": "APC check",
+      "visit": "Visit",
+      "internal_approval": "Internal approval",
+      "ai_review": "AI review",
+      "signature": "Signature",
+      "manual_confirmation": "Manual confirmation"
     }
   },
   "roles": {
