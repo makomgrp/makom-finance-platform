@@ -20,14 +20,13 @@ import {
   getClientById,
   getApplicationsByClientId,
   getDocumentsByApplicationId,
-  getAlertsByClientId,
   getActivitiesByClientId,
 } from "@/lib/demo-data";
 import type {
   ActivityEvent,
   Client,
-  ClientAlert,
   DocumentRecord,
+  DossierAlert,
   InternalNote,
   LoanApplication,
   LoanStatus,
@@ -39,6 +38,8 @@ interface DossierViewProps {
   initialApplicationId?: string;
   initialNotes: InternalNote[];
   notesLoadError: boolean;
+  initialAlerts: DossierAlert[];
+  alertsLoadError: boolean;
 }
 
 const VALID_TABS = ["resumen", "datos", "documentos", "notas", "alertas", "actividad"];
@@ -49,6 +50,8 @@ export function DossierView({
   initialApplicationId,
   initialNotes,
   notesLoadError,
+  initialAlerts,
+  alertsLoadError,
 }: DossierViewProps) {
   const t = useTranslations();
   const [client, setClient] = useState<Client>(() => getClientById(clientId)!);
@@ -56,7 +59,7 @@ export function DossierView({
     getApplicationsByClientId(clientId)
   );
   const [notes, setNotes] = useState<InternalNote[]>(initialNotes);
-  const [alerts, setAlerts] = useState<ClientAlert[]>(() => getAlertsByClientId(clientId));
+  const [alerts, setAlerts] = useState<DossierAlert[]>(initialAlerts);
   const [activities, setActivities] = useState<ActivityEvent[]>(() =>
     getActivitiesByClientId(clientId)
   );
@@ -174,6 +177,7 @@ export function DossierView({
             alerts={alerts}
             onAlertsChange={setAlerts}
             onActivity={logActivity}
+            loadError={alertsLoadError}
           />
         </TabsContent>
 

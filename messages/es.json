@@ -310,7 +310,11 @@
       "responsible": "Responsable",
       "toastAdded": "Alerta registrada correctamente.",
       "toastResolved": "Alerta marcada como resuelta.",
-      "toastReactivated": "Alerta reactivada."
+      "toastReactivated": "Alerta reactivada.",
+      "toastError": "No se pudo registrar la alerta. Intente de nuevo.",
+      "toastResolveError": "No se pudo actualizar la alerta. Intente de nuevo.",
+      "loadErrorTitle": "No se pudieron cargar las alertas",
+      "loadErrorDescription": "Ocurrió un error al conectar con el servidor. Intente recargar la página."
     },
     "activity": {
       "emptyTitle": "Sin actividad registrada",
@@ -348,6 +352,7 @@
     "description": "Seguimiento de alertas internas registradas sobre los clientes.",
     "activeAlerts": "Alertas activas",
     "resolvedAlerts": "Alertas resueltas",
+    "summaryLoadError": "No se pudieron cargar los totales. Intente recargar la página.",
     "levelLabel": "Nivel {level}",
     "searchPlaceholder": "Buscar cliente o motivo...",
     "filterAll": "Todas",
@@ -357,6 +362,8 @@
     "allTypes": "Todos los tipos",
     "emptyTitle": "No se encontraron alertas",
     "emptyDescription": "Ajuste la búsqueda o los filtros para ver más resultados.",
+    "loadErrorTitle": "No se pudieron cargar las alertas",
+    "loadErrorDescription": "Ocurrió un error al conectar con el servidor. Intente recargar la página.",
     "columns": {
       "client": "Cliente",
       "type": "Tipo",
@@ -374,7 +381,8 @@
     "resolved": "Resuelta",
     "toasts": {
       "resolved": "Alerta marcada como resuelta.",
-      "reactivated": "Alerta reactivada."
+      "reactivated": "Alerta reactivada.",
+      "error": "No se pudo actualizar la alerta. Intente de nuevo."
     }
   },
   "reports": {

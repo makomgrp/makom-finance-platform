@@ -21,7 +21,6 @@ import { useCurrentProfile } from "@/lib/auth/current-profile-context";
 import { signOutAction } from "@/lib/auth/actions";
 import { getSectionTitleKey } from "./nav-config";
 import { MobileNav } from "./mobile-nav";
-import { getActiveAlerts } from "@/lib/demo-data";
 import { formatRelativeTime, getInitials } from "@/lib/format";
 import type { Locale } from "@/i18n/config";
 
@@ -49,7 +48,15 @@ const DEMO_NOTIFICATIONS = [
   },
 ];
 
-export function Topbar() {
+interface TopbarProps {
+  /** Resolved server-side by src/app/(app)/layout.tsx via
+   * getActiveAlertsCount() — null means the count failed to load. The
+   * badge is simply not rendered in that case, the same as a genuine
+   * zero, rather than asserting a count we don't actually know. */
+  activeAlertsCount: number | null;
+}
+
+export function Topbar({ activeAlertsCount }: TopbarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const locale = useLocale() as Locale;
@@ -58,7 +65,6 @@ export function Topbar() {
   // no query happens here.
   const profile = useCurrentProfile();
   const t = useTranslations();
-  const activeAlertsCount = getActiveAlerts().length;
 
   // Real sign-out: signOutAction clears the Supabase session cookie
   // server-side — that alone is what makes the next request to any
@@ -104,7 +110,7 @@ export function Topbar() {
             render={
               <Button variant="ghost" size="icon" className="relative">
                 <Bell className="size-[18px]" />
-                {activeAlertsCount > 0 && (
+                {activeAlertsCount !== null && activeAlertsCount > 0 && (
                   <Badge className="absolute -right-1 -top-1 size-4 justify-center rounded-full bg-destructive p-0 text-[10px] text-white">
                     {activeAlertsCount}
                   </Badge>

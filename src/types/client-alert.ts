@@ -9,15 +9,3 @@ export type AlertType =
   | "restriccion_interna";
 
 export type AlertLevel = "bajo" | "medio" | "alto" | "critico";
-
-export interface ClientAlert {
-  id: string;
-  clientId: string;
-  type: AlertType;
-  level: AlertLevel;
-  reason: string;
-  observation?: string;
-  date: string;
-  responsibleUserId: string;
-  active: boolean;
-}

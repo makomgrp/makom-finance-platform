@@ -13,14 +13,22 @@ import { Topbar } from "./topbar";
  * component renders, the request has already passed both. See the Auth
  * migration plan.
  */
-export function AppShell({ children }: { children: ReactNode }) {
+interface AppShellProps {
+  children: ReactNode;
+  /** Resolved server-side by src/app/(app)/layout.tsx via
+   * getActiveAlertsCount() — null means the count failed to load, never a
+   * fabricated 0. Passed straight through to Topbar. */
+  activeAlertsCount: number | null;
+}
+
+export function AppShell({ children, activeAlertsCount }: AppShellProps) {
   const [collapsed, setCollapsed] = useState(false);
 
   return (
     <div className="flex min-h-screen bg-background">
       <Sidebar collapsed={collapsed} onToggle={() => setCollapsed((value) => !value)} />
       <div className="flex min-w-0 flex-1 flex-col">
-        <Topbar />
+        <Topbar activeAlertsCount={activeAlertsCount} />
         <main className="flex-1 overflow-x-hidden p-4 md:p-6">{children}</main>
       </div>
     </div>

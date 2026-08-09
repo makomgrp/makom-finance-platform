@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { getClientById } from "@/lib/demo-data";
 import { getNotesByClientId } from "@/lib/services/notes";
+import { getAlertsByClientId } from "@/lib/services/alerts";
 import { DossierView } from "@/components/dossier/dossier-view";
 
 export default async function ExpedientePage({
@@ -16,7 +17,10 @@ export default async function ExpedientePage({
   const client = getClientById(id);
   if (!client) notFound();
 
-  const notesResult = await getNotesByClientId(client.id);
+  const [notesResult, alertsResult] = await Promise.all([
+    getNotesByClientId(client.id),
+    getAlertsByClientId(client.id),
+  ]);
 
   return (
     <DossierView
@@ -25,6 +29,8 @@ export default async function ExpedientePage({
       initialApplicationId={solicitud}
       initialNotes={notesResult.status === "ok" ? notesResult.notes : []}
       notesLoadError={notesResult.status === "error"}
+      initialAlerts={alertsResult.status === "ok" ? alertsResult.alerts : []}
+      alertsLoadError={alertsResult.status === "error"}
     />
   );
 }

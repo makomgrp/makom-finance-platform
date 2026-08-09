@@ -310,7 +310,11 @@
       "responsible": "Responsible",
       "toastAdded": "Alert registered successfully.",
       "toastResolved": "Alert marked as resolved.",
-      "toastReactivated": "Alert reactivated."
+      "toastReactivated": "Alert reactivated.",
+      "toastError": "Could not register the alert. Please try again.",
+      "toastResolveError": "Could not update the alert. Please try again.",
+      "loadErrorTitle": "Alerts could not be loaded",
+      "loadErrorDescription": "There was a problem connecting to the server. Try reloading the page."
     },
     "activity": {
       "emptyTitle": "No activity recorded",
@@ -348,6 +352,7 @@
     "description": "Track internal alerts registered for clients.",
     "activeAlerts": "Active alerts",
     "resolvedAlerts": "Resolved alerts",
+    "summaryLoadError": "Totals could not be loaded. Try reloading the page.",
     "levelLabel": "{level} level",
     "searchPlaceholder": "Search client or reason...",
     "filterAll": "All",
@@ -357,6 +362,8 @@
     "allTypes": "All types",
     "emptyTitle": "No alerts found",
     "emptyDescription": "Adjust the search or filters to see more results.",
+    "loadErrorTitle": "Alerts could not be loaded",
+    "loadErrorDescription": "There was a problem connecting to the server. Try reloading the page.",
     "columns": {
       "client": "Client",
       "type": "Type",
@@ -374,7 +381,8 @@
     "resolved": "Resolved",
     "toasts": {
       "resolved": "Alert marked as resolved.",
-      "reactivated": "Alert reactivated."
+      "reactivated": "Alert reactivated.",
+      "error": "Could not update the alert. Please try again."
     }
   },
   "reports": {

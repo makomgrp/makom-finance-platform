@@ -28,47 +28,49 @@ import {
 import { StatusBadge } from "@/components/shared/status-badge";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ALERT_LEVEL_BADGE_CLASS, ALERT_LEVEL_VALUES, ALERT_TYPE_VALUES } from "@/lib/config/alert";
-import { getUserById } from "@/lib/demo-data";
-import { useCurrentProfile } from "@/lib/auth/current-profile-context";
+import { createDossierAlert, setDossierAlertStatus } from "@/app/(app)/expedientes/actions";
 import { formatDate } from "@/lib/format";
 import type { Locale } from "@/i18n/config";
-import type { ActivityEvent, AlertLevel, AlertType, ClientAlert } from "@/types";
+import type { ActivityEvent, AlertLevel, AlertType, DossierAlert } from "@/types";
 
 interface AlertsTabProps {
   clientId: string;
-  alerts: ClientAlert[];
-  onAlertsChange: (alerts: ClientAlert[]) => void;
+  alerts: DossierAlert[];
+  onAlertsChange: (alerts: DossierAlert[]) => void;
   onActivity: (
     descriptionKey: string,
     params: Record<string, string> | undefined,
     type: ActivityEvent["type"]
   ) => void;
+  /** True when the initial server-side load of this client's alerts
+   * failed. Never silently falls back to an empty/demo state — see the
+   * Milestone 7 architecture review's failure-state design. */
+  loadError: boolean;
 }
 
-export function AlertsTab({ clientId, alerts, onAlertsChange, onActivity }: AlertsTabProps) {
+export function AlertsTab({ clientId, alerts, onAlertsChange, onActivity, loadError }: AlertsTabProps) {
   const locale = useLocale() as Locale;
   const t = useTranslations();
-  const profile = useCurrentProfile();
   const [open, setOpen] = useState(false);
   const [type, setType] = useState<AlertType>("revision_especial");
   const [level, setLevel] = useState<AlertLevel>("bajo");
   const [reason, setReason] = useState("");
   const [observation, setObservation] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [resolvingId, setResolvingId] = useState<string | null>(null);
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const alert: ClientAlert = {
-      id: `alert-demo-${Date.now()}`,
-      clientId,
-      type,
-      level,
-      reason,
-      observation: observation || undefined,
-      date: new Date().toISOString(),
-      responsibleUserId: profile.id,
-      active: true,
-    };
-    onAlertsChange([alert, ...alerts]);
+    setSubmitting(true);
+    const result = await createDossierAlert({ clientId, type, level, reason, observation });
+    setSubmitting(false);
+
+    if (result.status !== "success") {
+      toast.error(t("dossier.alerts.toastError"));
+      return;
+    }
+
+    onAlertsChange([result.alert, ...alerts]);
     onActivity("alertRegistered", { type: t(`statuses.alertType.${type}`) }, "alerta_registrada");
     toast.success(t("dossier.alerts.toastAdded"));
     setType("revision_especial");
@@ -78,10 +80,17 @@ export function AlertsTab({ clientId, alerts, onAlertsChange, onActivity }: Aler
     setOpen(false);
   };
 
-  const toggleResolved = (alert: ClientAlert) => {
-    onAlertsChange(
-      alerts.map((item) => (item.id === alert.id ? { ...item, active: !item.active } : item))
-    );
+  const toggleResolved = async (alert: DossierAlert) => {
+    setResolvingId(alert.id);
+    const result = await setDossierAlertStatus({ alertId: alert.id, targetActive: !alert.active });
+    setResolvingId(null);
+
+    if (result.status !== "success") {
+      toast.error(t("dossier.alerts.toastResolveError"));
+      return;
+    }
+
+    onAlertsChange(alerts.map((item) => (item.id === alert.id ? result.alert : item)));
     toast.success(alert.active ? t("dossier.alerts.toastResolved") : t("dossier.alerts.toastReactivated"));
   };
 
@@ -165,14 +174,22 @@ export function AlertsTab({ clientId, alerts, onAlertsChange, onActivity }: Aler
                 <Button type="button" variant="outline" onClick={() => setOpen(false)}>
                   {t("dossier.alerts.cancel")}
                 </Button>
-                <Button type="submit">{t("dossier.alerts.registerAlert")}</Button>
+                <Button type="submit" disabled={submitting}>
+                  {t("dossier.alerts.registerAlert")}
+                </Button>
               </DialogFooter>
             </form>
           </DialogContent>
         </Dialog>
       </div>
 
-      {alerts.length === 0 ? (
+      {loadError ? (
+        <EmptyState
+          icon={ShieldAlert}
+          title={t("dossier.alerts.loadErrorTitle")}
+          description={t("dossier.alerts.loadErrorDescription")}
+        />
+      ) : alerts.length === 0 ? (
         <EmptyState
           icon={ShieldAlert}
           title={t("dossier.alerts.emptyTitle")}
@@ -180,62 +197,58 @@ export function AlertsTab({ clientId, alerts, onAlertsChange, onActivity }: Aler
         />
       ) : (
         <div className="space-y-3">
-          {alerts.map((alert) => {
-            const responsible =
-              alert.responsibleUserId === profile.id ? profile : getUserById(alert.responsibleUserId);
-
-            return (
-              <Card key={alert.id}>
-                <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="min-w-0 flex-1">
-                    <div className="mb-1.5 flex flex-wrap items-center gap-2">
-                      <p className="font-medium text-foreground">
-                        {t(`statuses.alertType.${alert.type}`)}
-                      </p>
-                      <StatusBadge
-                        label={t(`statuses.alertLevel.${alert.level}`)}
-                        className={ALERT_LEVEL_BADGE_CLASS[alert.level]}
-                      />
-                      <StatusBadge
-                        label={alert.active ? t("dossier.alerts.active") : t("dossier.alerts.resolved")}
-                        className={
-                          alert.active
-                            ? "bg-warning/10 text-warning border-warning/20"
-                            : "bg-success/10 text-success border-success/20"
-                        }
-                      />
-                    </div>
-                    <p className="text-sm text-foreground">{alert.reason}</p>
-                    {alert.observation && (
-                      <p className="mt-1 text-sm text-muted-foreground">{alert.observation}</p>
-                    )}
-                    <p className="mt-2 text-xs text-muted-foreground">
-                      {formatDate(alert.date, locale)} · {t("dossier.alerts.responsible")}:{" "}
-                      {responsible?.fullName ?? "—"}
+          {alerts.map((alert) => (
+            <Card key={alert.id}>
+              <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0 flex-1">
+                  <div className="mb-1.5 flex flex-wrap items-center gap-2">
+                    <p className="font-medium text-foreground">
+                      {t(`statuses.alertType.${alert.type}`)}
                     </p>
+                    <StatusBadge
+                      label={t(`statuses.alertLevel.${alert.level}`)}
+                      className={ALERT_LEVEL_BADGE_CLASS[alert.level]}
+                    />
+                    <StatusBadge
+                      label={alert.active ? t("dossier.alerts.active") : t("dossier.alerts.resolved")}
+                      className={
+                        alert.active
+                          ? "bg-warning/10 text-warning border-warning/20"
+                          : "bg-success/10 text-success border-success/20"
+                      }
+                    />
                   </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="shrink-0"
-                    onClick={() => toggleResolved(alert)}
-                  >
-                    {alert.active ? (
-                      <>
-                        <CheckCircle2 className="size-3.5" />
-                        {t("dossier.alerts.markResolved")}
-                      </>
-                    ) : (
-                      <>
-                        <RotateCcw className="size-3.5" />
-                        {t("dossier.alerts.reactivate")}
-                      </>
-                    )}
-                  </Button>
-                </CardContent>
-              </Card>
-            );
-          })}
+                  <p className="text-sm text-foreground">{alert.reason}</p>
+                  {alert.observation && (
+                    <p className="mt-1 text-sm text-muted-foreground">{alert.observation}</p>
+                  )}
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    {formatDate(alert.createdAt, locale)} · {t("dossier.alerts.responsible")}:{" "}
+                    {alert.createdByFullName}
+                  </p>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="shrink-0"
+                  disabled={resolvingId === alert.id}
+                  onClick={() => toggleResolved(alert)}
+                >
+                  {alert.active ? (
+                    <>
+                      <CheckCircle2 className="size-3.5" />
+                      {t("dossier.alerts.markResolved")}
+                    </>
+                  ) : (
+                    <>
+                      <RotateCcw className="size-3.5" />
+                      {t("dossier.alerts.reactivate")}
+                    </>
+                  )}
+                </Button>
+              </CardContent>
+            </Card>
+          ))}
         </div>
       )}
     </div>

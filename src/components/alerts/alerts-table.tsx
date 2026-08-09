@@ -32,20 +32,39 @@ import { MoreHorizontal } from "lucide-react";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ALERT_LEVEL_BADGE_CLASS, ALERT_LEVEL_VALUES, ALERT_TYPE_VALUES } from "@/lib/config/alert";
-import { ALERTS as INITIAL_ALERTS, getClientById, getUserById } from "@/lib/demo-data";
+import { getClientById } from "@/lib/demo-data";
+import { setDossierAlertStatus } from "@/app/(app)/expedientes/actions";
 import { formatDate } from "@/lib/format";
 import type { Locale } from "@/i18n/config";
-import type { AlertLevel, AlertType, ClientAlert } from "@/types";
+import type { AlertLevel, AlertType, DossierAlert } from "@/types";
 
-export function AlertsTable() {
+interface AlertsTableProps {
+  initialAlerts: DossierAlert[];
+  /** True when the parent page's getAllAlerts() call failed. Never falls
+   * back to demo data or an empty-looking table — shows a distinct error
+   * state instead. */
+  loadError: boolean;
+}
+
+/**
+ * Milestone 7B: reads real dossier_alerts data (via props from
+ * src/app/(app)/alertas/page.tsx) instead of the demo ALERTS array, and
+ * resolve/reactivate calls the same setDossierAlertStatus Server Action
+ * the dossier tab uses — src/lib/services/alerts.ts's setAlertStatus is
+ * the only place a status update is actually implemented. A status change
+ * made here persists to the exact same dossier_alerts row the dossier tab
+ * reads, so both surfaces always agree after a reload.
+ */
+export function AlertsTable({ initialAlerts, loadError }: AlertsTableProps) {
   const router = useRouter();
   const locale = useLocale() as Locale;
   const t = useTranslations();
-  const [alerts, setAlerts] = useState<ClientAlert[]>(INITIAL_ALERTS);
+  const [alerts, setAlerts] = useState<DossierAlert[]>(initialAlerts);
   const [search, setSearch] = useState("");
   const [levelFilter, setLevelFilter] = useState<AlertLevel | "todos">("todos");
   const [typeFilter, setTypeFilter] = useState<AlertType | "todos">("todos");
   const [statusFilter, setStatusFilter] = useState<"todas" | "activas" | "resueltas">("todas");
+  const [resolvingId, setResolvingId] = useState<string | null>(null);
 
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -65,10 +84,17 @@ export function AlertsTable() {
     });
   }, [alerts, search, levelFilter, typeFilter, statusFilter]);
 
-  const toggleResolved = (alert: ClientAlert) => {
-    setAlerts((prev) =>
-      prev.map((item) => (item.id === alert.id ? { ...item, active: !item.active } : item))
-    );
+  const toggleResolved = async (alert: DossierAlert) => {
+    setResolvingId(alert.id);
+    const result = await setDossierAlertStatus({ alertId: alert.id, targetActive: !alert.active });
+    setResolvingId(null);
+
+    if (result.status !== "success") {
+      toast.error(t("alertsModule.toasts.error"));
+      return;
+    }
+
+    setAlerts((prev) => prev.map((item) => (item.id === alert.id ? result.alert : item)));
     toast.success(alert.active ? t("alertsModule.toasts.resolved") : t("alertsModule.toasts.reactivated"));
   };
 
@@ -154,7 +180,15 @@ export function AlertsTable() {
         </Select>
       </div>
 
-      {filtered.length === 0 ? (
+      {loadError ? (
+        <div className="p-4">
+          <EmptyState
+            icon={ShieldAlert}
+            title={t("alertsModule.loadErrorTitle")}
+            description={t("alertsModule.loadErrorDescription")}
+          />
+        </div>
+      ) : filtered.length === 0 ? (
         <div className="p-4">
           <EmptyState
             icon={ShieldAlert}
@@ -180,7 +214,6 @@ export function AlertsTable() {
             <TableBody>
               {filtered.map((alert) => {
                 const client = getClientById(alert.clientId);
-                const responsible = getUserById(alert.responsibleUserId);
 
                 return (
                   <TableRow key={alert.id}>
@@ -200,10 +233,10 @@ export function AlertsTable() {
                       {alert.reason}
                     </TableCell>
                     <TableCell className="text-muted-foreground">
-                      {formatDate(alert.date, locale)}
+                      {formatDate(alert.createdAt, locale)}
                     </TableCell>
                     <TableCell className="text-muted-foreground">
-                      {responsible?.fullName ?? "—"}
+                      {alert.createdByFullName}
                     </TableCell>
                     <TableCell>
                       <StatusBadge
@@ -219,7 +252,7 @@ export function AlertsTable() {
                       <DropdownMenu>
                         <DropdownMenuTrigger
                           render={
-                            <Button variant="ghost" size="icon">
+                            <Button variant="ghost" size="icon" disabled={resolvingId === alert.id}>
                               <MoreHorizontal className="size-4" />
                               <span className="sr-only">{t("common.actions")}</span>
                             </Button>

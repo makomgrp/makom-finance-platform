@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/layout/app-shell";
 import { getCurrentProfile } from "@/lib/auth/get-current-profile";
+import { getActiveAlertsCount } from "@/lib/services/alerts";
 import { CurrentProfileProvider } from "@/lib/auth/current-profile-context";
 
 /**
@@ -25,6 +26,16 @@ import { CurrentProfileProvider } from "@/lib/auth/current-profile-context";
  * which makes it available to every client component under AppShell
  * (Topbar, Sidebar, MobileNav, Settings > Profile) via useCurrentProfile().
  * Nothing downstream queries profiles or calls getCurrentProfile() again.
+ *
+ * Milestone 7B: the same pattern now applies to the Topbar's active-alert
+ * badge — getActiveAlertsCount() is resolved here, server-side, using the
+ * Admin Client (never exposed to the browser), and passed down as a plain
+ * prop through AppShell to Topbar. This is the "cleanest pattern" call:
+ * a Context would be overkill for a value only Topbar reads (unlike the
+ * profile, which Topbar/Sidebar/MobileNav/Settings all need), so a prop is
+ * simpler and sufficient. Like the profile, this count is resolved once
+ * per server render, not live-updated — consistent with no Realtime being
+ * introduced for alerts.
  */
 export default async function AuthenticatedLayout({ children }: { children: ReactNode }) {
   const profile = await getCurrentProfile();
@@ -33,9 +44,11 @@ export default async function AuthenticatedLayout({ children }: { children: Reac
     redirect("/login");
   }
 
+  const activeAlertsCount = await getActiveAlertsCount();
+
   return (
     <CurrentProfileProvider profile={profile}>
-      <AppShell>{children}</AppShell>
+      <AppShell activeAlertsCount={activeAlertsCount}>{children}</AppShell>
     </CurrentProfileProvider>
   );
 }

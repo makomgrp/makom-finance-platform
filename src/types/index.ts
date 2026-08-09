@@ -5,5 +5,6 @@ export * from "./loan-application";
 export * from "./document-record";
 export * from "./internal-note";
 export * from "./client-alert";
+export * from "./dossier-alert";
 export * from "./activity-event";
 export * from "./chat-message";
