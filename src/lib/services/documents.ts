@@ -16,19 +16,25 @@ import type { DocumentStatus, DocumentType, DossierDocument } from "@/types";
  * keep reading demo data until Milestone 8B.
  */
 
-const BUCKET = "dossier-documents";
-const MAX_FILE_SIZE_BYTES = 20 * 1024 * 1024;
-const VIEW_URL_TTL_SECONDS = 90;
+// Exported (unchanged in value or meaning) so
+// src/lib/services/document-evidence.ts (Milestone 12B) can reuse the same
+// bucket, size limit, TTL, and MIME/extension mapping instead of
+// duplicating them — both services write into the same physical Storage
+// bucket, just under different path conventions for new vs. legacy
+// uploads. Nothing about this file's own behavior changes.
+export const BUCKET = "dossier-documents";
+export const MAX_FILE_SIZE_BYTES = 20 * 1024 * 1024;
+export const VIEW_URL_TTL_SECONDS = 90;
 
 // Extension is always derived from the validated mime_type — never from
 // the user-supplied original filename (see uploadDocumentFile below).
-const MIME_TYPE_EXTENSIONS: Record<string, string> = {
+export const MIME_TYPE_EXTENSIONS: Record<string, string> = {
   "application/pdf": "pdf",
   "image/jpeg": "jpg",
   "image/png": "png",
   "image/webp": "webp",
 };
-const ALLOWED_MIME_TYPES = Object.keys(MIME_TYPE_EXTENSIONS);
+export const ALLOWED_MIME_TYPES = Object.keys(MIME_TYPE_EXTENSIONS);
 
 // Matches dossier_documents_review_check: reviewed_at/reviewed_by_profile_id
 // are populated for exactly these three statuses, cleared for every other one.
@@ -80,7 +86,9 @@ function toDossierDocument(row: DossierDocumentRow): DossierDocument {
   };
 }
 
-function buildTimestampComponent(date: Date): string {
+// Exported for reuse by document-evidence.ts (Milestone 12B) — same
+// path-safe timestamp format, unchanged.
+export function buildTimestampComponent(date: Date): string {
   return date.toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
 }
 

@@ -21,11 +21,22 @@ export const REQUIREMENT_SLOT_STATUS_ORDER: RequirementSlotStatus[] = [
 // comment on requirement_slots_status_pending_pair_check for why that
 // invariant depends on this. See the Milestone 10B architecture review's
 // "Execution Lifecycle" section for what each state means.
+//
+// under_review -> submitted (Milestone 12 architecture review's "Open
+// Status Question," approved before src/lib/services/document-evidence.ts
+// was built): new or replacement Evidence arriving while a Slot is
+// already under_review means whatever staff were evaluating may now be
+// incomplete or stale, so the slot re-enters the queue rather than risking
+// a conclusion (satisfied/rejected) based on evidence that's since
+// changed. This transition is exclusively SYSTEM-triggered by
+// createDocumentEvidence on a successful upload — it is never offered as
+// a manual staff action in any UI, in 12B or otherwise, and nothing else
+// in this graph changed to accommodate it.
 export const REQUIREMENT_SLOT_STATUS_TRANSITIONS: Record<RequirementSlotStatus, RequirementSlotStatus[]> = {
   pending: ["submitted", "missing", "waived"],
   missing: ["submitted", "waived"],
   submitted: ["under_review", "waived"],
-  under_review: ["satisfied", "rejected", "waived"],
+  under_review: ["satisfied", "rejected", "waived", "submitted"],
   rejected: ["submitted", "waived"],
   satisfied: [],
   waived: [],
