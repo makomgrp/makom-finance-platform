@@ -5,10 +5,12 @@ import { KpiCard } from "@/components/dashboard/kpi-card";
 import { RecentActivityCard } from "@/components/dashboard/recent-activity-card";
 import { StatusDistributionCard } from "@/components/dashboard/status-distribution-card";
 import { PendingTasksCard } from "@/components/dashboard/pending-tasks-card";
-import { CLIENTS, APPLICATIONS, DOCUMENTS } from "@/lib/demo-data";
+import { CLIENTS, APPLICATIONS } from "@/lib/demo-data";
+import { getPendingDocumentCount } from "@/lib/services/documents";
 
 export default async function DashboardPage() {
   const t = await getTranslations("dashboard");
+  const pendingDocumentsResult = await getPendingDocumentCount();
 
   const kpis = [
     {
@@ -23,7 +25,8 @@ export default async function DashboardPage() {
     },
     {
       label: t("kpis.pendingDocuments"),
-      value: DOCUMENTS.filter((doc) => doc.status === "pendiente").length,
+      value: pendingDocumentsResult.status === "ok" ? pendingDocumentsResult.count : "—",
+      hint: pendingDocumentsResult.status === "error" ? t("kpis.pendingDocumentsUnavailable") : undefined,
       icon: FileClock,
       accentClass: "bg-warning/10 text-warning",
     },

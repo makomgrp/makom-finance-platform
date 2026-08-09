@@ -26,3 +26,18 @@ export const DOCUMENT_STATUS_ORDER: DocumentStatus[] = [
   "rechazado",
   "requiere_actualizacion",
 ];
+
+// Excludes pendiente — it's the automatic starting state for a
+// requirement slot with no file, never a target a status-change action
+// can move a document back to (that would require removing the file,
+// which is not a supported operation in V1 — see
+// dossier_documents_status_file_check). Used by both the dossier
+// Documents tab's "Cambiar estado" dropdown and
+// src/lib/services/documents.ts's setDossierDocumentStatus validation.
+export const DOCUMENT_STATUS_TRANSITIONABLE: DocumentStatus[] = [
+  "recibido",
+  "en_revision",
+  "verificado",
+  "rechazado",
+  "requiere_actualizacion",
+];

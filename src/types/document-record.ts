@@ -13,14 +13,3 @@ export type DocumentStatus =
   | "verificado"
   | "rechazado"
   | "requiere_actualizacion";
-
-export interface DocumentRecord {
-  id: string;
-  clientId: string;
-  applicationId: string;
-  type: DocumentType;
-  status: DocumentStatus;
-  receivedAt?: string;
-  reviewedByUserId?: string;
-  fileNameDemo?: string;
-}

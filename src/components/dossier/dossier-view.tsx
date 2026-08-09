@@ -19,14 +19,13 @@ import { ActivityTab } from "@/components/dossier/tabs/activity-tab";
 import {
   getClientById,
   getApplicationsByClientId,
-  getDocumentsByApplicationId,
   getActivitiesByClientId,
 } from "@/lib/demo-data";
 import type {
   ActivityEvent,
   Client,
-  DocumentRecord,
   DossierAlert,
+  DossierDocument,
   InternalNote,
   LoanApplication,
   LoanStatus,
@@ -40,6 +39,8 @@ interface DossierViewProps {
   notesLoadError: boolean;
   initialAlerts: DossierAlert[];
   alertsLoadError: boolean;
+  initialDocuments: DossierDocument[];
+  documentsLoadError: boolean;
 }
 
 const VALID_TABS = ["resumen", "datos", "documentos", "notas", "alertas", "actividad"];
@@ -52,6 +53,8 @@ export function DossierView({
   notesLoadError,
   initialAlerts,
   alertsLoadError,
+  initialDocuments,
+  documentsLoadError,
 }: DossierViewProps) {
   const t = useTranslations();
   const [client, setClient] = useState<Client>(() => getClientById(clientId)!);
@@ -76,9 +79,18 @@ export function DossierView({
     [applications, activeApplicationId]
   );
 
-  const [documents, setDocuments] = useState<DocumentRecord[]>(() =>
-    application ? getDocumentsByApplicationId(application.id) : []
+  // All of this client's documents, across every application, fetched once
+  // server-side. Switching applications (below) filters this set locally
+  // instead of re-fetching — mirrors how `applications` itself is already
+  // handled. See the Milestone 8 architecture review.
+  const [allDocuments, setAllDocuments] = useState<DossierDocument[]>(initialDocuments);
+  const documents = useMemo(
+    () => allDocuments.filter((doc) => doc.applicationId === activeApplicationId),
+    [allDocuments, activeApplicationId]
   );
+  const handleDocumentChange = (updated: DossierDocument) => {
+    setAllDocuments((prev) => prev.map((doc) => (doc.id === updated.id ? updated : doc)));
+  };
 
   const defaultTab = initialTab && VALID_TABS.includes(initialTab) ? initialTab : "resumen";
 
@@ -126,10 +138,7 @@ export function DossierView({
         client={client}
         applications={applications}
         activeApplication={application}
-        onSelectApplication={(id) => {
-          setActiveApplicationId(id);
-          setDocuments(getDocumentsByApplicationId(id));
-        }}
+        onSelectApplication={(id) => setActiveApplicationId(id)}
         onClientUpdate={handleClientUpdate}
         onApplicationStatusChange={handleApplicationStatusChange}
       />
@@ -156,8 +165,9 @@ export function DossierView({
           <DocumentsTab
             application={application}
             documents={documents}
-            onDocumentsChange={setDocuments}
+            onDocumentChange={handleDocumentChange}
             onActivity={logActivity}
+            loadError={documentsLoadError}
           />
         </TabsContent>
 

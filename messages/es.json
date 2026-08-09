@@ -104,6 +104,7 @@
       "registeredClients": "Clientes registrados",
       "newApplications": "Solicitudes nuevas",
       "pendingDocuments": "Documentos pendientes",
+      "pendingDocumentsUnavailable": "No disponible",
       "applicationsUnderReview": "Solicitudes en evaluación",
       "approvedApplications": "Solicitudes aprobadas",
       "notEligibleApplications": "Solicitudes que no aplican"
@@ -264,14 +265,24 @@
       "notReceived": "Aún no recibido",
       "reviewedBy": "Revisado por {name}",
       "view": "Ver",
+      "upload": "Subir documento",
       "replace": "Reemplazar",
       "changeStatus": "Cambiar estado",
       "newStatus": "Nuevo estado",
+      "viewDialogTitle": "Vista previa del documento",
+      "openInNewTab": "Abrir en pestaña nueva",
+      "loadErrorTitle": "No se pudieron cargar los documentos",
+      "loadErrorDescription": "Ocurrió un error al conectar con el servidor. Intente recargar la página.",
       "toasts": {
         "notReceivedYet": "Este documento aún no ha sido recibido.",
-        "previewSimulated": "Vista previa simulada: {fileName}",
+        "uploaded": "{document}: documento subido correctamente.",
         "statusUpdated": "{document}: estado actualizado a \"{status}\".",
-        "replaced": "{document} reemplazado (simulado). Pendiente de revisión."
+        "replaced": "{document}: documento reemplazado correctamente.",
+        "uploadError": "No se pudo subir el documento. Intente de nuevo.",
+        "invalidFileType": "Tipo de archivo no permitido. Use PDF, JPG, PNG o WEBP.",
+        "fileTooLarge": "El archivo supera el límite de 20 MB.",
+        "statusChangeError": "No se pudo actualizar el estado. Intente de nuevo.",
+        "viewError": "No se pudo abrir el documento. Intente de nuevo."
       }
     },
     "notes": {
@@ -343,7 +354,6 @@
     "viewDocument": "Ver documento",
     "viewDossier": "Ver expediente",
     "toasts": {
-      "previewSimulated": "Vista previa simulada: {fileName}",
       "notReceivedYet": "Este documento aún no ha sido recibido."
     }
   },

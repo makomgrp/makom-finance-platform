@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { getClientById } from "@/lib/demo-data";
 import { getNotesByClientId } from "@/lib/services/notes";
 import { getAlertsByClientId } from "@/lib/services/alerts";
+import { getDocumentsByClientId } from "@/lib/services/documents";
 import { DossierView } from "@/components/dossier/dossier-view";
 
 export default async function ExpedientePage({
@@ -17,9 +18,10 @@ export default async function ExpedientePage({
   const client = getClientById(id);
   if (!client) notFound();
 
-  const [notesResult, alertsResult] = await Promise.all([
+  const [notesResult, alertsResult, documentsResult] = await Promise.all([
     getNotesByClientId(client.id),
     getAlertsByClientId(client.id),
+    getDocumentsByClientId(client.id),
   ]);
 
   return (
@@ -31,6 +33,8 @@ export default async function ExpedientePage({
       notesLoadError={notesResult.status === "error"}
       initialAlerts={alertsResult.status === "ok" ? alertsResult.alerts : []}
       alertsLoadError={alertsResult.status === "error"}
+      initialDocuments={documentsResult.status === "ok" ? documentsResult.documents : []}
+      documentsLoadError={documentsResult.status === "error"}
     />
   );
 }

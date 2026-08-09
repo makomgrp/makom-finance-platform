@@ -7,12 +7,12 @@ import { StatusBadge } from "@/components/shared/status-badge";
 import { getCompanyById } from "@/lib/demo-data";
 import { formatCurrency, formatDateTime } from "@/lib/format";
 import type { Locale } from "@/i18n/config";
-import type { Client, DocumentRecord, LoanApplication } from "@/types";
+import type { Client, DossierDocument, LoanApplication } from "@/types";
 
 interface SummaryTabProps {
   client: Client;
   application?: LoanApplication;
-  documents: DocumentRecord[];
+  documents: DossierDocument[];
 }
 
 export function SummaryTab({ client, application, documents }: SummaryTabProps) {

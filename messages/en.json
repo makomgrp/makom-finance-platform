@@ -104,6 +104,7 @@
       "registeredClients": "Registered clients",
       "newApplications": "New applications",
       "pendingDocuments": "Pending documents",
+      "pendingDocumentsUnavailable": "Unavailable",
       "applicationsUnderReview": "Applications under review",
       "approvedApplications": "Approved applications",
       "notEligibleApplications": "Not eligible applications"
@@ -264,14 +265,24 @@
       "notReceived": "Not received yet",
       "reviewedBy": "Reviewed by {name}",
       "view": "View",
+      "upload": "Upload document",
       "replace": "Replace",
       "changeStatus": "Change status",
       "newStatus": "New status",
+      "viewDialogTitle": "Document preview",
+      "openInNewTab": "Open in new tab",
+      "loadErrorTitle": "Documents could not be loaded",
+      "loadErrorDescription": "There was a problem connecting to the server. Try reloading the page.",
       "toasts": {
         "notReceivedYet": "This document has not been received yet.",
-        "previewSimulated": "Simulated preview: {fileName}",
+        "uploaded": "{document}: document uploaded successfully.",
         "statusUpdated": "{document}: status updated to \"{status}\".",
-        "replaced": "{document} replaced (simulated). Pending review."
+        "replaced": "{document}: document replaced successfully.",
+        "uploadError": "Could not upload the document. Please try again.",
+        "invalidFileType": "File type not allowed. Use PDF, JPG, PNG, or WEBP.",
+        "fileTooLarge": "The file exceeds the 20 MB limit.",
+        "statusChangeError": "Could not update the status. Please try again.",
+        "viewError": "Could not open the document. Please try again."
       }
     },
     "notes": {
@@ -343,7 +354,6 @@
     "viewDocument": "View document",
     "viewDossier": "View dossier",
     "toasts": {
-      "previewSimulated": "Simulated preview: {fileName}",
       "notReceivedYet": "This document has not been received yet."
     }
   },
