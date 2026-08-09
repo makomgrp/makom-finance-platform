@@ -11,3 +11,4 @@ export * from "./activity-event";
 export * from "./chat-message";
 export * from "./product";
 export * from "./requirement-template";
+export * from "./requirement-slot";
