@@ -429,6 +429,7 @@
     "tabs": {
       "profile": "Profile",
       "users": "Users and roles",
+      "products": "Products",
       "applicationStatuses": "Application statuses",
       "loanTypes": "Loan types",
       "documentTypes": "Document types",
@@ -459,6 +460,52 @@
       "inactive": "Inactive",
       "loadErrorTitle": "Couldn't load the user directory",
       "loadErrorDescription": "We weren't able to connect to the database. Try reloading the page; if the problem continues, contact the technical team."
+    },
+    "products": {
+      "title": "Products",
+      "description": "Configurable financial products offered by the institution.",
+      "newProduct": "New product",
+      "createDialogTitle": "New product",
+      "editDialogTitle": "Edit product",
+      "dialogDescription": "The code permanently identifies the product for future integrations (website form, WhatsApp). The name and description are shown to users.",
+      "code": "Code",
+      "codeHint": "Lowercase, no spaces (e.g. personal_loan). Cannot be changed later.",
+      "nameEs": "Name (Spanish)",
+      "nameEn": "Name (English)",
+      "descriptionEs": "Description (Spanish)",
+      "descriptionEn": "Description (English)",
+      "cancel": "Cancel",
+      "createProduct": "Create product",
+      "saveChanges": "Save changes",
+      "edit": "Edit",
+      "activate": "Activate",
+      "deactivate": "Deactivate",
+      "reactivate": "Reactivate",
+      "moveUp": "Move up",
+      "moveDown": "Move down",
+      "columns": {
+        "code": "Code",
+        "name": "Name",
+        "status": "Status",
+        "order": "Order",
+        "actions": "Actions"
+      },
+      "emptyTitle": "No products configured yet",
+      "emptyDescription": "Create the first financial product to get started.",
+      "loadErrorTitle": "Couldn't load products",
+      "loadErrorDescription": "We weren't able to connect to the database. Try reloading the page; if the problem continues, contact the technical team.",
+      "toasts": {
+        "invalidForm": "Fill in the name in both languages. The description must be filled in both languages or left empty.",
+        "invalidCode": "The code must be lowercase, with no spaces (e.g. personal_loan).",
+        "duplicateCode": "A product with that code already exists.",
+        "createError": "Couldn't create the product. Please try again.",
+        "created": "{name}: product created successfully.",
+        "updateError": "Couldn't update the product. Please try again.",
+        "updated": "{name}: product updated successfully.",
+        "statusChangeError": "Couldn't update the product's status. Please try again.",
+        "statusUpdated": "{name}: status updated to \"{status}\".",
+        "reorderError": "Couldn't reorder the product. Please try again."
+      }
     },
     "applicationStatuses": {
       "title": "Application statuses",
@@ -611,6 +658,11 @@
       "recibo_servicios_description": "Valid proof of address.",
       "confirmacion_descuento": "Payroll Deduction Confirmation",
       "confirmacion_descuento_description": "Confirmation of whether the company offers payroll deduction."
+    },
+    "productStatus": {
+      "draft": "Draft",
+      "active": "Active",
+      "inactive": "Inactive"
     }
   },
   "roles": {

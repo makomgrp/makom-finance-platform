@@ -429,6 +429,7 @@
     "tabs": {
       "profile": "Perfil",
       "users": "Usuarios y roles",
+      "products": "Productos",
       "applicationStatuses": "Estados de solicitudes",
       "loanTypes": "Tipos de préstamos",
       "documentTypes": "Tipos de documentos",
@@ -459,6 +460,52 @@
       "inactive": "Inactivo",
       "loadErrorTitle": "No se pudo cargar el directorio de usuarios",
       "loadErrorDescription": "No fue posible conectar con la base de datos. Intenta recargar la página; si el problema persiste, contacta al equipo técnico."
+    },
+    "products": {
+      "title": "Productos",
+      "description": "Productos financieros configurables que ofrece la institución.",
+      "newProduct": "Nuevo producto",
+      "createDialogTitle": "Nuevo producto",
+      "editDialogTitle": "Editar producto",
+      "dialogDescription": "El código identifica el producto de forma permanente para integraciones futuras (formulario web, WhatsApp). El nombre y la descripción se muestran a los usuarios.",
+      "code": "Código",
+      "codeHint": "Minúsculas, sin espacios (ej. personal_loan). No se podrá modificar después.",
+      "nameEs": "Nombre (Español)",
+      "nameEn": "Nombre (Inglés)",
+      "descriptionEs": "Descripción (Español)",
+      "descriptionEn": "Descripción (Inglés)",
+      "cancel": "Cancelar",
+      "createProduct": "Crear producto",
+      "saveChanges": "Guardar cambios",
+      "edit": "Editar",
+      "activate": "Activar",
+      "deactivate": "Desactivar",
+      "reactivate": "Reactivar",
+      "moveUp": "Mover hacia arriba",
+      "moveDown": "Mover hacia abajo",
+      "columns": {
+        "code": "Código",
+        "name": "Nombre",
+        "status": "Estado",
+        "order": "Orden",
+        "actions": "Acciones"
+      },
+      "emptyTitle": "No hay productos configurados",
+      "emptyDescription": "Cree el primer producto financiero para comenzar.",
+      "loadErrorTitle": "No se pudieron cargar los productos",
+      "loadErrorDescription": "No fue posible conectar con la base de datos. Intenta recargar la página; si el problema persiste, contacta al equipo técnico.",
+      "toasts": {
+        "invalidForm": "Complete el nombre en ambos idiomas. La descripción debe completarse en ambos idiomas o dejarse vacía.",
+        "invalidCode": "El código debe estar en minúsculas, sin espacios (ej. personal_loan).",
+        "duplicateCode": "Ya existe un producto con ese código.",
+        "createError": "No se pudo crear el producto. Intente de nuevo.",
+        "created": "{name}: producto creado correctamente.",
+        "updateError": "No se pudo actualizar el producto. Intente de nuevo.",
+        "updated": "{name}: producto actualizado correctamente.",
+        "statusChangeError": "No se pudo actualizar el estado del producto. Intente de nuevo.",
+        "statusUpdated": "{name}: estado actualizado a \"{status}\".",
+        "reorderError": "No se pudo reordenar el producto. Intente de nuevo."
+      }
     },
     "applicationStatuses": {
       "title": "Estados de solicitudes",
@@ -611,6 +658,11 @@
       "recibo_servicios_description": "Comprobante de domicilio vigente.",
       "confirmacion_descuento": "Confirmación de descuento directo",
       "confirmacion_descuento_description": "Confirmación de si la empresa realiza descuentos directos."
+    },
+    "productStatus": {
+      "draft": "Borrador",
+      "active": "Activo",
+      "inactive": "Inactivo"
     }
   },
   "roles": {

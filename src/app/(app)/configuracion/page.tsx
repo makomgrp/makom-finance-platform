@@ -7,13 +7,16 @@ import { CatalogSection } from "@/components/settings/catalog-section";
 import { CompaniesSection } from "@/components/settings/companies-section";
 import { NotificationsSection } from "@/components/settings/notifications-section";
 import { SecuritySection } from "@/components/settings/security-section";
+import { ProductsSection } from "@/components/settings/products-section";
 import { LOAN_STATUS_BADGE_CLASS, LOAN_STATUS_ORDER, LOAN_TYPE_ORDER } from "@/lib/config/loan-status";
 import { DOCUMENT_TYPE_ORDER } from "@/lib/config/document";
 import { getProfiles } from "@/lib/services/profiles";
+import { getAllProducts } from "@/lib/services/products";
 
 export default async function ConfiguracionPage() {
   const t = await getTranslations();
   const profilesResult = await getProfiles();
+  const productsResult = await getAllProducts();
 
   return (
     <div>
@@ -23,6 +26,7 @@ export default async function ConfiguracionPage() {
         <TabsList className="flex-wrap">
           <TabsTrigger value="perfil">{t("settings.tabs.profile")}</TabsTrigger>
           <TabsTrigger value="usuarios">{t("settings.tabs.users")}</TabsTrigger>
+          <TabsTrigger value="productos">{t("settings.tabs.products")}</TabsTrigger>
           <TabsTrigger value="estados">{t("settings.tabs.applicationStatuses")}</TabsTrigger>
           <TabsTrigger value="prestamos">{t("settings.tabs.loanTypes")}</TabsTrigger>
           <TabsTrigger value="documentos">{t("settings.tabs.documentTypes")}</TabsTrigger>
@@ -39,6 +43,13 @@ export default async function ConfiguracionPage() {
           <UsersSection
             users={profilesResult.status === "ok" ? profilesResult.users : []}
             hasError={profilesResult.status === "error"}
+          />
+        </TabsContent>
+
+        <TabsContent value="productos" className="mt-4">
+          <ProductsSection
+            products={productsResult.status === "ok" ? productsResult.products : []}
+            hasError={productsResult.status === "error"}
           />
         </TabsContent>
 
