@@ -273,6 +273,18 @@
       "openInNewTab": "Open in new tab",
       "loadErrorTitle": "Documents could not be loaded",
       "loadErrorDescription": "There was a problem connecting to the server. Try reloading the page.",
+      "notMigratedTitle": "Not yet available in the new model",
+      "notMigratedDescription": "This application does not yet have a real Application linked to it, so its requirements cannot be shown here yet.",
+      "required": "Required",
+      "optional": "Optional",
+      "addEvidence": "Add evidence",
+      "noEvidenceYet": "No evidence has been uploaded for this requirement yet.",
+      "uploadedOn": "Uploaded: {date}",
+      "reviewedOn": "Reviewed: {date}",
+      "review": "Mark as reviewed",
+      "alreadyReviewed": "This evidence has already been reviewed.",
+      "supersededBadge": "Superseded",
+      "viewHistory": "View history ({count})",
       "toasts": {
         "notReceivedYet": "This document has not been received yet.",
         "uploaded": "{document}: document uploaded successfully.",
@@ -282,7 +294,15 @@
         "invalidFileType": "File type not allowed. Use PDF, JPG, PNG, or WEBP.",
         "fileTooLarge": "The file exceeds the 20 MB limit.",
         "statusChangeError": "Could not update the status. Please try again.",
-        "viewError": "Could not open the document. Please try again."
+        "viewError": "Could not open the document. Please try again.",
+        "evidenceUploaded": "{requirement}: evidence uploaded successfully.",
+        "evidenceUploadPartial": "Evidence uploaded, but the requirement status could not be updated. Reload the page to confirm.",
+        "evidenceUploadError": "Could not upload the evidence. Please try again.",
+        "evidenceReviewed": "Evidence marked as reviewed.",
+        "evidenceReviewError": "Could not mark the evidence as reviewed. Please try again.",
+        "requirementStatusUpdated": "{requirement}: status updated to \"{status}\".",
+        "requirementStatusError": "Could not update the requirement status. Please try again.",
+        "refetchError": "Could not refresh the information. Try reloading the page."
       }
     },
     "notes": {
@@ -738,6 +758,15 @@
       "ai_review": "AI review",
       "signature": "Signature",
       "manual_confirmation": "Manual confirmation"
+    },
+    "requirementSlotStatus": {
+      "pending": "Pending",
+      "submitted": "Submitted",
+      "under_review": "Under review",
+      "satisfied": "Satisfied",
+      "rejected": "Rejected",
+      "waived": "Waived",
+      "missing": "Missing"
     }
   },
   "roles": {

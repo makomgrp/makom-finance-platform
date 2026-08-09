@@ -100,6 +100,44 @@ export async function getApplicationById(applicationId: string): Promise<GetAppl
   }
 }
 
+/**
+ * Loads a single application by its temporary demo-data bridge id
+ * (applications.legacy_id — see the Milestone 11 architecture review).
+ * Added in Milestone 12C so the Dossier can resolve which real Application
+ * (if any) corresponds to the demo LoanApplication currently on screen,
+ * without the Dossier ever needing to know a real UUID up front. Returns
+ * NOT_FOUND — never invents or guesses — when no application has this
+ * legacy_id, which is the expected, common case for every demo
+ * application except ap-001 today; callers must treat that as "not yet
+ * migrated," not as an error to alarm on.
+ */
+export async function getApplicationByLegacyId(legacyId: string): Promise<GetApplicationByIdResult> {
+  try {
+    const supabase = getSupabaseServerClient();
+    const { data, error } = await supabase
+      .from("applications")
+      .select(APPLICATION_SELECT)
+      .eq("legacy_id", legacyId)
+      .maybeSingle<ApplicationRow>();
+
+    if (error) {
+      console.error("[applications service] Failed to load application by legacy id:", error.message);
+      return { status: "error", code: "QUERY_FAILED" };
+    }
+    if (!data) {
+      return { status: "error", code: "NOT_FOUND" };
+    }
+
+    return { status: "ok", application: toApplication(data) };
+  } catch (error) {
+    console.error(
+      "[applications service] Unexpected failure loading application by legacy id:",
+      error instanceof Error ? error.message : "unknown error"
+    );
+    return { status: "error", code: "QUERY_FAILED" };
+  }
+}
+
 export type GetApplicationsResult = { status: "ok"; applications: Application[] } | { status: "error" };
 
 /** Loads every application, newest first. Deliberately no filter

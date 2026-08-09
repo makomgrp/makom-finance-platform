@@ -273,6 +273,18 @@
       "openInNewTab": "Abrir en pestaña nueva",
       "loadErrorTitle": "No se pudieron cargar los documentos",
       "loadErrorDescription": "Ocurrió un error al conectar con el servidor. Intente recargar la página.",
+      "notMigratedTitle": "Aún no disponible en el nuevo modelo",
+      "notMigratedDescription": "Esta solicitud todavía no tiene una Solicitud real vinculada, por lo que sus requisitos no se pueden mostrar aquí todavía.",
+      "required": "Obligatorio",
+      "optional": "Opcional",
+      "addEvidence": "Agregar evidencia",
+      "noEvidenceYet": "Aún no se ha subido evidencia para este requisito.",
+      "uploadedOn": "Subido: {date}",
+      "reviewedOn": "Revisado: {date}",
+      "review": "Marcar como revisado",
+      "alreadyReviewed": "Esta evidencia ya fue revisada.",
+      "supersededBadge": "Reemplazado",
+      "viewHistory": "Ver historial ({count})",
       "toasts": {
         "notReceivedYet": "Este documento aún no ha sido recibido.",
         "uploaded": "{document}: documento subido correctamente.",
@@ -282,7 +294,15 @@
         "invalidFileType": "Tipo de archivo no permitido. Use PDF, JPG, PNG o WEBP.",
         "fileTooLarge": "El archivo supera el límite de 20 MB.",
         "statusChangeError": "No se pudo actualizar el estado. Intente de nuevo.",
-        "viewError": "No se pudo abrir el documento. Intente de nuevo."
+        "viewError": "No se pudo abrir el documento. Intente de nuevo.",
+        "evidenceUploaded": "{requirement}: evidencia subida correctamente.",
+        "evidenceUploadPartial": "Evidencia subida, pero no se pudo actualizar el estado del requisito. Actualice la página para confirmar.",
+        "evidenceUploadError": "No se pudo subir la evidencia. Intente de nuevo.",
+        "evidenceReviewed": "Evidencia marcada como revisada.",
+        "evidenceReviewError": "No se pudo marcar la evidencia como revisada. Intente de nuevo.",
+        "requirementStatusUpdated": "{requirement}: estado actualizado a \"{status}\".",
+        "requirementStatusError": "No se pudo actualizar el estado del requisito. Intente de nuevo.",
+        "refetchError": "No se pudo actualizar la información. Intente recargar la página."
       }
     },
     "notes": {
@@ -738,6 +758,15 @@
       "ai_review": "Validación con IA",
       "signature": "Firma",
       "manual_confirmation": "Confirmación manual"
+    },
+    "requirementSlotStatus": {
+      "pending": "Pendiente",
+      "submitted": "Enviado",
+      "under_review": "En revisión",
+      "satisfied": "Satisfecho",
+      "rejected": "Rechazado",
+      "waived": "Exonerado",
+      "missing": "Faltante"
     }
   },
   "roles": {

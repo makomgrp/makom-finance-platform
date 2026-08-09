@@ -12,10 +12,11 @@ import {
 import { DossierHeader } from "@/components/dossier/dossier-header";
 import { SummaryTab } from "@/components/dossier/tabs/summary-tab";
 import { PersonalDataTab } from "@/components/dossier/tabs/personal-data-tab";
-import { DocumentsTab } from "@/components/dossier/tabs/documents-tab";
+import { RequirementsTab } from "@/components/dossier/tabs/requirements-tab";
 import { NotesTab } from "@/components/dossier/tabs/notes-tab";
 import { AlertsTab } from "@/components/dossier/tabs/alerts-tab";
 import { ActivityTab } from "@/components/dossier/tabs/activity-tab";
+import { getDossierRequirements } from "@/app/(app)/expedientes/actions";
 import {
   getClientById,
   getApplicationsByClientId,
@@ -24,12 +25,29 @@ import {
 import type {
   ActivityEvent,
   Client,
+  DocumentEvidence,
   DossierAlert,
   DossierDocument,
   InternalNote,
   LoanApplication,
   LoanStatus,
+  RequirementSlot,
 } from "@/types";
+
+/**
+ * Per-demo-application bundle of real Requirement Slot + Evidence data
+ * (Milestone 12C). A null value means no real Application exists yet for
+ * that demo application (applications.legacy_id has no match) — the
+ * expected, common case for everything except ap-001 today. Deliberately
+ * NOT the legacy DossierDocument model — see src/lib/services/document-
+ * evidence.ts and the Milestone 12 architecture review.
+ */
+export interface DossierRequirementsData {
+  applicationId: string;
+  requirementSlots: RequirementSlot[];
+  evidence: DocumentEvidence[];
+  loadError: boolean;
+}
 
 interface DossierViewProps {
   clientId: string;
@@ -41,6 +59,11 @@ interface DossierViewProps {
   alertsLoadError: boolean;
   initialDocuments: DossierDocument[];
   documentsLoadError: boolean;
+  /** Milestone 12C addition — additive, does not replace initialDocuments
+   * (see initialDocuments' own comment: SummaryTab still depends on it,
+   * and this component's own legacy `documents` state below is
+   * unchanged). Keyed by demo LoanApplication id. */
+  initialRequirementsByDemoApplicationId: Record<string, DossierRequirementsData | null>;
 }
 
 const VALID_TABS = ["resumen", "datos", "documentos", "notas", "alertas", "actividad"];
@@ -54,7 +77,7 @@ export function DossierView({
   initialAlerts,
   alertsLoadError,
   initialDocuments,
-  documentsLoadError,
+  initialRequirementsByDemoApplicationId,
 }: DossierViewProps) {
   const t = useTranslations();
   const [client, setClient] = useState<Client>(() => getClientById(clientId)!);
@@ -83,13 +106,57 @@ export function DossierView({
   // server-side. Switching applications (below) filters this set locally
   // instead of re-fetching — mirrors how `applications` itself is already
   // handled. See the Milestone 8 architecture review.
-  const [allDocuments, setAllDocuments] = useState<DossierDocument[]>(initialDocuments);
+  //
+  // Retained unchanged in Milestone 12C: SummaryTab still consumes this
+  // legacy DossierDocument data for its own completion widget — see the
+  // Milestone 12C architecture review's "duplicated completion state"
+  // risk for why the Dossier now shows two independent pictures of
+  // document completeness (this legacy one, and the new Requirements
+  // tab's Slot-based one) until a future milestone reconciles them.
+  const [allDocuments] = useState<DossierDocument[]>(initialDocuments);
   const documents = useMemo(
     () => allDocuments.filter((doc) => doc.applicationId === activeApplicationId),
     [allDocuments, activeApplicationId]
   );
-  const handleDocumentChange = (updated: DossierDocument) => {
-    setAllDocuments((prev) => prev.map((doc) => (doc.id === updated.id ? updated : doc)));
+  // Milestone 12C: the new Requirement Slot + Document Evidence state,
+  // keyed by demo application id exactly like initialRequirementsByDemo
+  // ApplicationId. Independent of `documents`/`allDocuments` above —
+  // never merged with it, never derived from it.
+  const [requirementsByDemoApplicationId, setRequirementsByDemoApplicationId] = useState<
+    Record<string, DossierRequirementsData | null>
+  >(initialRequirementsByDemoApplicationId);
+  const activeRequirementsData = activeApplicationId
+    ? (requirementsByDemoApplicationId[activeApplicationId] ?? null)
+    : null;
+
+  /**
+   * Per the Milestone 12C architecture review: no optimistic merging.
+   * After any mutation (upload / review / status change) the Requirements
+   * tab calls this to refetch both Requirement Slots and Evidence fresh
+   * from the server and replace the state wholesale — a single upload can
+   * silently also change a Slot's status, so merging just the one
+   * returned item risks leaving stale Slot state on screen.
+   */
+  const handleRequirementsRefetch = async () => {
+    if (!activeApplicationId) return;
+    const current = requirementsByDemoApplicationId[activeApplicationId];
+    if (!current) return;
+
+    const result = await getDossierRequirements(current.applicationId);
+    if (result.status !== "success") {
+      toast.error(t("dossier.documents.toasts.refetchError"));
+      return;
+    }
+
+    setRequirementsByDemoApplicationId((prev) => ({
+      ...prev,
+      [activeApplicationId]: {
+        applicationId: current.applicationId,
+        requirementSlots: result.requirementSlots,
+        evidence: result.evidence,
+        loadError: false,
+      },
+    }));
   };
 
   const defaultTab = initialTab && VALID_TABS.includes(initialTab) ? initialTab : "resumen";
@@ -162,12 +229,11 @@ export function DossierView({
         </TabsContent>
 
         <TabsContent value="documentos" className="mt-4">
-          <DocumentsTab
+          <RequirementsTab
             application={application}
-            documents={documents}
-            onDocumentChange={handleDocumentChange}
+            requirementsData={activeRequirementsData}
+            onRefetch={handleRequirementsRefetch}
             onActivity={logActivity}
-            loadError={documentsLoadError}
           />
         </TabsContent>
 
