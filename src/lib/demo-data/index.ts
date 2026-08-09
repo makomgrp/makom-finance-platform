@@ -3,7 +3,6 @@ export * from "./companies";
 export * from "./clients";
 export * from "./applications";
 export * from "./documents";
-export * from "./notes";
 export * from "./alerts";
 export * from "./activities";
 export * from "./reports";

@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { getClientById } from "@/lib/demo-data";
+import { getNotesByClientId } from "@/lib/services/notes";
 import { DossierView } from "@/components/dossier/dossier-view";
 
 export default async function ExpedientePage({
@@ -15,5 +16,15 @@ export default async function ExpedientePage({
   const client = getClientById(id);
   if (!client) notFound();
 
-  return <DossierView clientId={client.id} initialTab={tab} initialApplicationId={solicitud} />;
+  const notesResult = await getNotesByClientId(client.id);
+
+  return (
+    <DossierView
+      clientId={client.id}
+      initialTab={tab}
+      initialApplicationId={solicitud}
+      initialNotes={notesResult.status === "ok" ? notesResult.notes : []}
+      notesLoadError={notesResult.status === "error"}
+    />
+  );
 }

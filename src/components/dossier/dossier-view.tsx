@@ -20,7 +20,6 @@ import {
   getClientById,
   getApplicationsByClientId,
   getDocumentsByApplicationId,
-  getNotesByClientId,
   getAlertsByClientId,
   getActivitiesByClientId,
 } from "@/lib/demo-data";
@@ -38,17 +37,25 @@ interface DossierViewProps {
   clientId: string;
   initialTab?: string;
   initialApplicationId?: string;
+  initialNotes: InternalNote[];
+  notesLoadError: boolean;
 }
 
 const VALID_TABS = ["resumen", "datos", "documentos", "notas", "alertas", "actividad"];
 
-export function DossierView({ clientId, initialTab, initialApplicationId }: DossierViewProps) {
+export function DossierView({
+  clientId,
+  initialTab,
+  initialApplicationId,
+  initialNotes,
+  notesLoadError,
+}: DossierViewProps) {
   const t = useTranslations();
   const [client, setClient] = useState<Client>(() => getClientById(clientId)!);
   const [applications, setApplications] = useState<LoanApplication[]>(() =>
     getApplicationsByClientId(clientId)
   );
-  const [notes, setNotes] = useState<InternalNote[]>(() => getNotesByClientId(clientId));
+  const [notes, setNotes] = useState<InternalNote[]>(initialNotes);
   const [alerts, setAlerts] = useState<ClientAlert[]>(() => getAlertsByClientId(clientId));
   const [activities, setActivities] = useState<ActivityEvent[]>(() =>
     getActivitiesByClientId(clientId)
@@ -154,10 +161,10 @@ export function DossierView({ clientId, initialTab, initialApplicationId }: Doss
         <TabsContent value="notas" className="mt-4">
           <NotesTab
             clientId={clientId}
-            applicationId={application?.id}
             notes={notes}
             onNotesChange={setNotes}
             onActivity={logActivity}
+            loadError={notesLoadError}
           />
         </TabsContent>
 

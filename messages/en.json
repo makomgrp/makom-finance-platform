@@ -285,7 +285,10 @@
       "save": "Save note",
       "emptyTitle": "No notes recorded",
       "emptyDescription": "No internal notes have been added for this client yet.",
-      "toastAdded": "Note added successfully."
+      "toastAdded": "Note added successfully.",
+      "toastError": "Could not save the note. Please try again.",
+      "loadErrorTitle": "Notes could not be loaded",
+      "loadErrorDescription": "There was a problem connecting to the server. Try reloading the page."
     },
     "alerts": {
       "title": "Alerts and Restrictions",

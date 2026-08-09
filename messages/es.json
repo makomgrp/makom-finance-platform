@@ -285,7 +285,10 @@
       "save": "Guardar nota",
       "emptyTitle": "Sin notas registradas",
       "emptyDescription": "Aún no se han añadido notas internas para este cliente.",
-      "toastAdded": "Nota agregada correctamente."
+      "toastAdded": "Nota agregada correctamente.",
+      "toastError": "No se pudo guardar la nota. Intente de nuevo.",
+      "loadErrorTitle": "No se pudieron cargar las notas",
+      "loadErrorDescription": "Ocurrió un error al conectar con el servidor. Intente recargar la página."
     },
     "alerts": {
       "title": "Alertas y restricciones",
