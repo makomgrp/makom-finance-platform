@@ -27,7 +27,8 @@ import {
 import { StatusBadge } from "@/components/shared/status-badge";
 import { EmptyState } from "@/components/shared/empty-state";
 import { NOTE_PRIORITY_BADGE_CLASS, NOTE_PRIORITY_VALUES, NOTE_TYPE_VALUES } from "@/lib/config/note";
-import { CURRENT_USER, getUserById } from "@/lib/demo-data";
+import { getUserById } from "@/lib/demo-data";
+import { useCurrentProfile } from "@/lib/auth/current-profile-context";
 import { formatDateTime } from "@/lib/format";
 import type { Locale } from "@/i18n/config";
 import type { ActivityEvent, InternalNote, NotePriority, NoteType } from "@/types";
@@ -47,6 +48,7 @@ interface NotesTabProps {
 export function NotesTab({ clientId, applicationId, notes, onNotesChange, onActivity }: NotesTabProps) {
   const locale = useLocale() as Locale;
   const t = useTranslations();
+  const profile = useCurrentProfile();
   const [open, setOpen] = useState(false);
   const [text, setText] = useState("");
   const [type, setType] = useState<NoteType>("general");
@@ -59,7 +61,7 @@ export function NotesTab({ clientId, applicationId, notes, onNotesChange, onActi
       clientId,
       applicationId,
       text,
-      authorId: CURRENT_USER.id,
+      authorId: profile.id,
       createdAt: new Date().toISOString(),
       type,
       priority,
@@ -160,7 +162,7 @@ export function NotesTab({ clientId, applicationId, notes, onNotesChange, onActi
       ) : (
         <div className="space-y-3">
           {notes.map((note) => {
-            const author = getUserById(note.authorId);
+            const author = note.authorId === profile.id ? profile : getUserById(note.authorId);
 
             return (
               <Card key={note.id}>

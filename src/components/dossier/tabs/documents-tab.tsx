@@ -17,7 +17,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { DOCUMENT_STATUS_BADGE_CLASS, DOCUMENT_STATUS_ORDER, DOCUMENT_TYPE_ORDER } from "@/lib/config/document";
-import { CURRENT_USER, getUserById } from "@/lib/demo-data";
+import { getUserById } from "@/lib/demo-data";
+import { useCurrentProfile } from "@/lib/auth/current-profile-context";
 import { formatDate } from "@/lib/format";
 import type { Locale } from "@/i18n/config";
 import type { ActivityEvent, DocumentRecord, DocumentStatus, LoanApplication } from "@/types";
@@ -41,6 +42,7 @@ export function DocumentsTab({
 }: DocumentsTabProps) {
   const locale = useLocale() as Locale;
   const t = useTranslations();
+  const profile = useCurrentProfile();
 
   if (!application) {
     return (
@@ -70,7 +72,7 @@ export function DocumentsTab({
   const handleStatusChange = (doc: DocumentRecord, status: DocumentStatus) => {
     updateDocument(doc.id, {
       status,
-      reviewedByUserId: CURRENT_USER.id,
+      reviewedByUserId: profile.id,
     });
     const label = t(`statuses.documentType.${doc.type}`);
     const statusLabel = t(`statuses.document.${status}`);
@@ -133,7 +135,11 @@ export function DocumentsTab({
         {orderedDocs.map((doc) => {
           const typeLabel = t(`statuses.documentType.${doc.type}`);
           const typeDescription = t(`statuses.documentType.${doc.type}_description`);
-          const reviewer = doc.reviewedByUserId ? getUserById(doc.reviewedByUserId) : undefined;
+          const reviewer = doc.reviewedByUserId
+            ? doc.reviewedByUserId === profile.id
+              ? profile
+              : getUserById(doc.reviewedByUserId)
+            : undefined;
 
           return (
             <Card key={doc.id}>

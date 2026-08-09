@@ -21,12 +21,13 @@ import type { SupportedLanguage, UserRole } from "@/types";
  *
  * Status: route protection (Milestone 4 — proxy.ts + src/app/(app)/layout.tsx),
  * shell/display identity (Milestone 5A — Topbar, Sidebar, MobileNav,
- * Settings > Profile, via src/lib/auth/current-profile-context.tsx), and
+ * Settings > Profile, via src/lib/auth/current-profile-context.tsx),
  * chat's acting-user identity (Milestone 5B — chat/actions.ts,
- * chat/page.tsx) all consume this resolver. Other write-attribution
- * modules (dossier notes, documents, alerts) still use CURRENT_USER/legacy
- * ids — see the Auth migration plan for when each is scheduled to adopt
- * this resolver.
+ * chat/page.tsx), and dossier write-attribution display (Milestone 5C —
+ * notes, documents, alerts tabs, via useCurrentProfile()) all consume this
+ * resolver. Those dossier writes remain local/in-memory only — no
+ * Supabase-backed persistence exists yet for notes, documents, or alerts;
+ * see the Auth migration plan for when that backend work is scheduled.
  *
  * Wrapped in React's cache() (below) so multiple call sites within the same
  * request (e.g. the (app) layout AND chat/page.tsx, both Server Components

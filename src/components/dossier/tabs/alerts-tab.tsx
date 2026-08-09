@@ -28,7 +28,8 @@ import {
 import { StatusBadge } from "@/components/shared/status-badge";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ALERT_LEVEL_BADGE_CLASS, ALERT_LEVEL_VALUES, ALERT_TYPE_VALUES } from "@/lib/config/alert";
-import { CURRENT_USER, getUserById } from "@/lib/demo-data";
+import { getUserById } from "@/lib/demo-data";
+import { useCurrentProfile } from "@/lib/auth/current-profile-context";
 import { formatDate } from "@/lib/format";
 import type { Locale } from "@/i18n/config";
 import type { ActivityEvent, AlertLevel, AlertType, ClientAlert } from "@/types";
@@ -47,6 +48,7 @@ interface AlertsTabProps {
 export function AlertsTab({ clientId, alerts, onAlertsChange, onActivity }: AlertsTabProps) {
   const locale = useLocale() as Locale;
   const t = useTranslations();
+  const profile = useCurrentProfile();
   const [open, setOpen] = useState(false);
   const [type, setType] = useState<AlertType>("revision_especial");
   const [level, setLevel] = useState<AlertLevel>("bajo");
@@ -63,7 +65,7 @@ export function AlertsTab({ clientId, alerts, onAlertsChange, onActivity }: Aler
       reason,
       observation: observation || undefined,
       date: new Date().toISOString(),
-      responsibleUserId: CURRENT_USER.id,
+      responsibleUserId: profile.id,
       active: true,
     };
     onAlertsChange([alert, ...alerts]);
@@ -179,7 +181,8 @@ export function AlertsTab({ clientId, alerts, onAlertsChange, onActivity }: Aler
       ) : (
         <div className="space-y-3">
           {alerts.map((alert) => {
-            const responsible = getUserById(alert.responsibleUserId);
+            const responsible =
+              alert.responsibleUserId === profile.id ? profile : getUserById(alert.responsibleUserId);
 
             return (
               <Card key={alert.id}>
