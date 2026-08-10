@@ -105,6 +105,7 @@
       "newApplications": "New applications",
       "documentsAwaitingReview": "Documents awaiting review",
       "documentsAwaitingReviewUnavailable": "Unavailable",
+      "applicationsUnavailable": "Unavailable",
       "applicationsUnderReview": "Applications under review",
       "approvedApplications": "Approved applications",
       "notEligibleApplications": "Not eligible applications"
