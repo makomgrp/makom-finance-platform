@@ -65,13 +65,37 @@
     "password": "Contraseña",
     "rememberMe": "Recordarme",
     "forgotPassword": "¿Olvidó su contraseña?",
-    "forgotPasswordToast": "Recuperación de contraseña no disponible en esta fase de demostración.",
     "submit": "Iniciar sesión",
     "submitting": "Ingresando...",
+    "invalidCredentials": "Correo electrónico o contraseña incorrectos, o no tiene acceso a este sistema.",
     "privateNotice": "Sistema privado para personal autorizado de ODL Financial Corporation.",
     "brandTagline": "Gestión ordenada y segura de clientes y solicitudes de préstamo.",
     "brandDescription": "Una plataforma interna para el equipo de ODL Financial Corporation: expedientes, documentos, alertas y seguimiento de solicitudes en un solo lugar.",
     "demoEnvironmentNotice": "Entorno de demostración interno — datos ficticios."
+  },
+  "forgotPassword": {
+    "title": "Recuperar contraseña",
+    "subtitle": "Ingrese su correo electrónico y le enviaremos un enlace para restablecer su contraseña.",
+    "email": "Correo electrónico",
+    "submit": "Enviar enlace",
+    "submitting": "Enviando...",
+    "successMessage": "Si existe una cuenta con ese correo electrónico, se ha enviado un enlace para restablecer la contraseña.",
+    "backToLogin": "Volver al inicio de sesión"
+  },
+  "resetPassword": {
+    "title": "Restablecer contraseña",
+    "subtitle": "Ingrese su nueva contraseña.",
+    "newPassword": "Nueva contraseña",
+    "confirmPassword": "Confirmar contraseña",
+    "submit": "Guardar nueva contraseña",
+    "submitting": "Guardando...",
+    "successMessage": "Su contraseña se actualizó correctamente. Ya puede iniciar sesión.",
+    "errorMessage": "No se pudo actualizar la contraseña. Intente nuevamente.",
+    "passwordMismatch": "Las contraseñas no coinciden.",
+    "passwordTooShort": "La contraseña debe tener al menos 8 caracteres.",
+    "linkInvalid": "Este enlace no es válido o ha expirado. Solicite uno nuevo.",
+    "backToLogin": "Volver al inicio de sesión",
+    "requestNewLink": "Solicitar nuevo enlace"
   },
   "dashboard": {
     "title": "Dashboard",
@@ -79,7 +103,9 @@
     "kpis": {
       "registeredClients": "Clientes registrados",
       "newApplications": "Solicitudes nuevas",
-      "pendingDocuments": "Documentos pendientes",
+      "documentsAwaitingReview": "Documentos por revisar",
+      "documentsAwaitingReviewUnavailable": "No disponible",
+      "applicationsUnavailable": "No disponible",
       "applicationsUnderReview": "Solicitudes en evaluación",
       "approvedApplications": "Solicitudes aprobadas",
       "notEligibleApplications": "Solicitudes que no aplican"
@@ -159,6 +185,8 @@
     "emptyTitle": "No se encontraron solicitudes",
     "emptyDescription": "Ajuste la búsqueda o los filtros para ver más resultados.",
     "noApplicationsInColumn": "Sin solicitudes",
+    "loadErrorTitle": "No se pudieron cargar las solicitudes",
+    "loadErrorDescription": "Ocurrió un error al conectar con el servidor. Intente recargar la página.",
     "columns": {
       "number": "N.º de solicitud",
       "client": "Cliente",
@@ -176,7 +204,8 @@
       "moveTo": "Mover a..."
     },
     "toasts": {
-      "statusChanged": "Solicitud movida a \"{status}\"."
+      "statusChanged": "Solicitud movida a \"{status}\".",
+      "statusChangeError": "No se pudo cambiar el estado. Intente nuevamente."
     }
   },
   "dossier": {
@@ -211,6 +240,7 @@
       "documentSetComplete": "Expediente documental completo",
       "documentsPendingHint": "Aún faltan documentos por verificar. Revise la pestaña Documentos.",
       "noApplicationDocuments": "Este cliente no tiene una solicitud asociada con requisitos documentales.",
+      "noDocumentRequirements": "Esta solicitud no tiene requisitos documentales.",
       "lastUpdate": "Última actualización"
     },
     "personalData": {
@@ -240,14 +270,44 @@
       "notReceived": "Aún no recibido",
       "reviewedBy": "Revisado por {name}",
       "view": "Ver",
+      "upload": "Subir documento",
       "replace": "Reemplazar",
       "changeStatus": "Cambiar estado",
       "newStatus": "Nuevo estado",
+      "viewDialogTitle": "Vista previa del documento",
+      "openInNewTab": "Abrir en pestaña nueva",
+      "loadErrorTitle": "No se pudieron cargar los documentos",
+      "loadErrorDescription": "Ocurrió un error al conectar con el servidor. Intente recargar la página.",
+      "notMigratedTitle": "Aún no disponible en el nuevo modelo",
+      "notMigratedDescription": "Esta solicitud todavía no tiene una Solicitud real vinculada, por lo que sus requisitos no se pueden mostrar aquí todavía.",
+      "required": "Obligatorio",
+      "optional": "Opcional",
+      "addEvidence": "Agregar evidencia",
+      "noEvidenceYet": "Aún no se ha subido evidencia para este requisito.",
+      "uploadedOn": "Subido: {date}",
+      "reviewedOn": "Revisado: {date}",
+      "review": "Marcar como revisado",
+      "alreadyReviewed": "Esta evidencia ya fue revisada.",
+      "supersededBadge": "Reemplazado",
+      "viewHistory": "Ver historial ({count})",
       "toasts": {
         "notReceivedYet": "Este documento aún no ha sido recibido.",
-        "previewSimulated": "Vista previa simulada: {fileName}",
+        "uploaded": "{document}: documento subido correctamente.",
         "statusUpdated": "{document}: estado actualizado a \"{status}\".",
-        "replaced": "{document} reemplazado (simulado). Pendiente de revisión."
+        "replaced": "{document}: documento reemplazado correctamente.",
+        "uploadError": "No se pudo subir el documento. Intente de nuevo.",
+        "invalidFileType": "Tipo de archivo no permitido. Use PDF, JPG, PNG o WEBP.",
+        "fileTooLarge": "El archivo supera el límite de 20 MB.",
+        "statusChangeError": "No se pudo actualizar el estado. Intente de nuevo.",
+        "viewError": "No se pudo abrir el documento. Intente de nuevo.",
+        "evidenceUploaded": "{requirement}: evidencia subida correctamente.",
+        "evidenceUploadPartial": "Evidencia subida, pero no se pudo actualizar el estado del requisito. Actualice la página para confirmar.",
+        "evidenceUploadError": "No se pudo subir la evidencia. Intente de nuevo.",
+        "evidenceReviewed": "Evidencia marcada como revisada.",
+        "evidenceReviewError": "No se pudo marcar la evidencia como revisada. Intente de nuevo.",
+        "requirementStatusUpdated": "{requirement}: estado actualizado a \"{status}\".",
+        "requirementStatusError": "No se pudo actualizar el estado del requisito. Intente de nuevo.",
+        "refetchError": "No se pudo actualizar la información. Intente recargar la página."
       }
     },
     "notes": {
@@ -261,7 +321,10 @@
       "save": "Guardar nota",
       "emptyTitle": "Sin notas registradas",
       "emptyDescription": "Aún no se han añadido notas internas para este cliente.",
-      "toastAdded": "Nota agregada correctamente."
+      "toastAdded": "Nota agregada correctamente.",
+      "toastError": "No se pudo guardar la nota. Intente de nuevo.",
+      "loadErrorTitle": "No se pudieron cargar las notas",
+      "loadErrorDescription": "Ocurrió un error al conectar con el servidor. Intente recargar la página."
     },
     "alerts": {
       "title": "Alertas y restricciones",
@@ -283,7 +346,11 @@
       "responsible": "Responsable",
       "toastAdded": "Alerta registrada correctamente.",
       "toastResolved": "Alerta marcada como resuelta.",
-      "toastReactivated": "Alerta reactivada."
+      "toastReactivated": "Alerta reactivada.",
+      "toastError": "No se pudo registrar la alerta. Intente de nuevo.",
+      "toastResolveError": "No se pudo actualizar la alerta. Intente de nuevo.",
+      "loadErrorTitle": "No se pudieron cargar las alertas",
+      "loadErrorDescription": "Ocurrió un error al conectar con el servidor. Intente recargar la página."
     },
     "activity": {
       "emptyTitle": "Sin actividad registrada",
@@ -292,28 +359,27 @@
   },
   "documentsModule": {
     "title": "Documentos",
-    "description": "Vista general de los documentos recibidos y su estado de revisión.",
-    "searchPlaceholder": "Buscar cliente o solicitud...",
-    "allTypes": "Todos los tipos",
+    "description": "Vista operativa global de los requisitos documentales y su evidencia en todas las solicitudes.",
+    "searchPlaceholder": "Buscar cliente, solicitud o requisito...",
     "allStatuses": "Todos los estados",
     "allAdvisors": "Todos los asesores",
-    "emptyTitle": "No se encontraron documentos",
+    "allReviewStates": "Todas",
+    "reviewedFilter": "Revisado",
+    "needsReviewFilter": "Pendiente de revisión",
+    "emptyTitle": "No se encontraron requisitos",
     "emptyDescription": "Ajuste la búsqueda o los filtros para ver más resultados.",
+    "noEvidence": "Sin evidencia",
     "columns": {
       "client": "Cliente",
       "application": "Solicitud",
-      "documentType": "Tipo de documento",
+      "requirement": "Requisito",
       "status": "Estado",
-      "receivedAt": "Fecha de recepción",
-      "reviewer": "Revisor",
+      "evidence": "Evidencia",
       "actions": "Acciones"
     },
-    "menuLabel": "Documento",
-    "viewDocument": "Ver documento",
     "viewDossier": "Ver expediente",
     "toasts": {
-      "previewSimulated": "Vista previa simulada: {fileName}",
-      "notReceivedYet": "Este documento aún no ha sido recibido."
+      "refetchError": "No se pudo actualizar la información. Intente recargar la página."
     }
   },
   "alertsModule": {
@@ -321,6 +387,7 @@
     "description": "Seguimiento de alertas internas registradas sobre los clientes.",
     "activeAlerts": "Alertas activas",
     "resolvedAlerts": "Alertas resueltas",
+    "summaryLoadError": "No se pudieron cargar los totales. Intente recargar la página.",
     "levelLabel": "Nivel {level}",
     "searchPlaceholder": "Buscar cliente o motivo...",
     "filterAll": "Todas",
@@ -330,6 +397,8 @@
     "allTypes": "Todos los tipos",
     "emptyTitle": "No se encontraron alertas",
     "emptyDescription": "Ajuste la búsqueda o los filtros para ver más resultados.",
+    "loadErrorTitle": "No se pudieron cargar las alertas",
+    "loadErrorDescription": "Ocurrió un error al conectar con el servidor. Intente recargar la página.",
     "columns": {
       "client": "Cliente",
       "type": "Tipo",
@@ -347,7 +416,8 @@
     "resolved": "Resuelta",
     "toasts": {
       "resolved": "Alerta marcada como resuelta.",
-      "reactivated": "Alerta reactivada."
+      "reactivated": "Alerta reactivada.",
+      "error": "No se pudo actualizar la alerta. Intente de nuevo."
     }
   },
   "reports": {
@@ -384,8 +454,8 @@
     "tabs": {
       "profile": "Perfil",
       "users": "Usuarios y roles",
+      "products": "Productos",
       "applicationStatuses": "Estados de solicitudes",
-      "loanTypes": "Tipos de préstamos",
       "documentTypes": "Tipos de documentos",
       "companies": "Empresas",
       "notifications": "Notificaciones",
@@ -411,15 +481,119 @@
         "status": "Estado"
       },
       "active": "Activo",
-      "inactive": "Inactivo"
+      "inactive": "Inactivo",
+      "loadErrorTitle": "No se pudo cargar el directorio de usuarios",
+      "loadErrorDescription": "No fue posible conectar con la base de datos. Intenta recargar la página; si el problema persiste, contacta al equipo técnico."
+    },
+    "products": {
+      "title": "Productos",
+      "description": "Productos financieros configurables que ofrece la institución.",
+      "newProduct": "Nuevo producto",
+      "createDialogTitle": "Nuevo producto",
+      "editDialogTitle": "Editar producto",
+      "dialogDescription": "El código identifica el producto de forma permanente para integraciones futuras (formulario web, WhatsApp). El nombre y la descripción se muestran a los usuarios.",
+      "code": "Código",
+      "codeHint": "Minúsculas, sin espacios (ej. personal_loan). No se podrá modificar después.",
+      "nameEs": "Nombre (Español)",
+      "nameEn": "Nombre (Inglés)",
+      "descriptionEs": "Descripción (Español)",
+      "descriptionEn": "Descripción (Inglés)",
+      "cancel": "Cancelar",
+      "createProduct": "Crear producto",
+      "saveChanges": "Guardar cambios",
+      "edit": "Editar",
+      "activate": "Activar",
+      "deactivate": "Desactivar",
+      "reactivate": "Reactivar",
+      "moveUp": "Mover hacia arriba",
+      "moveDown": "Mover hacia abajo",
+      "columns": {
+        "code": "Código",
+        "name": "Nombre",
+        "status": "Estado",
+        "order": "Orden",
+        "actions": "Acciones"
+      },
+      "emptyTitle": "No hay productos configurados",
+      "emptyDescription": "Cree el primer producto financiero para comenzar.",
+      "loadErrorTitle": "No se pudieron cargar los productos",
+      "loadErrorDescription": "No fue posible conectar con la base de datos. Intenta recargar la página; si el problema persiste, contacta al equipo técnico.",
+      "toasts": {
+        "invalidForm": "Complete el nombre en ambos idiomas. La descripción debe completarse en ambos idiomas o dejarse vacía.",
+        "invalidCode": "El código debe estar en minúsculas, sin espacios (ej. personal_loan).",
+        "duplicateCode": "Ya existe un producto con ese código.",
+        "createError": "No se pudo crear el producto. Intente de nuevo.",
+        "created": "{name}: producto creado correctamente.",
+        "updateError": "No se pudo actualizar el producto. Intente de nuevo.",
+        "updated": "{name}: producto actualizado correctamente.",
+        "statusChangeError": "No se pudo actualizar el estado del producto. Intente de nuevo.",
+        "statusUpdated": "{name}: estado actualizado a \"{status}\".",
+        "reorderError": "No se pudo reordenar el producto. Intente de nuevo.",
+        "viewRequirements": "Requisitos"
+      }
+    },
+    "productDetail": {
+      "backToProducts": "Volver a productos",
+      "code": "Código",
+      "status": "Estado",
+      "loadErrorTitle": "No se pudo cargar el producto",
+      "loadErrorDescription": "No fue posible conectar con la base de datos, o el producto no existe. Intenta recargar la página; si el problema persiste, contacta al equipo técnico.",
+      "requirements": {
+        "title": "Requisitos",
+        "description": "Requisitos configurables para este producto.",
+        "newRequirement": "Nuevo requisito",
+        "createDialogTitle": "Nuevo requisito",
+        "editDialogTitle": "Editar requisito",
+        "dialogDescription": "El código y el tipo identifican el requisito de forma permanente. El nombre, la descripción y si es obligatorio pueden editarse en cualquier momento.",
+        "code": "Código",
+        "codeHint": "Minúsculas, sin espacios (ej. salary_letter). No se podrá modificar después.",
+        "kind": "Tipo de requisito",
+        "nameEs": "Nombre (Español)",
+        "nameEn": "Nombre (Inglés)",
+        "descriptionEs": "Descripción (Español)",
+        "descriptionEn": "Descripción (Inglés)",
+        "required": "Obligatorio",
+        "cancel": "Cancelar",
+        "createRequirement": "Crear requisito",
+        "saveChanges": "Guardar cambios",
+        "edit": "Editar",
+        "activate": "Activar",
+        "deactivate": "Desactivar",
+        "reactivate": "Reactivar",
+        "moveUp": "Mover hacia arriba",
+        "moveDown": "Mover hacia abajo",
+        "columns": {
+          "code": "Código",
+          "name": "Nombre",
+          "kind": "Tipo",
+          "required": "Obligatorio",
+          "status": "Estado",
+          "order": "Orden",
+          "actions": "Acciones"
+        },
+        "requiredYes": "Sí",
+        "requiredNo": "No",
+        "emptyTitle": "No hay requisitos configurados",
+        "emptyDescription": "Cree el primer requisito para este producto.",
+        "loadErrorTitle": "No se pudieron cargar los requisitos",
+        "loadErrorDescription": "No fue posible conectar con la base de datos. Intenta recargar la página; si el problema persiste, contacta al equipo técnico.",
+        "toasts": {
+          "invalidForm": "Complete el nombre y la descripción en ambos idiomas (español e inglés).",
+          "invalidCode": "El código debe estar en minúsculas, sin espacios (ej. salary_letter).",
+          "duplicateCode": "Ya existe un requisito con ese código para este producto.",
+          "createError": "No se pudo crear el requisito. Intente de nuevo.",
+          "created": "{name}: requisito creado correctamente.",
+          "updateError": "No se pudo actualizar el requisito. Intente de nuevo.",
+          "updated": "{name}: requisito actualizado correctamente.",
+          "statusChangeError": "No se pudo actualizar el estado del requisito. Intente de nuevo.",
+          "statusUpdated": "{name}: estado actualizado a \"{status}\".",
+          "reorderError": "No se pudo reordenar el requisito. Intente de nuevo."
+        }
+      }
     },
     "applicationStatuses": {
       "title": "Estados de solicitudes",
       "description": "Estados disponibles para el ciclo de vida de una solicitud de préstamo."
-    },
-    "loanTypes": {
-      "title": "Tipos de préstamos",
-      "description": "Modalidades de préstamo disponibles en ODL Financial Corporation."
     },
     "documentTypes": {
       "title": "Tipos de documentos",
@@ -478,8 +652,11 @@
     "translatedAutomatically": "Traducido automáticamente",
     "translationUnavailable": "Traducción no disponible",
     "retry": "Reintentar",
+    "sendFailed": "No enviado",
     "emptyConversationTitle": "Aún no hay mensajes",
     "emptyConversationDescription": "Escribe el primer mensaje para iniciar la conversación.",
+    "loadErrorTitle": "No se pudo cargar el chat",
+    "loadErrorDescription": "No fue posible conectar con la base de datos. Intenta recargar la página; si el problema persiste, contacta al equipo técnico.",
     "unread": "{count} sin leer",
     "languageNames": {
       "en": "inglés",
@@ -509,15 +686,6 @@
       "restringido": "Restringido",
       "inactivo": "Inactivo"
     },
-    "loanApplication": {
-      "nueva": "Nueva",
-      "pendiente_documentos": "Pendiente de documentos",
-      "documentacion_completa": "Documentación completa",
-      "en_evaluacion": "En evaluación",
-      "aprobada": "Aprobada",
-      "no_aplica": "No aplica",
-      "cancelada": "Cancelada"
-    },
     "document": {
       "pendiente": "Pendiente",
       "recibido": "Recibido",
@@ -542,12 +710,6 @@
       "revision_especial": "Revisión especial",
       "restriccion_interna": "Restricción interna"
     },
-    "loanType": {
-      "descuento_directo": "Préstamo con descuento directo",
-      "debito_bancario": "Préstamo mediante débito bancario",
-      "garantia_vehicular": "Préstamo con garantía vehicular",
-      "empresarial": "Préstamo empresarial"
-    },
     "documentType": {
       "cedula_pasaporte": "Cédula de identidad o pasaporte",
       "cedula_pasaporte_description": "Documento de identificación vigente del solicitante.",
@@ -561,6 +723,42 @@
       "recibo_servicios_description": "Comprobante de domicilio vigente.",
       "confirmacion_descuento": "Confirmación de descuento directo",
       "confirmacion_descuento_description": "Confirmación de si la empresa realiza descuentos directos."
+    },
+    "productStatus": {
+      "draft": "Borrador",
+      "active": "Activo",
+      "inactive": "Inactivo"
+    },
+    "requirementStatus": {
+      "draft": "Borrador",
+      "active": "Activo",
+      "inactive": "Inactivo"
+    },
+    "requirementKind": {
+      "document": "Documento",
+      "phone_verification": "Verificación telefónica",
+      "apc_check": "Consulta APC",
+      "visit": "Visita",
+      "internal_approval": "Aprobación interna",
+      "ai_review": "Validación con IA",
+      "signature": "Firma",
+      "manual_confirmation": "Confirmación manual"
+    },
+    "requirementSlotStatus": {
+      "pending": "Pendiente",
+      "submitted": "Enviado",
+      "under_review": "En revisión",
+      "satisfied": "Satisfecho",
+      "rejected": "Rechazado",
+      "waived": "Exonerado",
+      "missing": "Faltante"
+    },
+    "applicationStatus": {
+      "new": "Nueva",
+      "in_review": "En evaluación",
+      "approved": "Aprobada",
+      "not_eligible": "No elegible",
+      "cancelled": "Cancelada"
     }
   },
   "roles": {

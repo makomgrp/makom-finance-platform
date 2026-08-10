@@ -21,6 +21,12 @@ interface MessageBubbleProps {
   hasTranslationError?: boolean;
   /** Retries a failed translation. Omit if retry isn't wired up. */
   onRetryTranslation?: () => void;
+  /** True when persisting this message to the database failed. Distinct
+   * from translation failure — a message can fail to send before
+   * translation is ever relevant. */
+  hasSendError?: boolean;
+  /** Retries persisting a failed send. Omit if retry isn't wired up. */
+  onRetrySend?: () => void;
 }
 
 export function MessageBubble({
@@ -31,6 +37,8 @@ export function MessageBubble({
   isTranslating = false,
   hasTranslationError = false,
   onRetryTranslation,
+  hasSendError = false,
+  onRetrySend,
 }: MessageBubbleProps) {
   const locale = useLocale() as Locale;
   const t = useTranslations();
@@ -66,32 +74,50 @@ export function MessageBubble({
       <div className="mt-1 flex items-center gap-1.5 px-1 text-[11px] text-muted-foreground">
         <span>{formatDateTime(message.createdAt, locale)}</span>
 
-        {display.isPending && (
+        {isOwn && hasSendError ? (
           <>
             <span aria-hidden>·</span>
-            <span className="italic">
-              {isOwn && isTranslating
-                ? t("chat.translating")
-                : isOwn && hasTranslationError
-                  ? t("chat.translationUnavailable")
-                  : t("chat.translationPending")}
-            </span>
-            {isOwn && hasTranslationError && onRetryTranslation && (
+            <span className="italic text-destructive">{t("chat.sendFailed")}</span>
+            {onRetrySend && (
               <button
                 type="button"
-                onClick={onRetryTranslation}
+                onClick={onRetrySend}
                 className="font-medium text-primary hover:underline"
               >
                 {t("chat.retry")}
               </button>
             )}
           </>
-        )}
-
-        {ownTranslated && (
+        ) : (
           <>
-            <span aria-hidden>·</span>
-            <span>{t("chat.translatedAutomatically")}</span>
+            {display.isPending && (
+              <>
+                <span aria-hidden>·</span>
+                <span className="italic">
+                  {isOwn && isTranslating
+                    ? t("chat.translating")
+                    : isOwn && hasTranslationError
+                      ? t("chat.translationUnavailable")
+                      : t("chat.translationPending")}
+                </span>
+                {isOwn && hasTranslationError && onRetryTranslation && (
+                  <button
+                    type="button"
+                    onClick={onRetryTranslation}
+                    className="font-medium text-primary hover:underline"
+                  >
+                    {t("chat.retry")}
+                  </button>
+                )}
+              </>
+            )}
+
+            {ownTranslated && (
+              <>
+                <span aria-hidden>·</span>
+                <span>{t("chat.translatedAutomatically")}</span>
+              </>
+            )}
           </>
         )}
 

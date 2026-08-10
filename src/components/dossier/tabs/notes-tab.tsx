@@ -27,14 +27,13 @@ import {
 import { StatusBadge } from "@/components/shared/status-badge";
 import { EmptyState } from "@/components/shared/empty-state";
 import { NOTE_PRIORITY_BADGE_CLASS, NOTE_PRIORITY_VALUES, NOTE_TYPE_VALUES } from "@/lib/config/note";
-import { CURRENT_USER, getUserById } from "@/lib/demo-data";
+import { createDossierNote } from "@/app/(app)/expedientes/actions";
 import { formatDateTime } from "@/lib/format";
 import type { Locale } from "@/i18n/config";
 import type { ActivityEvent, InternalNote, NotePriority, NoteType } from "@/types";
 
 interface NotesTabProps {
   clientId: string;
-  applicationId?: string;
   notes: InternalNote[];
   onNotesChange: (notes: InternalNote[]) => void;
   onActivity: (
@@ -42,29 +41,33 @@ interface NotesTabProps {
     params: Record<string, string> | undefined,
     type: ActivityEvent["type"]
   ) => void;
+  /** True when the initial server-side load of this client's notes failed.
+   * Never silently falls back to an empty/demo state — see the Milestone 6
+   * architecture review's failure-state design. */
+  loadError: boolean;
 }
 
-export function NotesTab({ clientId, applicationId, notes, onNotesChange, onActivity }: NotesTabProps) {
+export function NotesTab({ clientId, notes, onNotesChange, onActivity, loadError }: NotesTabProps) {
   const locale = useLocale() as Locale;
   const t = useTranslations();
   const [open, setOpen] = useState(false);
   const [text, setText] = useState("");
   const [type, setType] = useState<NoteType>("general");
   const [priority, setPriority] = useState<NotePriority>("media");
+  const [submitting, setSubmitting] = useState(false);
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const note: InternalNote = {
-      id: `note-demo-${Date.now()}`,
-      clientId,
-      applicationId,
-      text,
-      authorId: CURRENT_USER.id,
-      createdAt: new Date().toISOString(),
-      type,
-      priority,
-    };
-    onNotesChange([note, ...notes]);
+    setSubmitting(true);
+    const result = await createDossierNote({ clientId, text, type, priority });
+    setSubmitting(false);
+
+    if (result.status !== "success") {
+      toast.error(t("dossier.notes.toastError"));
+      return;
+    }
+
+    onNotesChange([result.note, ...notes]);
     onActivity("noteAdded", undefined, "nota_agregada");
     toast.success(t("dossier.notes.toastAdded"));
     setText("");
@@ -144,14 +147,22 @@ export function NotesTab({ clientId, applicationId, notes, onNotesChange, onActi
                 <Button type="button" variant="outline" onClick={() => setOpen(false)}>
                   {t("dossier.notes.cancel")}
                 </Button>
-                <Button type="submit">{t("dossier.notes.save")}</Button>
+                <Button type="submit" disabled={submitting}>
+                  {t("dossier.notes.save")}
+                </Button>
               </DialogFooter>
             </form>
           </DialogContent>
         </Dialog>
       </div>
 
-      {notes.length === 0 ? (
+      {loadError ? (
+        <EmptyState
+          icon={StickyNote}
+          title={t("dossier.notes.loadErrorTitle")}
+          description={t("dossier.notes.loadErrorDescription")}
+        />
+      ) : notes.length === 0 ? (
         <EmptyState
           icon={StickyNote}
           title={t("dossier.notes.emptyTitle")}
@@ -159,30 +170,26 @@ export function NotesTab({ clientId, applicationId, notes, onNotesChange, onActi
         />
       ) : (
         <div className="space-y-3">
-          {notes.map((note) => {
-            const author = getUserById(note.authorId);
-
-            return (
-              <Card key={note.id}>
-                <CardContent>
-                  <div className="mb-2 flex flex-wrap items-center gap-2">
-                    <StatusBadge
-                      label={t(`statuses.noteType.${note.type}`)}
-                      className="bg-secondary text-secondary-foreground border-border"
-                    />
-                    <StatusBadge
-                      label={t(`statuses.notePriority.${note.priority}`)}
-                      className={NOTE_PRIORITY_BADGE_CLASS[note.priority]}
-                    />
-                  </div>
-                  <p className="text-sm text-foreground">{note.text}</p>
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    {author?.fullName ?? "—"} · {formatDateTime(note.createdAt, locale)}
-                  </p>
-                </CardContent>
-              </Card>
-            );
-          })}
+          {notes.map((note) => (
+            <Card key={note.id}>
+              <CardContent>
+                <div className="mb-2 flex flex-wrap items-center gap-2">
+                  <StatusBadge
+                    label={t(`statuses.noteType.${note.type}`)}
+                    className="bg-secondary text-secondary-foreground border-border"
+                  />
+                  <StatusBadge
+                    label={t(`statuses.notePriority.${note.priority}`)}
+                    className={NOTE_PRIORITY_BADGE_CLASS[note.priority]}
+                  />
+                </div>
+                <p className="text-sm text-foreground">{note.text}</p>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  {note.authorFullName} · {formatDateTime(note.createdAt, locale)}
+                </p>
+              </CardContent>
+            </Card>
+          ))}
         </div>
       )}
     </div>

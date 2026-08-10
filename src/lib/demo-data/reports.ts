@@ -1,4 +1,4 @@
-import type { LoanStatus } from "@/types";
+import type { ApplicationStatus } from "@/types";
 
 export const REPORT_SUMMARY = {
   applicationsReceived: 42,
@@ -24,9 +24,9 @@ export const ADVISOR_PRODUCTIVITY = [
   { advisorName: "Diego Espino", applications: 12, approved: 5, avgDaysToClose: 24 },
 ];
 
-export const AVERAGE_TIME_BETWEEN_STATES: { from: LoanStatus; to: LoanStatus; avgDays: number }[] = [
-  { from: "nueva", to: "pendiente_documentos", avgDays: 1.5 },
-  { from: "pendiente_documentos", to: "documentacion_completa", avgDays: 6 },
-  { from: "documentacion_completa", to: "en_evaluacion", avgDays: 3 },
-  { from: "en_evaluacion", to: "aprobada", avgDays: 5 },
+export const AVERAGE_TIME_BETWEEN_STATES: { from: ApplicationStatus; to: ApplicationStatus; avgDays: number }[] = [
+  { from: "new", to: "in_review", avgDays: 1.5 },
+  { from: "in_review", to: "approved", avgDays: 6 },
+  { from: "in_review", to: "not_eligible", avgDays: 3 },
+  { from: "in_review", to: "cancelled", avgDays: 5 },
 ];

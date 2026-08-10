@@ -1,5 +1,12 @@
-import type { DocumentStatus, DocumentType } from "@/types";
+import type { DocumentType } from "@/types";
 
+/**
+ * Milestone 12E4: every other export this file had (the legacy
+ * DocumentStatus badge/order/transition constants) was retired along with
+ * dossier_documents.status and src/lib/services/documents.ts. This one
+ * survives because src/app/(app)/configuracion/page.tsx's Settings >
+ * Document Types catalog tab still renders it, read-only.
+ */
 export const DOCUMENT_TYPE_ORDER: DocumentType[] = [
   "cedula_pasaporte",
   "carta_trabajo",
@@ -7,22 +14,4 @@ export const DOCUMENT_TYPE_ORDER: DocumentType[] = [
   "comprobante_pago",
   "recibo_servicios",
   "confirmacion_descuento",
-];
-
-export const DOCUMENT_STATUS_BADGE_CLASS: Record<DocumentStatus, string> = {
-  pendiente: "bg-muted text-muted-foreground border-border",
-  recibido: "bg-primary/10 text-primary border-primary/20",
-  en_revision: "bg-warning/10 text-warning border-warning/20",
-  verificado: "bg-success/10 text-success border-success/20",
-  rechazado: "bg-destructive/10 text-destructive border-destructive/20",
-  requiere_actualizacion: "bg-warning/10 text-warning border-warning/20",
-};
-
-export const DOCUMENT_STATUS_ORDER: DocumentStatus[] = [
-  "pendiente",
-  "recibido",
-  "en_revision",
-  "verificado",
-  "rechazado",
-  "requiere_actualizacion",
 ];

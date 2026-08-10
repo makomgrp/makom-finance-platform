@@ -1,0 +1,56 @@
+import type { ApplicationStatus } from "@/types";
+
+export const APPLICATION_STATUS_ORDER: ApplicationStatus[] = [
+  "new",
+  "in_review",
+  "approved",
+  "not_eligible",
+  "cancelled",
+];
+
+// Legal transitions only. approved / not_eligible / cancelled are treated
+// as terminal (no outgoing transitions) — deliberately conservative for
+// this first implementation, same posture already used for requirement_
+// slots' satisfied/waived. If a real business need for reopening a
+// terminal application ever emerges, that is a deliberate future change
+// to make on its own merits, not a default capability. "new" never
+// appears as a target anywhere: it is only ever the initial
+// (column-default) state an application is created in — see the
+// applications table migration's comment on applications_status_new_
+// pair_check for why that invariant depends on this. See the Milestone
+// 11 architecture review's "Lifecycle" section for what each state means.
+export const APPLICATION_STATUS_TRANSITIONS: Record<ApplicationStatus, ApplicationStatus[]> = {
+  new: ["in_review", "cancelled"],
+  in_review: ["approved", "not_eligible", "cancelled"],
+  approved: [],
+  not_eligible: [],
+  cancelled: [],
+};
+
+// Every status a staff member may deliberately choose as a target,
+// excluding "new" — which, per the invariant above, is only ever the
+// initial state an application is created in and never a legal target
+// from any state. Mirrors REQUIREMENT_SLOT_STATUS_TRANSITIONABLE's exact
+// role in src/lib/config/requirement-slot.ts (a fixed allow-list for a
+// "change status" menu) — added now, in Milestone 13B, ahead of the UI
+// that will use it, since it belongs beside APPLICATION_STATUS_TRANSITIONS
+// and has no reason to wait for that UI to exist.
+export const APPLICATION_STATUS_TRANSITIONABLE: ApplicationStatus[] = APPLICATION_STATUS_ORDER.filter(
+  (status) => status !== "new"
+);
+
+// Same semantic-color convention used throughout this schema (see
+// REQUIREMENT_SLOT_STATUS_BADGE_CLASS, LOAN_STATUS_BADGE_CLASS): secondary
+// for the initial state, navy for "actively being worked on," success for
+// the positive terminal outcome. not_eligible is a negative DETERMINATION
+// about the applicant (closer to requirement_slots' "rejected" than to a
+// neutral exemption), so it takes destructive rather than muted; cancelled
+// is an administrative/neutral closure with no judgment implied, so it
+// takes the same muted treatment "waived" gets for requirement slots.
+export const APPLICATION_STATUS_BADGE_CLASS: Record<ApplicationStatus, string> = {
+  new: "bg-secondary text-secondary-foreground border-border",
+  in_review: "bg-navy/10 text-navy border-navy/20",
+  approved: "bg-success/10 text-success border-success/20",
+  not_eligible: "bg-destructive/10 text-destructive border-destructive/20",
+  cancelled: "bg-muted text-muted-foreground border-border",
+};

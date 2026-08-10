@@ -14,18 +14,34 @@ import {
 } from "@/components/ui/sheet";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
-import { useDemoSession } from "@/lib/demo-session";
+import { useCurrentProfile } from "@/lib/auth/current-profile-context";
+import { signOutAction } from "@/lib/auth/actions";
+import { getInitials } from "@/lib/format";
 import { SidebarNavLinks } from "./sidebar-nav-links";
 
 export function MobileNav() {
   const [open, setOpen] = useState(false);
   const router = useRouter();
-  const { user, logout } = useDemoSession();
+  // Milestone 5A: real authenticated identity, resolved once server-side
+  // by src/app/(app)/layout.tsx and provided via CurrentProfileProvider —
+  // no query happens here.
+  const profile = useCurrentProfile();
   const t = useTranslations();
 
-  const handleLogout = () => {
+  // Real sign-out: must call signOutAction to actually clear the Supabase
+  // session cookie server-side — this button previously only cleared the
+  // demo-session flag, which left a real session valid after "logging
+  // out" through here. See the same pattern in Topbar's handleLogout.
+  const handleLogout = async () => {
     setOpen(false);
-    logout();
+    try {
+      await signOutAction();
+    } catch (error) {
+      console.error(
+        "[mobile-nav] signOutAction threw:",
+        error instanceof Error ? error.message : "unknown error"
+      );
+    }
     router.replace("/login");
   };
 
@@ -63,13 +79,13 @@ export function MobileNav() {
         <div className="flex items-center gap-2 p-3">
           <Avatar className="size-9 border border-sidebar-border">
             <AvatarFallback className="bg-sidebar-accent text-sidebar-accent-foreground text-xs font-semibold">
-              {user.initials}
+              {getInitials(profile.fullName)}
             </AvatarFallback>
           </Avatar>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium">{user.fullName}</p>
+            <p className="truncate text-sm font-medium">{profile.fullName}</p>
             <p className="truncate text-[11px] text-sidebar-foreground/60">
-              {t(`roles.${user.role}`)}
+              {t(`roles.${profile.role}`)}
             </p>
           </div>
           <Button

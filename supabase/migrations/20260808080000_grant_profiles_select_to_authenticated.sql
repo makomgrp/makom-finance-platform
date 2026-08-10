@@ -1,0 +1,30 @@
+-- Fixes a gap discovered while testing Milestone 3 (real Supabase Auth
+-- login). Postgres checks table-level GRANTs *before* RLS policies are
+-- ever evaluated — a role with no GRANT on a table is rejected outright
+-- ("permission denied for table profiles", 42501), regardless of how
+-- permissive its RLS policies are. `profiles` was created (see
+-- 20260808030030_create_profiles_table.sql) with no GRANT to
+-- `authenticated` at all, so every authenticated read failed before RLS
+-- was even consulted — this is the same class of gap already documented
+-- for service_role in 20260808050441_create_chat_tables.sql, applying
+-- here to `authenticated` for the same underlying reason (Supabase only
+-- auto-grants default privileges for tables created through its own
+-- dashboard tooling, not for tables created via raw SQL migrations).
+--
+-- This statement explicitly:
+--   - is NOT an RLS policy. It is a table-level privilege grant — a
+--     separate Postgres subsystem that RLS policies sit on top of, not a
+--     new or modified row-filtering rule.
+--   - is the table-level SELECT privilege required before the existing
+--     profiles_select_own policy (20260808070000_add_profiles_select_own_policy.sql)
+--     can be evaluated at all. Without it, that policy is never reached —
+--     the query is rejected earlier, at the privilege check.
+--   - leaves `anon` unchanged: no grant is added for `anon`, which
+--     continues to get "permission denied" on `profiles`, exactly as
+--     before this migration.
+--   - adds no INSERT/UPDATE/DELETE privilege — SELECT only, matching
+--     profiles_select_own's own scope exactly.
+--   - does not add, modify, or replace any policy — profiles_select_own
+--     remains the one and only RLS policy on `profiles` after this runs.
+
+grant select on public.profiles to authenticated;

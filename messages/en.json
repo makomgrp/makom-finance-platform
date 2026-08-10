@@ -65,13 +65,37 @@
     "password": "Password",
     "rememberMe": "Remember me",
     "forgotPassword": "Forgot your password?",
-    "forgotPasswordToast": "Password recovery is not available in this demonstration phase.",
     "submit": "Sign in",
     "submitting": "Signing in...",
+    "invalidCredentials": "Incorrect email or password, or you do not have access to this system.",
     "privateNotice": "Private system for authorized ODL Financial Corporation personnel.",
     "brandTagline": "Organized and secure management of clients and loan applications.",
     "brandDescription": "An internal platform for the ODL Financial Corporation team: dossiers, documents, alerts, and application tracking all in one place.",
     "demoEnvironmentNotice": "Internal demonstration environment — fictitious data."
+  },
+  "forgotPassword": {
+    "title": "Reset your password",
+    "subtitle": "Enter your email address and we'll send you a link to reset your password.",
+    "email": "Email address",
+    "submit": "Send reset link",
+    "submitting": "Sending...",
+    "successMessage": "If an account exists with that email, a password reset link has been sent.",
+    "backToLogin": "Back to sign in"
+  },
+  "resetPassword": {
+    "title": "Reset password",
+    "subtitle": "Enter your new password.",
+    "newPassword": "New password",
+    "confirmPassword": "Confirm password",
+    "submit": "Save new password",
+    "submitting": "Saving...",
+    "successMessage": "Your password was updated successfully. You can now sign in.",
+    "errorMessage": "We couldn't update your password. Please try again.",
+    "passwordMismatch": "Passwords do not match.",
+    "passwordTooShort": "Password must be at least 8 characters.",
+    "linkInvalid": "This link is invalid or has expired. Please request a new one.",
+    "backToLogin": "Back to sign in",
+    "requestNewLink": "Request new link"
   },
   "dashboard": {
     "title": "Dashboard",
@@ -79,7 +103,9 @@
     "kpis": {
       "registeredClients": "Registered clients",
       "newApplications": "New applications",
-      "pendingDocuments": "Pending documents",
+      "documentsAwaitingReview": "Documents awaiting review",
+      "documentsAwaitingReviewUnavailable": "Unavailable",
+      "applicationsUnavailable": "Unavailable",
       "applicationsUnderReview": "Applications under review",
       "approvedApplications": "Approved applications",
       "notEligibleApplications": "Not eligible applications"
@@ -159,6 +185,8 @@
     "emptyTitle": "No applications found",
     "emptyDescription": "Adjust the search or filters to see more results.",
     "noApplicationsInColumn": "No applications",
+    "loadErrorTitle": "Applications could not be loaded",
+    "loadErrorDescription": "There was an error connecting to the server. Try reloading the page.",
     "columns": {
       "number": "Application no.",
       "client": "Client",
@@ -176,7 +204,8 @@
       "moveTo": "Move to..."
     },
     "toasts": {
-      "statusChanged": "Application moved to \"{status}\"."
+      "statusChanged": "Application moved to \"{status}\".",
+      "statusChangeError": "Could not change the status. Please try again."
     }
   },
   "dossier": {
@@ -211,6 +240,7 @@
       "documentSetComplete": "Document set complete",
       "documentsPendingHint": "Some documents still need to be verified. Check the Documents tab.",
       "noApplicationDocuments": "This client does not have an associated application with document requirements.",
+      "noDocumentRequirements": "This application has no document requirements.",
       "lastUpdate": "Last update"
     },
     "personalData": {
@@ -240,14 +270,44 @@
       "notReceived": "Not received yet",
       "reviewedBy": "Reviewed by {name}",
       "view": "View",
+      "upload": "Upload document",
       "replace": "Replace",
       "changeStatus": "Change status",
       "newStatus": "New status",
+      "viewDialogTitle": "Document preview",
+      "openInNewTab": "Open in new tab",
+      "loadErrorTitle": "Documents could not be loaded",
+      "loadErrorDescription": "There was a problem connecting to the server. Try reloading the page.",
+      "notMigratedTitle": "Not yet available in the new model",
+      "notMigratedDescription": "This application does not yet have a real Application linked to it, so its requirements cannot be shown here yet.",
+      "required": "Required",
+      "optional": "Optional",
+      "addEvidence": "Add evidence",
+      "noEvidenceYet": "No evidence has been uploaded for this requirement yet.",
+      "uploadedOn": "Uploaded: {date}",
+      "reviewedOn": "Reviewed: {date}",
+      "review": "Mark as reviewed",
+      "alreadyReviewed": "This evidence has already been reviewed.",
+      "supersededBadge": "Superseded",
+      "viewHistory": "View history ({count})",
       "toasts": {
         "notReceivedYet": "This document has not been received yet.",
-        "previewSimulated": "Simulated preview: {fileName}",
+        "uploaded": "{document}: document uploaded successfully.",
         "statusUpdated": "{document}: status updated to \"{status}\".",
-        "replaced": "{document} replaced (simulated). Pending review."
+        "replaced": "{document}: document replaced successfully.",
+        "uploadError": "Could not upload the document. Please try again.",
+        "invalidFileType": "File type not allowed. Use PDF, JPG, PNG, or WEBP.",
+        "fileTooLarge": "The file exceeds the 20 MB limit.",
+        "statusChangeError": "Could not update the status. Please try again.",
+        "viewError": "Could not open the document. Please try again.",
+        "evidenceUploaded": "{requirement}: evidence uploaded successfully.",
+        "evidenceUploadPartial": "Evidence uploaded, but the requirement status could not be updated. Reload the page to confirm.",
+        "evidenceUploadError": "Could not upload the evidence. Please try again.",
+        "evidenceReviewed": "Evidence marked as reviewed.",
+        "evidenceReviewError": "Could not mark the evidence as reviewed. Please try again.",
+        "requirementStatusUpdated": "{requirement}: status updated to \"{status}\".",
+        "requirementStatusError": "Could not update the requirement status. Please try again.",
+        "refetchError": "Could not refresh the information. Try reloading the page."
       }
     },
     "notes": {
@@ -261,7 +321,10 @@
       "save": "Save note",
       "emptyTitle": "No notes recorded",
       "emptyDescription": "No internal notes have been added for this client yet.",
-      "toastAdded": "Note added successfully."
+      "toastAdded": "Note added successfully.",
+      "toastError": "Could not save the note. Please try again.",
+      "loadErrorTitle": "Notes could not be loaded",
+      "loadErrorDescription": "There was a problem connecting to the server. Try reloading the page."
     },
     "alerts": {
       "title": "Alerts and Restrictions",
@@ -283,7 +346,11 @@
       "responsible": "Responsible",
       "toastAdded": "Alert registered successfully.",
       "toastResolved": "Alert marked as resolved.",
-      "toastReactivated": "Alert reactivated."
+      "toastReactivated": "Alert reactivated.",
+      "toastError": "Could not register the alert. Please try again.",
+      "toastResolveError": "Could not update the alert. Please try again.",
+      "loadErrorTitle": "Alerts could not be loaded",
+      "loadErrorDescription": "There was a problem connecting to the server. Try reloading the page."
     },
     "activity": {
       "emptyTitle": "No activity recorded",
@@ -292,28 +359,27 @@
   },
   "documentsModule": {
     "title": "Documents",
-    "description": "General overview of received documents and their review status.",
-    "searchPlaceholder": "Search client or application...",
-    "allTypes": "All types",
+    "description": "Global operational view of document requirements and their evidence across every application.",
+    "searchPlaceholder": "Search client, application, or requirement...",
     "allStatuses": "All statuses",
     "allAdvisors": "All advisors",
-    "emptyTitle": "No documents found",
+    "allReviewStates": "All",
+    "reviewedFilter": "Reviewed",
+    "needsReviewFilter": "Needs review",
+    "emptyTitle": "No requirements found",
     "emptyDescription": "Adjust the search or filters to see more results.",
+    "noEvidence": "No evidence",
     "columns": {
       "client": "Client",
       "application": "Application",
-      "documentType": "Document type",
+      "requirement": "Requirement",
       "status": "Status",
-      "receivedAt": "Received date",
-      "reviewer": "Reviewer",
+      "evidence": "Evidence",
       "actions": "Actions"
     },
-    "menuLabel": "Document",
-    "viewDocument": "View document",
     "viewDossier": "View dossier",
     "toasts": {
-      "previewSimulated": "Simulated preview: {fileName}",
-      "notReceivedYet": "This document has not been received yet."
+      "refetchError": "Could not refresh the information. Try reloading the page."
     }
   },
   "alertsModule": {
@@ -321,6 +387,7 @@
     "description": "Track internal alerts registered for clients.",
     "activeAlerts": "Active alerts",
     "resolvedAlerts": "Resolved alerts",
+    "summaryLoadError": "Totals could not be loaded. Try reloading the page.",
     "levelLabel": "{level} level",
     "searchPlaceholder": "Search client or reason...",
     "filterAll": "All",
@@ -330,6 +397,8 @@
     "allTypes": "All types",
     "emptyTitle": "No alerts found",
     "emptyDescription": "Adjust the search or filters to see more results.",
+    "loadErrorTitle": "Alerts could not be loaded",
+    "loadErrorDescription": "There was a problem connecting to the server. Try reloading the page.",
     "columns": {
       "client": "Client",
       "type": "Type",
@@ -347,7 +416,8 @@
     "resolved": "Resolved",
     "toasts": {
       "resolved": "Alert marked as resolved.",
-      "reactivated": "Alert reactivated."
+      "reactivated": "Alert reactivated.",
+      "error": "Could not update the alert. Please try again."
     }
   },
   "reports": {
@@ -384,8 +454,8 @@
     "tabs": {
       "profile": "Profile",
       "users": "Users and roles",
+      "products": "Products",
       "applicationStatuses": "Application statuses",
-      "loanTypes": "Loan types",
       "documentTypes": "Document types",
       "companies": "Companies",
       "notifications": "Notifications",
@@ -411,15 +481,119 @@
         "status": "Status"
       },
       "active": "Active",
-      "inactive": "Inactive"
+      "inactive": "Inactive",
+      "loadErrorTitle": "Couldn't load the user directory",
+      "loadErrorDescription": "We weren't able to connect to the database. Try reloading the page; if the problem continues, contact the technical team."
+    },
+    "products": {
+      "title": "Products",
+      "description": "Configurable financial products offered by the institution.",
+      "newProduct": "New product",
+      "createDialogTitle": "New product",
+      "editDialogTitle": "Edit product",
+      "dialogDescription": "The code permanently identifies the product for future integrations (website form, WhatsApp). The name and description are shown to users.",
+      "code": "Code",
+      "codeHint": "Lowercase, no spaces (e.g. personal_loan). Cannot be changed later.",
+      "nameEs": "Name (Spanish)",
+      "nameEn": "Name (English)",
+      "descriptionEs": "Description (Spanish)",
+      "descriptionEn": "Description (English)",
+      "cancel": "Cancel",
+      "createProduct": "Create product",
+      "saveChanges": "Save changes",
+      "edit": "Edit",
+      "activate": "Activate",
+      "deactivate": "Deactivate",
+      "reactivate": "Reactivate",
+      "moveUp": "Move up",
+      "moveDown": "Move down",
+      "columns": {
+        "code": "Code",
+        "name": "Name",
+        "status": "Status",
+        "order": "Order",
+        "actions": "Actions"
+      },
+      "emptyTitle": "No products configured yet",
+      "emptyDescription": "Create the first financial product to get started.",
+      "loadErrorTitle": "Couldn't load products",
+      "loadErrorDescription": "We weren't able to connect to the database. Try reloading the page; if the problem continues, contact the technical team.",
+      "toasts": {
+        "invalidForm": "Fill in the name in both languages. The description must be filled in both languages or left empty.",
+        "invalidCode": "The code must be lowercase, with no spaces (e.g. personal_loan).",
+        "duplicateCode": "A product with that code already exists.",
+        "createError": "Couldn't create the product. Please try again.",
+        "created": "{name}: product created successfully.",
+        "updateError": "Couldn't update the product. Please try again.",
+        "updated": "{name}: product updated successfully.",
+        "statusChangeError": "Couldn't update the product's status. Please try again.",
+        "statusUpdated": "{name}: status updated to \"{status}\".",
+        "reorderError": "Couldn't reorder the product. Please try again.",
+        "viewRequirements": "Requirements"
+      }
+    },
+    "productDetail": {
+      "backToProducts": "Back to products",
+      "code": "Code",
+      "status": "Status",
+      "loadErrorTitle": "Couldn't load the product",
+      "loadErrorDescription": "We weren't able to connect to the database, or the product doesn't exist. Try reloading the page; if the problem continues, contact the technical team.",
+      "requirements": {
+        "title": "Requirements",
+        "description": "Configurable requirements for this product.",
+        "newRequirement": "New requirement",
+        "createDialogTitle": "New requirement",
+        "editDialogTitle": "Edit requirement",
+        "dialogDescription": "The code and kind permanently identify the requirement. The name, description, and whether it's required can be edited at any time.",
+        "code": "Code",
+        "codeHint": "Lowercase, no spaces (e.g. salary_letter). Cannot be changed later.",
+        "kind": "Requirement kind",
+        "nameEs": "Name (Spanish)",
+        "nameEn": "Name (English)",
+        "descriptionEs": "Description (Spanish)",
+        "descriptionEn": "Description (English)",
+        "required": "Required",
+        "cancel": "Cancel",
+        "createRequirement": "Create requirement",
+        "saveChanges": "Save changes",
+        "edit": "Edit",
+        "activate": "Activate",
+        "deactivate": "Deactivate",
+        "reactivate": "Reactivate",
+        "moveUp": "Move up",
+        "moveDown": "Move down",
+        "columns": {
+          "code": "Code",
+          "name": "Name",
+          "kind": "Kind",
+          "required": "Required",
+          "status": "Status",
+          "order": "Order",
+          "actions": "Actions"
+        },
+        "requiredYes": "Yes",
+        "requiredNo": "No",
+        "emptyTitle": "No requirements configured yet",
+        "emptyDescription": "Create the first requirement for this product.",
+        "loadErrorTitle": "Couldn't load requirements",
+        "loadErrorDescription": "We weren't able to connect to the database. Try reloading the page; if the problem continues, contact the technical team.",
+        "toasts": {
+          "invalidForm": "Fill in the name and description in both languages (Spanish and English).",
+          "invalidCode": "The code must be lowercase, with no spaces (e.g. salary_letter).",
+          "duplicateCode": "A requirement with that code already exists for this product.",
+          "createError": "Couldn't create the requirement. Please try again.",
+          "created": "{name}: requirement created successfully.",
+          "updateError": "Couldn't update the requirement. Please try again.",
+          "updated": "{name}: requirement updated successfully.",
+          "statusChangeError": "Couldn't update the requirement's status. Please try again.",
+          "statusUpdated": "{name}: status updated to \"{status}\".",
+          "reorderError": "Couldn't reorder the requirement. Please try again."
+        }
+      }
     },
     "applicationStatuses": {
       "title": "Application statuses",
       "description": "Statuses available for the lifecycle of a loan application."
-    },
-    "loanTypes": {
-      "title": "Loan types",
-      "description": "Loan products available at ODL Financial Corporation."
     },
     "documentTypes": {
       "title": "Document types",
@@ -478,8 +652,11 @@
     "translatedAutomatically": "Automatically translated",
     "translationUnavailable": "Translation unavailable",
     "retry": "Retry",
+    "sendFailed": "Not sent",
     "emptyConversationTitle": "No messages yet",
     "emptyConversationDescription": "Send the first message to start the conversation.",
+    "loadErrorTitle": "Couldn't load the chat",
+    "loadErrorDescription": "We weren't able to connect to the database. Try reloading the page; if the problem continues, contact the technical team.",
     "unread": "{count} unread",
     "languageNames": {
       "en": "English",
@@ -509,15 +686,6 @@
       "restringido": "Restricted",
       "inactivo": "Inactive"
     },
-    "loanApplication": {
-      "nueva": "New",
-      "pendiente_documentos": "Pending Documents",
-      "documentacion_completa": "Documents Complete",
-      "en_evaluacion": "Under Review",
-      "aprobada": "Approved",
-      "no_aplica": "Not Eligible",
-      "cancelada": "Cancelled"
-    },
     "document": {
       "pendiente": "Pending",
       "recibido": "Received",
@@ -542,12 +710,6 @@
       "revision_especial": "Special Review",
       "restriccion_interna": "Internal Restriction"
     },
-    "loanType": {
-      "descuento_directo": "Payroll Deduction Loan",
-      "debito_bancario": "Direct Debit Loan",
-      "garantia_vehicular": "Vehicle-Secured Loan",
-      "empresarial": "Business Loan"
-    },
     "documentType": {
       "cedula_pasaporte": "National ID or Passport",
       "cedula_pasaporte_description": "Applicant's valid identification document.",
@@ -561,6 +723,42 @@
       "recibo_servicios_description": "Valid proof of address.",
       "confirmacion_descuento": "Payroll Deduction Confirmation",
       "confirmacion_descuento_description": "Confirmation of whether the company offers payroll deduction."
+    },
+    "productStatus": {
+      "draft": "Draft",
+      "active": "Active",
+      "inactive": "Inactive"
+    },
+    "requirementStatus": {
+      "draft": "Draft",
+      "active": "Active",
+      "inactive": "Inactive"
+    },
+    "requirementKind": {
+      "document": "Document",
+      "phone_verification": "Phone verification",
+      "apc_check": "APC check",
+      "visit": "Visit",
+      "internal_approval": "Internal approval",
+      "ai_review": "AI review",
+      "signature": "Signature",
+      "manual_confirmation": "Manual confirmation"
+    },
+    "requirementSlotStatus": {
+      "pending": "Pending",
+      "submitted": "Submitted",
+      "under_review": "Under review",
+      "satisfied": "Satisfied",
+      "rejected": "Rejected",
+      "waived": "Waived",
+      "missing": "Missing"
+    },
+    "applicationStatus": {
+      "new": "New",
+      "in_review": "Under review",
+      "approved": "Approved",
+      "not_eligible": "Not eligible",
+      "cancelled": "Cancelled"
     }
   },
   "roles": {

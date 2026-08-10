@@ -12,44 +12,77 @@ import {
 import { DossierHeader } from "@/components/dossier/dossier-header";
 import { SummaryTab } from "@/components/dossier/tabs/summary-tab";
 import { PersonalDataTab } from "@/components/dossier/tabs/personal-data-tab";
-import { DocumentsTab } from "@/components/dossier/tabs/documents-tab";
+import { RequirementsTab } from "@/components/dossier/tabs/requirements-tab";
 import { NotesTab } from "@/components/dossier/tabs/notes-tab";
 import { AlertsTab } from "@/components/dossier/tabs/alerts-tab";
 import { ActivityTab } from "@/components/dossier/tabs/activity-tab";
-import {
-  getClientById,
-  getApplicationsByClientId,
-  getDocumentsByApplicationId,
-  getNotesByClientId,
-  getAlertsByClientId,
-  getActivitiesByClientId,
-} from "@/lib/demo-data";
+import { getDossierRequirements } from "@/app/(app)/expedientes/actions";
+import { setSolicitudApplicationStatus } from "@/app/(app)/solicitudes/actions";
+import { getClientById, getActivitiesByClientId } from "@/lib/demo-data";
 import type {
   ActivityEvent,
+  ApplicationListItem,
+  ApplicationStatus,
   Client,
-  ClientAlert,
-  DocumentRecord,
+  DocumentEvidence,
+  DossierAlert,
   InternalNote,
-  LoanApplication,
-  LoanStatus,
+  RequirementSlot,
 } from "@/types";
+
+/**
+ * Real Requirement Slot + Evidence bundle for one real Application
+ * (Milestone 12C, re-keyed by real application id in Milestone 13E — see
+ * expedientes/[id]/page.tsx). The `| null` a caller may still see on a
+ * lookup miss is defensive only: every Application this component ever
+ * knows about (initialApplications) always has a corresponding entry
+ * populated by the server. Deliberately NOT the legacy DossierDocument
+ * model — see src/lib/services/document-evidence.ts and the Milestone 12
+ * architecture review.
+ */
+export interface DossierRequirementsData {
+  applicationId: string;
+  requirementSlots: RequirementSlot[];
+  evidence: DocumentEvidence[];
+  loadError: boolean;
+}
 
 interface DossierViewProps {
   clientId: string;
   initialTab?: string;
   initialApplicationId?: string;
+  initialNotes: InternalNote[];
+  notesLoadError: boolean;
+  initialAlerts: DossierAlert[];
+  alertsLoadError: boolean;
+  /** This client's real Applications (Milestone 13E — replaces the demo
+   * LoanApplication[] this component used to seed itself from). May be
+   * empty — a client with no real Application yet is the expected,
+   * common case for everyone except ap-001 today. */
+  initialApplications: ApplicationListItem[];
+  /** The real Requirement Slot + Evidence bundle for each of
+   * initialApplications, keyed by real application id. */
+  initialRequirementsByApplicationId: Record<string, DossierRequirementsData>;
 }
 
 const VALID_TABS = ["resumen", "datos", "documentos", "notas", "alertas", "actividad"];
 
-export function DossierView({ clientId, initialTab, initialApplicationId }: DossierViewProps) {
+export function DossierView({
+  clientId,
+  initialTab,
+  initialApplicationId,
+  initialNotes,
+  notesLoadError,
+  initialAlerts,
+  alertsLoadError,
+  initialApplications,
+  initialRequirementsByApplicationId,
+}: DossierViewProps) {
   const t = useTranslations();
   const [client, setClient] = useState<Client>(() => getClientById(clientId)!);
-  const [applications, setApplications] = useState<LoanApplication[]>(() =>
-    getApplicationsByClientId(clientId)
-  );
-  const [notes, setNotes] = useState<InternalNote[]>(() => getNotesByClientId(clientId));
-  const [alerts, setAlerts] = useState<ClientAlert[]>(() => getAlertsByClientId(clientId));
+  const [applications, setApplications] = useState<ApplicationListItem[]>(initialApplications);
+  const [notes, setNotes] = useState<InternalNote[]>(initialNotes);
+  const [alerts, setAlerts] = useState<DossierAlert[]>(initialAlerts);
   const [activities, setActivities] = useState<ActivityEvent[]>(() =>
     getActivitiesByClientId(clientId)
   );
@@ -66,9 +99,44 @@ export function DossierView({ clientId, initialTab, initialApplicationId }: Doss
     [applications, activeApplicationId]
   );
 
-  const [documents, setDocuments] = useState<DocumentRecord[]>(() =>
-    application ? getDocumentsByApplicationId(application.id) : []
-  );
+  // Milestone 12C, re-keyed by real application id in 13E: the Requirement
+  // Slot + Document Evidence state.
+  const [requirementsByApplicationId, setRequirementsByApplicationId] = useState<
+    Record<string, DossierRequirementsData>
+  >(initialRequirementsByApplicationId);
+  const activeRequirementsData = activeApplicationId
+    ? (requirementsByApplicationId[activeApplicationId] ?? null)
+    : null;
+
+  /**
+   * Per the Milestone 12C architecture review: no optimistic merging.
+   * After any mutation (upload / review / status change) the Requirements
+   * tab calls this to refetch both Requirement Slots and Evidence fresh
+   * from the server and replace the state wholesale — a single upload can
+   * silently also change a Slot's status, so merging just the one
+   * returned item risks leaving stale Slot state on screen.
+   */
+  const handleRequirementsRefetch = async () => {
+    if (!activeApplicationId) return;
+    const current = requirementsByApplicationId[activeApplicationId];
+    if (!current) return;
+
+    const result = await getDossierRequirements(current.applicationId);
+    if (result.status !== "success") {
+      toast.error(t("dossier.documents.toasts.refetchError"));
+      return;
+    }
+
+    setRequirementsByApplicationId((prev) => ({
+      ...prev,
+      [activeApplicationId]: {
+        applicationId: current.applicationId,
+        requirementSlots: result.requirementSlots,
+        evidence: result.evidence,
+        loadError: false,
+      },
+    }));
+  };
 
   const defaultTab = initialTab && VALID_TABS.includes(initialTab) ? initialTab : "resumen";
 
@@ -97,15 +165,38 @@ export function DossierView({ clientId, initialTab, initialApplicationId }: Doss
     toast.success(t("clients.toasts.clientUpdated"));
   };
 
-  const handleApplicationStatusChange = (applicationId: string, status: LoanStatus) => {
+  /**
+   * Reuses src/app/(app)/solicitudes/actions.ts#setSolicitudApplicationStatus
+   * unchanged (Milestone 13E — see the Milestone 13A architecture review's
+   * "Shared ApplicationStatusMenu" question and the Milestone 13C
+   * implementation report) — no transition logic is duplicated here.
+   * Local replacement of only the fields that mutation can ever change,
+   * not a full-row replace, for the exact same reason
+   * solicitudes-view.tsx#handleStatusChange does it that way: the
+   * returned Application carries no productName/assignedAdvisorFullName,
+   * and a status change can never itself alter either.
+   */
+  const handleApplicationStatusChange = async (applicationId: string, status: ApplicationStatus) => {
+    const result = await setSolicitudApplicationStatus({ applicationId, status });
+    if (result.status !== "success") {
+      toast.error(t("applications.toasts.statusChangeError"));
+      return;
+    }
+
     setApplications((prev) =>
       prev.map((app) =>
         app.id === applicationId
-          ? { ...app, status, lastActivityAt: new Date().toISOString() }
+          ? {
+              ...app,
+              status: result.application.status,
+              statusChangedAt: result.application.statusChangedAt,
+              statusChangedByProfileId: result.application.statusChangedByProfileId,
+              statusChangedSource: result.application.statusChangedSource,
+            }
           : app
       )
     );
-    const statusLabel = t(`statuses.loanApplication.${status}`);
+    const statusLabel = t(`statuses.applicationStatus.${status}`);
     logActivity("statusChanged", { status: statusLabel }, "estado_modificado");
     toast.success(t("applications.toasts.statusChanged", { status: statusLabel }));
   };
@@ -116,10 +207,7 @@ export function DossierView({ clientId, initialTab, initialApplicationId }: Doss
         client={client}
         applications={applications}
         activeApplication={application}
-        onSelectApplication={(id) => {
-          setActiveApplicationId(id);
-          setDocuments(getDocumentsByApplicationId(id));
-        }}
+        onSelectApplication={(id) => setActiveApplicationId(id)}
         onClientUpdate={handleClientUpdate}
         onApplicationStatusChange={handleApplicationStatusChange}
       />
@@ -135,7 +223,11 @@ export function DossierView({ clientId, initialTab, initialApplicationId }: Doss
         </TabsList>
 
         <TabsContent value="resumen" className="mt-4">
-          <SummaryTab client={client} application={application} documents={documents} />
+          <SummaryTab
+            client={client}
+            application={application}
+            requirementsData={activeRequirementsData}
+          />
         </TabsContent>
 
         <TabsContent value="datos" className="mt-4">
@@ -143,10 +235,10 @@ export function DossierView({ clientId, initialTab, initialApplicationId }: Doss
         </TabsContent>
 
         <TabsContent value="documentos" className="mt-4">
-          <DocumentsTab
+          <RequirementsTab
             application={application}
-            documents={documents}
-            onDocumentsChange={setDocuments}
+            requirementsData={activeRequirementsData}
+            onRefetch={handleRequirementsRefetch}
             onActivity={logActivity}
           />
         </TabsContent>
@@ -154,10 +246,10 @@ export function DossierView({ clientId, initialTab, initialApplicationId }: Doss
         <TabsContent value="notas" className="mt-4">
           <NotesTab
             clientId={clientId}
-            applicationId={application?.id}
             notes={notes}
             onNotesChange={setNotes}
             onActivity={logActivity}
+            loadError={notesLoadError}
           />
         </TabsContent>
 
@@ -167,6 +259,7 @@ export function DossierView({ clientId, initialTab, initialApplicationId }: Doss
             alerts={alerts}
             onAlertsChange={setAlerts}
             onActivity={logActivity}
+            loadError={alertsLoadError}
           />
         </TabsContent>
 
