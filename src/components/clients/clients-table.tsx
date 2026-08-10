@@ -43,14 +43,21 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { PaginationBar } from "@/components/shared/pagination-bar";
 import { ClientFormDialog } from "@/components/clients/client-form-dialog";
 import { CLIENT_STATUS_BADGE_CLASS, CLIENT_STATUS_VALUES } from "@/lib/config/client-status";
-import { CLIENTS as INITIAL_CLIENTS, APPLICATIONS, getCompanyById } from "@/lib/demo-data";
+import { CLIENTS as INITIAL_CLIENTS, getCompanyById } from "@/lib/demo-data";
 import { formatDate, getInitials } from "@/lib/format";
-import type { Client, ClientStatus } from "@/types";
+import type { ApplicationListItem, Client, ClientStatus } from "@/types";
 import type { Locale } from "@/i18n/config";
 
 const PAGE_SIZE = 8;
 
-export function ClientsTable() {
+interface ClientsTableProps {
+  /** Milestone 13F: real Applications (Application Engine), used to compute
+   * each client's application count via clientLegacyId — replaces the demo
+   * APPLICATIONS array this component used to filter directly. */
+  applications: ApplicationListItem[];
+}
+
+export function ClientsTable({ applications }: ClientsTableProps) {
   const router = useRouter();
   const locale = useLocale() as Locale;
   const t = useTranslations();
@@ -167,8 +174,8 @@ export function ClientsTable() {
             <TableBody>
               {paginated.map((client) => {
                 const company = getCompanyById(client.companyId);
-                const applicationCount = APPLICATIONS.filter(
-                  (app) => app.clientId === client.id
+                const applicationCount = applications.filter(
+                  (application) => application.clientLegacyId === client.id
                 ).length;
 
                 return (
