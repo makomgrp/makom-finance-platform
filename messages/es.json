@@ -456,7 +456,6 @@
       "users": "Usuarios y roles",
       "products": "Productos",
       "applicationStatuses": "Estados de solicitudes",
-      "loanTypes": "Tipos de préstamos",
       "documentTypes": "Tipos de documentos",
       "companies": "Empresas",
       "notifications": "Notificaciones",
@@ -596,10 +595,6 @@
       "title": "Estados de solicitudes",
       "description": "Estados disponibles para el ciclo de vida de una solicitud de préstamo."
     },
-    "loanTypes": {
-      "title": "Tipos de préstamos",
-      "description": "Modalidades de préstamo disponibles en ODL Financial Corporation."
-    },
     "documentTypes": {
       "title": "Tipos de documentos",
       "description": "Requisitos documentales oficiales solicitados a los clientes."
@@ -691,15 +686,6 @@
       "restringido": "Restringido",
       "inactivo": "Inactivo"
     },
-    "loanApplication": {
-      "nueva": "Nueva",
-      "pendiente_documentos": "Pendiente de documentos",
-      "documentacion_completa": "Documentación completa",
-      "en_evaluacion": "En evaluación",
-      "aprobada": "Aprobada",
-      "no_aplica": "No aplica",
-      "cancelada": "Cancelada"
-    },
     "document": {
       "pendiente": "Pendiente",
       "recibido": "Recibido",
@@ -723,12 +709,6 @@
       "posible_fraude": "Posible fraude",
       "revision_especial": "Revisión especial",
       "restriccion_interna": "Restricción interna"
-    },
-    "loanType": {
-      "descuento_directo": "Préstamo con descuento directo",
-      "debito_bancario": "Préstamo mediante débito bancario",
-      "garantia_vehicular": "Préstamo con garantía vehicular",
-      "empresarial": "Préstamo empresarial"
     },
     "documentType": {
       "cedula_pasaporte": "Cédula de identidad o pasaporte",

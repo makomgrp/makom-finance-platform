@@ -456,7 +456,6 @@
       "users": "Users and roles",
       "products": "Products",
       "applicationStatuses": "Application statuses",
-      "loanTypes": "Loan types",
       "documentTypes": "Document types",
       "companies": "Companies",
       "notifications": "Notifications",
@@ -596,10 +595,6 @@
       "title": "Application statuses",
       "description": "Statuses available for the lifecycle of a loan application."
     },
-    "loanTypes": {
-      "title": "Loan types",
-      "description": "Loan products available at ODL Financial Corporation."
-    },
     "documentTypes": {
       "title": "Document types",
       "description": "Official document requirements requested from clients."
@@ -691,15 +686,6 @@
       "restringido": "Restricted",
       "inactivo": "Inactive"
     },
-    "loanApplication": {
-      "nueva": "New",
-      "pendiente_documentos": "Pending Documents",
-      "documentacion_completa": "Documents Complete",
-      "en_evaluacion": "Under Review",
-      "aprobada": "Approved",
-      "no_aplica": "Not Eligible",
-      "cancelada": "Cancelled"
-    },
     "document": {
       "pendiente": "Pending",
       "recibido": "Received",
@@ -723,12 +709,6 @@
       "posible_fraude": "Potential Fraud",
       "revision_especial": "Special Review",
       "restriccion_interna": "Internal Restriction"
-    },
-    "loanType": {
-      "descuento_directo": "Payroll Deduction Loan",
-      "debito_bancario": "Direct Debit Loan",
-      "garantia_vehicular": "Vehicle-Secured Loan",
-      "empresarial": "Business Loan"
     },
     "documentType": {
       "cedula_pasaporte": "National ID or Passport",

@@ -8,7 +8,7 @@ import { CompaniesSection } from "@/components/settings/companies-section";
 import { NotificationsSection } from "@/components/settings/notifications-section";
 import { SecuritySection } from "@/components/settings/security-section";
 import { ProductsSection } from "@/components/settings/products-section";
-import { LOAN_STATUS_BADGE_CLASS, LOAN_STATUS_ORDER, LOAN_TYPE_ORDER } from "@/lib/config/loan-status";
+import { APPLICATION_STATUS_BADGE_CLASS, APPLICATION_STATUS_ORDER } from "@/lib/config/application";
 import { DOCUMENT_TYPE_ORDER } from "@/lib/config/document";
 import { getProfiles } from "@/lib/services/profiles";
 import { getAllProducts } from "@/lib/services/products";
@@ -28,7 +28,6 @@ export default async function ConfiguracionPage() {
           <TabsTrigger value="usuarios">{t("settings.tabs.users")}</TabsTrigger>
           <TabsTrigger value="productos">{t("settings.tabs.products")}</TabsTrigger>
           <TabsTrigger value="estados">{t("settings.tabs.applicationStatuses")}</TabsTrigger>
-          <TabsTrigger value="prestamos">{t("settings.tabs.loanTypes")}</TabsTrigger>
           <TabsTrigger value="documentos">{t("settings.tabs.documentTypes")}</TabsTrigger>
           <TabsTrigger value="empresas">{t("settings.tabs.companies")}</TabsTrigger>
           <TabsTrigger value="notificaciones">{t("settings.tabs.notifications")}</TabsTrigger>
@@ -57,19 +56,9 @@ export default async function ConfiguracionPage() {
           <CatalogSection
             title={t("settings.applicationStatuses.title")}
             description={t("settings.applicationStatuses.description")}
-            items={LOAN_STATUS_ORDER.map((status) => ({
-              label: t(`statuses.loanApplication.${status}`),
-              badgeClass: LOAN_STATUS_BADGE_CLASS[status],
-            }))}
-          />
-        </TabsContent>
-
-        <TabsContent value="prestamos" className="mt-4">
-          <CatalogSection
-            title={t("settings.loanTypes.title")}
-            description={t("settings.loanTypes.description")}
-            items={LOAN_TYPE_ORDER.map((type) => ({
-              label: t(`statuses.loanType.${type}`),
+            items={APPLICATION_STATUS_ORDER.map((status) => ({
+              label: t(`statuses.applicationStatus.${status}`),
+              badgeClass: APPLICATION_STATUS_BADGE_CLASS[status],
             }))}
           />
         </TabsContent>

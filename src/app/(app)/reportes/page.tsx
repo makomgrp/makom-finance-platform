@@ -103,8 +103,8 @@ export default async function ReportesPage() {
                   className="flex items-center justify-between border-b border-border pb-3 text-sm last:border-b-0 last:pb-0"
                 >
                   <span className="text-foreground">
-                    {t(`statuses.loanApplication.${item.from}`)} →{" "}
-                    {t(`statuses.loanApplication.${item.to}`)}
+                    {t(`statuses.applicationStatus.${item.from}`)} →{" "}
+                    {t(`statuses.applicationStatus.${item.to}`)}
                   </span>
                   <span className="font-medium text-muted-foreground">
                     {item.avgDays} {t("common.days")}
