@@ -2,13 +2,13 @@
 
 import { useLocale, useTranslations } from "next-intl";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { getCompanyById, getUserById } from "@/lib/demo-data";
+import { getCompanyById } from "@/lib/demo-data";
 import { formatCurrency, formatDate } from "@/lib/format";
 import type { Locale } from "@/i18n/config";
-import type { Client } from "@/types";
+import type { RealClient } from "@/types";
 
 interface PersonalDataTabProps {
-  client: Client;
+  client: RealClient;
 }
 
 function Field({ label, value }: { label: string; value: string }) {
@@ -23,10 +23,14 @@ function Field({ label, value }: { label: string; value: string }) {
 export function PersonalDataTab({ client }: PersonalDataTabProps) {
   const locale = useLocale() as Locale;
   const t = useTranslations();
-  const company = getCompanyById(client.companyId);
-  const advisor = getUserById(client.assignedAdvisorId);
+  // Milestone 14D: companyLegacyId is the same DELIBERATE, TEMPORARY
+  // bridge to the still-demo Company model used throughout the Dossier —
+  // see summary-tab.tsx's identical pattern.
+  const company = client.companyLegacyId ? getCompanyById(client.companyLegacyId) : undefined;
   const idTypeLabel =
-    client.idType === "Cédula" ? t("clients.form.idTypeCedula") : t("clients.form.idTypePassport");
+    client.identificationType === "cedula"
+      ? t("clients.form.idTypeCedula")
+      : t("clients.form.idTypePassport");
 
   return (
     <Card>
@@ -38,7 +42,7 @@ export function PersonalDataTab({ client }: PersonalDataTabProps) {
           <Field label={t("dossier.personalData.fullName")} value={client.fullName} />
           <Field
             label={t("dossier.personalData.identification")}
-            value={`${idTypeLabel} · ${client.idNumber}`}
+            value={`${idTypeLabel} · ${client.identificationNumber}`}
           />
           <Field label={t("dossier.personalData.phone")} value={client.phone} />
           <Field label={t("dossier.personalData.email")} value={client.email} />
@@ -55,12 +59,8 @@ export function PersonalDataTab({ client }: PersonalDataTabProps) {
           <Field label={t("dossier.personalData.nationality")} value={client.nationality} />
           <Field label={t("dossier.personalData.address")} value={client.address} />
           <Field
-            label={t("dossier.personalData.assignedAdvisor")}
-            value={advisor?.fullName ?? t("common.unassigned")}
-          />
-          <Field
             label={t("dossier.personalData.registeredAt")}
-            value={formatDate(client.registeredAt, locale)}
+            value={formatDate(client.createdAt, locale)}
           />
           <div className="sm:col-span-2 lg:col-span-3">
             <Field

@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
-import { getClientById } from "@/lib/demo-data";
-import { getNotesByClientId } from "@/lib/services/notes";
-import { getAlertsByClientId } from "@/lib/services/alerts";
+import { getClientById, getClientByLegacyId } from "@/lib/services/clients";
+import { getNotesByClientId, type GetDossierNotesResult } from "@/lib/services/notes";
+import { getAlertsByClientId, type GetDossierAlertsResult } from "@/lib/services/alerts";
 import { getApplications } from "@/lib/services/applications";
 import { getRequirementSlotsByApplicationId } from "@/lib/services/requirement-slots";
 import { getEvidenceByApplicationId } from "@/lib/services/document-evidence";
@@ -44,6 +44,27 @@ async function resolveRequirementsByApplicationId(
   return Object.fromEntries(entries);
 }
 
+/**
+ * Milestone 14D — resolves the real Client Engine record. The canonical
+ * route identity is now public.clients.id (a real uuid); getClientById is
+ * tried first. A TEMPORARY fallback, destined for retirement in 14F (see
+ * the Milestone 14A/14D architecture decisions): if that fails, the param
+ * is tried again as a legacy bridge id via getClientByLegacyId — this
+ * keeps every existing /expedientes/cl-001-style link (Solicitudes'
+ * clientLegacyId-based navigation, Document Workspace, old bookmarks)
+ * working without requiring those callers to change yet. Both lookups
+ * failing is a genuine 404 — there is no third fallback to demo data.
+ */
+async function resolveClient(routeParam: string) {
+  const byId = await getClientById(routeParam);
+  if (byId.status === "ok") return byId.client;
+
+  const byLegacyId = await getClientByLegacyId(routeParam);
+  if (byLegacyId.status === "ok") return byLegacyId.client;
+
+  return null;
+}
+
 export default async function ExpedientePage({
   params,
   searchParams,
@@ -54,25 +75,33 @@ export default async function ExpedientePage({
   const { id } = await params;
   const { tab, solicitud } = await searchParams;
 
-  const client = getClientById(id);
+  const client = await resolveClient(id);
   if (!client) notFound();
 
   // client_legacy_id is the one bridge dimension this milestone leaves in
-  // place — Client Engine is explicitly deferred (see the Milestone 13A
-  // architecture review's "Client Dependency" question) — so real
-  // Applications for this client are still resolved by filtering on it,
-  // exactly like Solicitudes already does. getApplications() is the same,
-  // unmodified, already-extended (Milestone 13B) service every other
-  // migrated surface reuses.
+  // place — applications.client_id does not exist yet (Milestone 14E) —
+  // so real Applications are still resolved by filtering on it, exactly
+  // like Solicitudes already does. A newly-created real Client
+  // (client.legacyId === undefined) has, by construction, zero
+  // bridgeable Applications — never fabricate a legacy id to work around
+  // this; the Dossier renders cleanly with an empty Applications list
+  // instead. Same reasoning for Notes/Alerts: both dossier_notes and
+  // dossier_alerts still key on client_legacy_id (Milestone 14E's scope,
+  // not this one), so a client with no legacyId gets empty notes/alerts
+  // rather than a query keyed on undefined.
   const [notesResult, alertsResult, applicationsResult] = await Promise.all([
-    getNotesByClientId(client.id),
-    getAlertsByClientId(client.id),
+    client.legacyId
+      ? getNotesByClientId(client.legacyId)
+      : (Promise.resolve({ status: "ok", notes: [] }) as Promise<GetDossierNotesResult>),
+    client.legacyId
+      ? getAlertsByClientId(client.legacyId)
+      : (Promise.resolve({ status: "ok", alerts: [] }) as Promise<GetDossierAlertsResult>),
     getApplications(),
   ]);
 
   const applications =
-    applicationsResult.status === "ok"
-      ? applicationsResult.applications.filter((application) => application.clientLegacyId === client.id)
+    client.legacyId && applicationsResult.status === "ok"
+      ? applicationsResult.applications.filter((application) => application.clientLegacyId === client.legacyId)
       : [];
 
   // Requires the filtered application list above, so it cannot join the
@@ -81,7 +110,7 @@ export default async function ExpedientePage({
 
   return (
     <DossierView
-      clientId={client.id}
+      initialClient={client}
       initialTab={tab}
       initialApplicationId={solicitud}
       initialNotes={notesResult.status === "ok" ? notesResult.notes : []}

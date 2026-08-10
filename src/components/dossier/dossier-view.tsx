@@ -18,15 +18,15 @@ import { AlertsTab } from "@/components/dossier/tabs/alerts-tab";
 import { ActivityTab } from "@/components/dossier/tabs/activity-tab";
 import { getDossierRequirements } from "@/app/(app)/expedientes/actions";
 import { setSolicitudApplicationStatus } from "@/app/(app)/solicitudes/actions";
-import { getClientById, getActivitiesByClientId } from "@/lib/demo-data";
+import { getActivitiesByClientId } from "@/lib/demo-data";
 import type {
   ActivityEvent,
   ApplicationListItem,
   ApplicationStatus,
-  Client,
   DocumentEvidence,
   DossierAlert,
   InternalNote,
+  RealClient,
   RequirementSlot,
 } from "@/types";
 
@@ -48,7 +48,13 @@ export interface DossierRequirementsData {
 }
 
 interface DossierViewProps {
-  clientId: string;
+  /** Milestone 14D: the already-resolved real Client Engine record
+   * (src/lib/services/clients.ts) — replaces the demo clientId lookup
+   * this component used to do internally. legacyId, when present, is the
+   * TEMPORARY bridge every legacy-keyed section (Applications, Notes,
+   * Alerts) still needs; see expedientes/[id]/page.tsx's resolveClient
+   * and this file's own use of it below. */
+  initialClient: RealClient;
   initialTab?: string;
   initialApplicationId?: string;
   initialNotes: InternalNote[];
@@ -68,7 +74,7 @@ interface DossierViewProps {
 const VALID_TABS = ["resumen", "datos", "documentos", "notas", "alertas", "actividad"];
 
 export function DossierView({
-  clientId,
+  initialClient,
   initialTab,
   initialApplicationId,
   initialNotes,
@@ -79,12 +85,16 @@ export function DossierView({
   initialRequirementsByApplicationId,
 }: DossierViewProps) {
   const t = useTranslations();
-  const [client, setClient] = useState<Client>(() => getClientById(clientId)!);
+  const [client, setClient] = useState<RealClient>(initialClient);
   const [applications, setApplications] = useState<ApplicationListItem[]>(initialApplications);
   const [notes, setNotes] = useState<InternalNote[]>(initialNotes);
   const [alerts, setAlerts] = useState<DossierAlert[]>(initialAlerts);
+  // Milestone 14D: Activity remains a purely local, demo-only feature
+  // (never migrated to real data across any milestone) — keyed by
+  // legacyId when available, exactly like Notes/Alerts; a client with no
+  // legacyId simply has no demo activity to seed from.
   const [activities, setActivities] = useState<ActivityEvent[]>(() =>
-    getActivitiesByClientId(clientId)
+    initialClient.legacyId ? getActivitiesByClientId(initialClient.legacyId) : []
   );
 
   const [activeApplicationId, setActiveApplicationId] = useState<string | undefined>(() => {
@@ -148,7 +158,7 @@ export function DossierView({
     setActivities((prev) => [
       {
         id: `act-demo-${Date.now()}`,
-        clientId,
+        clientId: client.legacyId ?? client.id,
         applicationId: application?.id,
         type,
         descriptionKey,
@@ -160,7 +170,14 @@ export function DossierView({
     ]);
   };
 
-  const handleClientUpdate = (updated: Client) => {
+  /**
+   * Milestone 14D: RealClientFormDialog (reused unchanged from Milestone
+   * 14C — see dossier-header.tsx) already persists the edit to Supabase
+   * via updateClientProfileAction before ever calling this callback; this
+   * is local state sync only, exactly like clients-table.tsx's
+   * handleUpdated does for the same dialog.
+   */
+  const handleClientUpdate = (updated: RealClient) => {
     setClient(updated);
     toast.success(t("clients.toasts.clientUpdated"));
   };
@@ -245,7 +262,7 @@ export function DossierView({
 
         <TabsContent value="notas" className="mt-4">
           <NotesTab
-            clientId={clientId}
+            clientId={client.legacyId}
             notes={notes}
             onNotesChange={setNotes}
             onActivity={logActivity}
@@ -255,7 +272,7 @@ export function DossierView({
 
         <TabsContent value="alertas" className="mt-4">
           <AlertsTab
-            clientId={clientId}
+            clientId={client.legacyId}
             alerts={alerts}
             onAlertsChange={setAlerts}
             onActivity={logActivity}

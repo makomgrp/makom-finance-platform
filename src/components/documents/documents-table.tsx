@@ -47,7 +47,6 @@ import {
   REQUIREMENT_SLOT_STATUS_ORDER,
   REQUIREMENT_SLOT_STATUS_TRANSITIONABLE,
 } from "@/lib/config/requirement-slot";
-import { getClientById } from "@/lib/demo-data";
 // Milestone 12D reuses these four Milestone 12C Server Actions exactly as
 // they are — no relocation, no duplication (see the Milestone 12D
 // architecture review's revised "Server Action Strategy"). This mirrors
@@ -65,6 +64,7 @@ import type { Locale } from "@/i18n/config";
 import type {
   DocumentEvidence,
   DocumentWorkspaceRow,
+  RealClient,
   RequirementSlot,
   RequirementSlotStatus,
 } from "@/types";
@@ -78,6 +78,12 @@ type ReviewFilter = "todos" | "reviewed" | "needsReview";
 interface DocumentsTableProps {
   initialRows: DocumentWorkspaceRow[];
   loadError: boolean;
+  /** Milestone 14D: the real Client Engine's rows, fetched once
+   * server-side and joined here by legacyId (row.application.
+   * clientLegacyId) — replaces the demo getClientById lookup this table
+   * used purely for display. A single additional query in
+   * documentos/page.tsx, not a per-row fetch — no N+1. */
+  clients: RealClient[];
 }
 
 interface PendingUpload {
@@ -105,7 +111,7 @@ interface ViewDialogState {
  * tab, for the same reason (a single Evidence upload can silently
  * transition its own Slot's status).
  */
-export function DocumentsTable({ initialRows, loadError: initialLoadError }: DocumentsTableProps) {
+export function DocumentsTable({ initialRows, loadError: initialLoadError, clients }: DocumentsTableProps) {
   const router = useRouter();
   const locale = useLocale() as Locale;
   const t = useTranslations();
@@ -150,14 +156,25 @@ export function DocumentsTable({ initialRows, loadError: initialLoadError }: Doc
     return [...map.entries()];
   }, [rows]);
 
+  // Milestone 14D: single map built once from the clients prop, not a
+  // per-row query — the real Client Engine replacement for the demo
+  // getClientById lookup this table used to do inline.
+  const clientsByLegacyId = useMemo(() => {
+    const map = new Map<string, RealClient>();
+    for (const client of clients) {
+      if (client.legacyId) map.set(client.legacyId, client);
+    }
+    return map;
+  }, [clients]);
+
   const enriched = useMemo(() => {
     return rows.map((row) => {
-      const client = getClientById(row.application.clientLegacyId);
+      const client = clientsByLegacyId.get(row.application.clientLegacyId);
       const currentEvidence = row.evidence.filter((item) => !item.supersededByEvidenceId);
       const historicalEvidence = row.evidence.filter((item) => item.supersededByEvidenceId);
       return { row, client, currentEvidence, historicalEvidence };
     });
-  }, [rows]);
+  }, [rows, clientsByLegacyId]);
 
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -564,7 +581,18 @@ export function DocumentsTable({ initialRows, loadError: initialLoadError }: Doc
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem
                                   onClick={() =>
-                                    router.push(`/expedientes/${row.application.clientLegacyId}?tab=documentos`)
+                                    // Milestone 14D: prefer the real Client
+                                    // uuid (available "for free" via the
+                                    // same clientsByLegacyId join used for
+                                    // display above); falls back to the
+                                    // legacy-shaped id only if this row's
+                                    // client somehow isn't in the loaded
+                                    // list — the Dossier route resolves
+                                    // either shape (see
+                                    // expedientes/[id]/page.tsx#resolveClient).
+                                    router.push(
+                                      `/expedientes/${client?.id ?? row.application.clientLegacyId}?tab=documentos`
+                                    )
                                   }
                                 >
                                   <FolderOpen className="size-4" />

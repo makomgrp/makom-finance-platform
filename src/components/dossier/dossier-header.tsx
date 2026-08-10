@@ -7,19 +7,19 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { ApplicationStatusMenu } from "@/components/applications/application-status-menu";
-import { ClientFormDialog } from "@/components/clients/client-form-dialog";
-import { CLIENT_STATUS_BADGE_CLASS } from "@/lib/config/client-status";
+import { RealClientFormDialog } from "@/components/clients/real-client-form-dialog";
+import { REAL_CLIENT_STATUS_BADGE_CLASS } from "@/lib/config/client-status";
 import { APPLICATION_STATUS_BADGE_CLASS, APPLICATION_STATUS_TRANSITIONS } from "@/lib/config/application";
 import { formatDate, getInitials } from "@/lib/format";
 import type { Locale } from "@/i18n/config";
-import type { ApplicationListItem, ApplicationStatus, Client } from "@/types";
+import type { ApplicationListItem, ApplicationStatus, RealClient } from "@/types";
 
 interface DossierHeaderProps {
-  client: Client;
+  client: RealClient;
   applications: ApplicationListItem[];
   activeApplication?: ApplicationListItem;
   onSelectApplication: (applicationId: string) => void;
-  onClientUpdate: (client: Client) => void;
+  onClientUpdate: (client: RealClient) => void;
   onApplicationStatusChange: (applicationId: string, status: ApplicationStatus) => void;
 }
 
@@ -65,7 +65,7 @@ export function DossierHeader({
               <h2 className="text-xl font-semibold text-foreground">{client.fullName}</h2>
               <StatusBadge
                 label={t(`statuses.client.${client.status}`)}
-                className={CLIENT_STATUS_BADGE_CLASS[client.status]}
+                className={REAL_CLIENT_STATUS_BADGE_CLASS[client.status]}
               />
             </div>
             {activeApplication ? (
@@ -84,7 +84,7 @@ export function DossierHeader({
             ) : (
               <p className="mt-1 text-sm text-muted-foreground">
                 {t("dossier.noApplication")} · {t("dossier.registeredOn")}:{" "}
-                {formatDate(client.registeredAt, locale)}
+                {formatDate(client.createdAt, locale)}
               </p>
             )}
 
@@ -126,9 +126,9 @@ export function DossierHeader({
               />
             </>
           )}
-          <ClientFormDialog
+          <RealClientFormDialog
             initialClient={client}
-            onSave={onClientUpdate}
+            onSaved={onClientUpdate}
             trigger={
               <Button variant="outline" size="sm">
                 <Pencil className="size-3.5" />

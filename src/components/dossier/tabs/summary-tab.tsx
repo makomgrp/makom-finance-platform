@@ -9,11 +9,11 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { getCompanyById } from "@/lib/demo-data";
 import { formatCurrency, formatDateTime } from "@/lib/format";
 import type { Locale } from "@/i18n/config";
-import type { ApplicationListItem, Client } from "@/types";
+import type { ApplicationListItem, RealClient } from "@/types";
 import type { DossierRequirementsData } from "@/components/dossier/dossier-view";
 
 interface SummaryTabProps {
-  client: Client;
+  client: RealClient;
   application?: ApplicationListItem;
   /** Milestone 12E1: the same Requirement Slot + Evidence bundle
    * RequirementsTab already receives (dossier-view.tsx's
@@ -27,7 +27,12 @@ interface SummaryTabProps {
 export function SummaryTab({ client, application, requirementsData }: SummaryTabProps) {
   const locale = useLocale() as Locale;
   const t = useTranslations();
-  const company = getCompanyById(client.companyId);
+  // Milestone 14D: companyLegacyId is the same DELIBERATE, TEMPORARY
+  // bridge to the still-demo Company model this milestone leaves in
+  // place (Companies Engine is explicitly out of scope) — undefined for
+  // a client with no employer selected, unlike the demo model's required
+  // companyId.
+  const company = client.companyLegacyId ? getCompanyById(client.companyLegacyId) : undefined;
 
   // Milestone 12E1: "how many document requirements for this Application
   // require no further action" — document-kind Requirement Slots whose

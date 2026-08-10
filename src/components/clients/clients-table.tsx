@@ -197,40 +197,28 @@ export function ClientsTable({ initialClients, applications }: ClientsTableProps
                 const applicationCount = applications.filter(
                   (application) => client.legacyId !== undefined && application.clientLegacyId === client.legacyId
                 ).length;
-                // A newly-created real client has no legacyId, so the
-                // Dossier (still demo-Client-id-routed until Milestone
-                // 14D) has no route to resolve it by — disable the
-                // Dossier-dependent actions rather than ship a broken
-                // link, per the Milestone 14C implementation report.
-                const hasDossier = client.legacyId !== undefined;
-
                 return (
                   <TableRow key={client.id}>
                     <TableCell>
-                      {hasDossier ? (
-                        <button
-                          onClick={() => router.push(`/expedientes/${client.legacyId}`)}
-                          className="flex items-center gap-2.5 text-left"
-                        >
-                          <Avatar className="size-8">
-                            <AvatarFallback className="bg-primary/10 text-xs font-semibold text-primary">
-                              {getInitials(client.fullName)}
-                            </AvatarFallback>
-                          </Avatar>
-                          <span className="font-medium text-foreground hover:underline">
-                            {client.fullName}
-                          </span>
-                        </button>
-                      ) : (
-                        <div className="flex items-center gap-2.5">
-                          <Avatar className="size-8">
-                            <AvatarFallback className="bg-primary/10 text-xs font-semibold text-primary">
-                              {getInitials(client.fullName)}
-                            </AvatarFallback>
-                          </Avatar>
-                          <span className="font-medium text-foreground">{client.fullName}</span>
-                        </div>
-                      )}
+                      {/* Milestone 14D: the Dossier route now resolves a
+                          real Client uuid directly (see
+                          expedientes/[id]/page.tsx#resolveClient) — every
+                          real client, seeded or newly-created, is
+                          navigable by client.id. legacyId is no longer
+                          needed for routing at all. */}
+                      <button
+                        onClick={() => router.push(`/expedientes/${client.id}`)}
+                        className="flex items-center gap-2.5 text-left"
+                      >
+                        <Avatar className="size-8">
+                          <AvatarFallback className="bg-primary/10 text-xs font-semibold text-primary">
+                            {getInitials(client.fullName)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span className="font-medium text-foreground hover:underline">
+                          {client.fullName}
+                        </span>
+                      </button>
                     </TableCell>
                     <TableCell className="text-muted-foreground">{client.phone}</TableCell>
                     <TableCell className="text-muted-foreground">{client.identificationNumber}</TableCell>
@@ -271,10 +259,7 @@ export function ClientsTable({ initialClients, applications }: ClientsTableProps
                           }
                         />
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem
-                            disabled={!hasDossier}
-                            onClick={() => hasDossier && router.push(`/expedientes/${client.legacyId}`)}
-                          >
+                          <DropdownMenuItem onClick={() => router.push(`/expedientes/${client.id}`)}>
                             <FolderOpen className="size-4" />
                             {t("clients.rowActions.viewDossier")}
                           </DropdownMenuItem>
@@ -293,17 +278,11 @@ export function ClientsTable({ initialClients, applications }: ClientsTableProps
                             <FilePlus2 className="size-4" />
                             {t("clients.rowActions.createApplication")}
                           </DropdownMenuItem>
-                          <DropdownMenuItem
-                            disabled={!hasDossier}
-                            onClick={() => hasDossier && router.push(`/expedientes/${client.legacyId}?tab=notas`)}
-                          >
+                          <DropdownMenuItem onClick={() => router.push(`/expedientes/${client.id}?tab=notas`)}>
                             <StickyNote className="size-4" />
                             {t("clients.rowActions.addNote")}
                           </DropdownMenuItem>
-                          <DropdownMenuItem
-                            disabled={!hasDossier}
-                            onClick={() => hasDossier && router.push(`/expedientes/${client.legacyId}?tab=alertas`)}
-                          >
+                          <DropdownMenuItem onClick={() => router.push(`/expedientes/${client.id}?tab=alertas`)}>
                             <ShieldAlert className="size-4" />
                             {t("clients.rowActions.registerAlert")}
                           </DropdownMenuItem>
