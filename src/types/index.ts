@@ -3,7 +3,6 @@ export * from "./company";
 export * from "./client";
 export * from "./loan-application";
 export * from "./document-record";
-export * from "./dossier-document";
 export * from "./internal-note";
 export * from "./client-alert";
 export * from "./dossier-alert";

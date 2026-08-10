@@ -2,7 +2,6 @@
 
 import { createNote } from "@/lib/services/notes";
 import { createAlert, setAlertStatus } from "@/lib/services/alerts";
-import { uploadDocumentFile, setDocumentStatus, getDocumentViewUrl } from "@/lib/services/documents";
 import {
   createDocumentEvidence,
   reviewDocumentEvidence,
@@ -14,15 +13,12 @@ import { getCurrentProfile } from "@/lib/auth/get-current-profile";
 import { getClientById } from "@/lib/demo-data";
 import { NOTE_PRIORITY_VALUES, NOTE_TYPE_VALUES } from "@/lib/config/note";
 import { ALERT_LEVEL_VALUES, ALERT_TYPE_VALUES } from "@/lib/config/alert";
-import { DOCUMENT_STATUS_TRANSITIONABLE } from "@/lib/config/document";
 import { REQUIREMENT_SLOT_STATUS_TRANSITIONABLE } from "@/lib/config/requirement-slot";
 import type {
   AlertLevel,
   AlertType,
   DocumentEvidence,
-  DocumentStatus,
   DossierAlert,
-  DossierDocument,
   InternalNote,
   NotePriority,
   NoteType,
@@ -242,156 +238,14 @@ export async function setDossierAlertStatus(
 }
 
 // ============================================================================
-// uploadDossierDocument
-// ============================================================================
-
-export type UploadDossierDocumentResult =
-  | { status: "success"; document: DossierDocument }
-  | {
-      status: "error";
-      code:
-        | "INVALID_INPUT"
-        | "UNAUTHENTICATED"
-        | "INVALID_MIME"
-        | "INVALID_FILE_SIZE"
-        | "DOCUMENT_NOT_FOUND"
-        | "UPLOAD_FAILED"
-        | "METADATA_FAILED";
-    };
-
-/**
- * Accepts FormData (documentId + file) rather than a plain object, since
- * a File can't cross a Server Action boundary as JSON. Handles both the
- * first upload into an empty slot and a replace of an existing file —
- * src/lib/services/documents.ts's uploadDocumentFile is the only place
- * either is actually implemented.
- *
- * The actor is always the caller's own getCurrentProfile() — never
- * accepted from the client — and uploadedSource is hardcoded to
- * 'crm_manual' here, since this action is reachable only from an
- * authenticated CRM session. Other intake channels (a future website form,
- * WhatsApp) would call src/lib/services/documents.ts's uploadDocumentFile
- * directly from their own server-side entry points, with their own
- * uploadedSource and a possibly-null actorProfileId — never through this
- * action.
- */
-export async function uploadDossierDocument(formData: FormData): Promise<UploadDossierDocumentResult> {
-  const documentId = formData.get("documentId");
-  const file = formData.get("file");
-
-  if (typeof documentId !== "string" || !UUID_PATTERN.test(documentId)) {
-    return { status: "error", code: "INVALID_INPUT" };
-  }
-  if (!(file instanceof File) || file.size === 0) {
-    return { status: "error", code: "INVALID_INPUT" };
-  }
-
-  const profile = await getCurrentProfile();
-  if (!profile) {
-    console.error("[expedientes actions] uploadDossierDocument rejected: no authenticated profile.");
-    return { status: "error", code: "UNAUTHENTICATED" };
-  }
-
-  const result = await uploadDocumentFile({
-    documentId,
-    file,
-    actorProfileId: profile.id,
-    uploadedSource: "crm_manual",
-  });
-
-  if (result.status !== "ok") {
-    return { status: "error", code: result.code };
-  }
-
-  return { status: "success", document: result.document };
-}
-
-// ============================================================================
-// setDossierDocumentStatus
-// ============================================================================
-
-export interface SetDossierDocumentStatusInput {
-  documentId: string;
-  status: DocumentStatus;
-}
-
-export type SetDossierDocumentStatusResult =
-  | { status: "success"; document: DossierDocument }
-  | { status: "error"; code: "INVALID_INPUT" | "UNAUTHENTICATED" | "DOCUMENT_NOT_FOUND" | "UPDATE_FAILED" };
-
-/**
- * Never accepts reviewedByProfileId from the client — only documentId and
- * the target status. 'pendiente' is rejected as an invalid target
- * (DOCUMENT_STATUS_TRANSITIONABLE excludes it): a document can only reach
- * pendiente by never having had a file, not by a status change once one
- * exists — see dossier_documents_status_file_check.
- */
-export async function setDossierDocumentStatus(
-  input: SetDossierDocumentStatusInput
-): Promise<SetDossierDocumentStatusResult> {
-  if (!isNonEmptyString(input.documentId) || !UUID_PATTERN.test(input.documentId)) {
-    return { status: "error", code: "INVALID_INPUT" };
-  }
-  if (!(DOCUMENT_STATUS_TRANSITIONABLE as string[]).includes(input.status)) {
-    return { status: "error", code: "INVALID_INPUT" };
-  }
-
-  const profile = await getCurrentProfile();
-  if (!profile) {
-    console.error("[expedientes actions] setDossierDocumentStatus rejected: no authenticated profile.");
-    return { status: "error", code: "UNAUTHENTICATED" };
-  }
-
-  const result = await setDocumentStatus(input.documentId, input.status, profile.id);
-  if (result.status !== "ok") {
-    return { status: "error", code: result.code };
-  }
-
-  return { status: "success", document: result.document };
-}
-
-// ============================================================================
-// getDossierDocumentViewUrl
-// ============================================================================
-
-export type GetDossierDocumentViewUrlResult =
-  | { status: "success"; url: string }
-  | {
-      status: "error";
-      code: "INVALID_INPUT" | "UNAUTHENTICATED" | "DOCUMENT_NOT_FOUND" | "NO_FILE" | "SIGN_FAILED";
-    };
-
-/** Mints a short-lived (90s) signed URL — never a permanent or public one. */
-export async function getDossierDocumentViewUrl(
-  documentId: string
-): Promise<GetDossierDocumentViewUrlResult> {
-  if (!isNonEmptyString(documentId) || !UUID_PATTERN.test(documentId)) {
-    return { status: "error", code: "INVALID_INPUT" };
-  }
-
-  const profile = await getCurrentProfile();
-  if (!profile) {
-    console.error("[expedientes actions] getDossierDocumentViewUrl rejected: no authenticated profile.");
-    return { status: "error", code: "UNAUTHENTICATED" };
-  }
-
-  const result = await getDocumentViewUrl(documentId);
-  if (result.status !== "ok") {
-    return { status: "error", code: result.code };
-  }
-
-  return { status: "success", url: result.url };
-}
-
-// ============================================================================
 // uploadRequirementEvidence
 // ============================================================================
 //
 // The five actions below (Milestone 12C) are the Server Action layer for
 // src/lib/services/document-evidence.ts and the Requirement Slot side of
-// src/lib/services/requirement-slots.ts — the NEW Requirement Slot +
-// Document Evidence model. They are entirely additive: every action above
-// this line, and the legacy services they wrap, are unchanged.
+// src/lib/services/requirement-slots.ts — the Requirement Slot + Document
+// Evidence model, now the only document data model this file exposes
+// (Milestone 12E4 removed the legacy dossier_documents actions above).
 
 export type UploadRequirementEvidenceResult =
   | { status: "success"; evidence: DocumentEvidence }
@@ -409,17 +263,14 @@ export type UploadRequirementEvidenceResult =
         | "SLOT_TERMINAL"
         | "REPLACES_NOT_FOUND"
         | "CROSS_SLOT_REPLACEMENT"
-        | "NO_LEGACY_APPLICATION_BRIDGE"
-        | "NO_LEGACY_TYPE_MAPPING"
-        | "LEGACY_LOOKUP_FAILED"
         | "UPLOAD_FAILED"
         | "INSERT_FAILED";
     };
 
 /**
  * Accepts FormData (requirementSlotId + file + optional
- * replacesEvidenceId) for the same reason uploadDossierDocument does — a
- * File can't cross a Server Action boundary as JSON. Every call creates a
+ * replacesEvidenceId), since a File can't cross a Server Action boundary
+ * as JSON. Every call creates a
  * NEW Evidence row (src/lib/services/document-evidence.ts#
  * createDocumentEvidence never updates an existing one); there is no
  * "replace" distinct from upload here — replacesEvidenceId, when present,
@@ -431,8 +282,8 @@ export type UploadRequirementEvidenceResult =
  *
  * The actor is always the caller's own getCurrentProfile() — never
  * accepted from the client — and uploadedSource is hardcoded to
- * 'crm_manual', matching uploadDossierDocument's exact reasoning: this
- * action is reachable only from an authenticated CRM session.
+ * 'crm_manual': this action is reachable only from an authenticated CRM
+ * session.
  */
 export async function uploadRequirementEvidence(formData: FormData): Promise<UploadRequirementEvidenceResult> {
   const requirementSlotId = formData.get("requirementSlotId");
@@ -523,7 +374,7 @@ export type GetRequirementEvidenceViewUrlResult =
   | { status: "error"; code: "INVALID_INPUT" | "UNAUTHENTICATED" | "NOT_FOUND" | "SIGN_FAILED" };
 
 /** Mints a short-lived (90s) signed URL for one Evidence item — never a
- * permanent or public one. Same posture as getDossierDocumentViewUrl. */
+ * permanent or public one. */
 export async function getRequirementEvidenceViewUrl(
   evidenceId: string
 ): Promise<GetRequirementEvidenceViewUrlResult> {

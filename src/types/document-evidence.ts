@@ -3,21 +3,16 @@
 export type EvidenceUploadedSource = "crm_manual" | "website_form" | "whatsapp" | "ai";
 
 /**
- * The Document Evidence Engine's read/write shape (Milestone 12B — see the
- * Milestone 12 architecture review and its sequencing-correction
- * follow-up). Represents the FUTURE model this milestone is building
- * toward, not the current physical table: the underlying storage is still
- * `dossier_documents`, mid-migration, carrying legacy client/application/
- * type/status columns this type deliberately does not expose (see
- * src/lib/services/document-evidence.ts's internal legacy-compatibility
- * shim). Existing consumers keep using DossierDocument
- * (src/types/dossier-document.ts) until Milestone 12E.
+ * The Document Evidence Engine's read/write shape (Milestone 12B, finalized
+ * in Milestone 12E4 — see the Milestone 12 and 12E architecture reviews).
+ * `dossier_documents` is the sole, final table backing this type; the
+ * legacy client/application/type/status columns and every consumer of them
+ * were retired in Milestone 12E4.
  *
- * Unlike DossierDocument, every field describing the file is NEVER
- * optional/null here — under the new model, an Evidence row is only ever
- * created at the moment a file is actually uploaded (see "every upload is
- * a new row" in the architecture review); there is no such thing as an
- * empty, file-less Evidence row the way a legacy "pendiente" row is.
+ * Every field describing the file is NEVER optional/null here — an Evidence
+ * row is only ever created at the moment a file is actually uploaded (see
+ * "every upload is a new row" in the architecture review); there is no such
+ * thing as an empty, file-less Evidence row.
  */
 export interface DocumentEvidence {
   id: string;

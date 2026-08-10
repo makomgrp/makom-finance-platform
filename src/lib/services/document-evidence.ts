@@ -9,27 +9,19 @@ import {
   MIME_TYPE_EXTENSIONS,
   VIEW_URL_TTL_SECONDS,
   buildTimestampComponent,
-} from "@/lib/services/documents";
+} from "@/lib/config/evidence-storage";
 import type { DocumentEvidence, EvidenceUploadedSource } from "@/types";
 
 /**
- * Server-only service for the Document Evidence Engine (Milestone 12B —
- * see the Milestone 12 architecture review and its sequencing-correction
- * follow-up). This is the NEW model: Evidence belongs to a Requirement
- * Slot, never to a client/application legacy-id pair or a hardcoded
- * `type`. Built ALONGSIDE src/lib/services/documents.ts, which is left
- * completely untouched beyond exporting a few already-existing constants/
- * helpers for reuse (see their own comments there) — every existing
- * consumer keeps working exactly as before.
- *
- * The physical table is still `dossier_documents`, mid-migration (12A of
- * 12E) — it still carries client_legacy_id/application_legacy_id/type/
- * status, all still NOT NULL and CHECK-constrained. This service never
- * exposes those columns in its own types or its own function signatures.
- * A small, clearly isolated "legacy compatibility shim" below derives
- * values for them server-side, purely so inserts satisfy still-live
- * constraints — see that section's own comment for exactly what it does,
- * its real limitations, and how 12E deletes it wholesale.
+ * Server-only service for the Document Evidence Engine (Milestone 12B,
+ * finalized in Milestone 12E4 — see the Milestone 12 and 12E architecture
+ * reviews). Evidence belongs to a Requirement Slot, and only to a
+ * Requirement Slot — never to a client/application legacy-id pair or a
+ * hardcoded `type`. `dossier_documents` is the sole, final table backing
+ * this model; the legacy client_legacy_id/application_legacy_id/type/
+ * status columns and the temporary 12B→12E write-compatibility shim that
+ * used to populate them have been removed entirely (Milestone 12E4) —
+ * this service never touches, reads, or writes them anywhere.
  *
  * Deliberately minimal, matching the architecture review's approved
  * surface: two reads, create, review, signed URL. No generic update
@@ -40,7 +32,7 @@ import type { DocumentEvidence, EvidenceUploadedSource } from "@/types";
 
 interface DocumentEvidenceRow {
   id: string;
-  requirement_slot_id: string | null;
+  requirement_slot_id: string;
   replaces_evidence_id: string | null;
   storage_bucket: string | null;
   storage_path: string | null;
@@ -62,15 +54,15 @@ const EVIDENCE_SELECT =
   "uploaded_by:profiles!dossier_documents_uploaded_by_profile_id_fkey(full_name), " +
   "reviewed_by:profiles!dossier_documents_reviewed_by_profile_id_fkey(full_name)";
 
-/** Every field describing the file is guaranteed non-null for any row
- * reachable through requirement_slot_id — dossier_documents_file_
- * metadata_check requires all eight file columns to be populated
- * together, and both this service's own inserts and the Milestone 12A
- * backfilled legacy rows always have a real file attached. */
+/** Every field describing the file is guaranteed non-null for every row in
+ * the table — dossier_documents_file_metadata_check requires all eight
+ * file columns to be populated together, and both this service's own
+ * inserts and the Milestone 12A backfilled legacy rows always have a real
+ * file attached; no code path creates a file-less row anymore. */
 function toDocumentEvidence(row: DocumentEvidenceRow, supersededByEvidenceId?: string): DocumentEvidence {
   return {
     id: row.id,
-    requirementSlotId: row.requirement_slot_id as string,
+    requirementSlotId: row.requirement_slot_id,
     replacesEvidenceId: row.replaces_evidence_id ?? undefined,
     supersededByEvidenceId,
     storageBucket: row.storage_bucket as string,
@@ -186,91 +178,6 @@ export async function getEvidenceByApplicationId(applicationId: string): Promise
   }
 }
 
-// ============================================================================
-// TEMPORARY 12B -> 12E LEGACY COMPATIBILITY SHIM
-// ============================================================================
-//
-// dossier_documents.client_legacy_id / application_legacy_id / type are
-// still NOT NULL and still CHECK-constrained (12E has not run). Inserting
-// a new Evidence row must satisfy them, without this service ever
-// exposing them in its own API. Every value below is derived server-side
-// from real data — never accepted from a caller, never invented.
-//
-// SLOT_CODE_TO_LEGACY_TYPE is the exact inverse of the four deterministic
-// mappings established in 12A's backfill (supabase/seed_dossier_documents_
-// backfill_dev.sql) — no mapping exists here beyond those four. A
-// document-kind Requirement Slot whose code isn't one of these four has no
-// way to satisfy dossier_documents_type_check today; createDocumentEvidence
-// fails clearly (NO_LEGACY_TYPE_MAPPING) rather than guessing.
-//
-// application_legacy_id can only be derived when the target Application
-// actually has one (applications.legacy_id — the Milestone 11 temporary
-// bridge, populated only for applications backfilled from demo data, e.g.
-// ap-001). An Application created fresh through the real application flow
-// has no legacy_id at all, so Evidence cannot be created for its Slots yet
-// — createDocumentEvidence fails clearly (NO_LEGACY_APPLICATION_BRIDGE)
-// rather than inventing one. This is a REAL, KNOWN limitation of 12B
-// specifically — see the implementation report's "known temporary
-// limitations" section, not a bug.
-//
-// Deletion in 12E: once client_legacy_id/application_legacy_id/type are
-// dropped from the table, this entire block (the mapping table,
-// resolveLegacyCompatibilityFields, and the fields it contributes to the
-// insert payload in createDocumentEvidence below) is deleted wholesale.
-// Nothing else in this file changes — no caller of createDocumentEvidence
-// ever sees or depends on any of it; its own parameters and return type
-// never mentioned these fields to begin with.
-
-const SLOT_CODE_TO_LEGACY_TYPE: Record<string, string> = {
-  government_id: "cedula_pasaporte",
-  salary_letter: "carta_trabajo",
-  css_record: "ficha_css",
-  last_pay_stub: "comprobante_pago",
-};
-
-interface LegacyCompatibilityFields {
-  clientLegacyId: string;
-  applicationLegacyId: string;
-  type: string;
-}
-
-type ResolveLegacyCompatibilityResult =
-  | { status: "ok"; fields: LegacyCompatibilityFields }
-  | { status: "error"; code: "NO_LEGACY_APPLICATION_BRIDGE" | "NO_LEGACY_TYPE_MAPPING" | "LEGACY_LOOKUP_FAILED" };
-
-async function resolveLegacyCompatibilityFields(
-  supabase: ReturnType<typeof getSupabaseServerClient>,
-  applicationId: string,
-  slotCode: string
-): Promise<ResolveLegacyCompatibilityResult> {
-  const { data: application, error } = await supabase
-    .from("applications")
-    .select("client_legacy_id, legacy_id")
-    .eq("id", applicationId)
-    .maybeSingle();
-
-  if (error) {
-    console.error(
-      "[document-evidence service] Failed to resolve application for legacy compatibility fields:",
-      error.message
-    );
-    return { status: "error", code: "LEGACY_LOOKUP_FAILED" };
-  }
-  if (!application || !application.legacy_id) {
-    return { status: "error", code: "NO_LEGACY_APPLICATION_BRIDGE" };
-  }
-
-  const type = SLOT_CODE_TO_LEGACY_TYPE[slotCode];
-  if (!type) {
-    return { status: "error", code: "NO_LEGACY_TYPE_MAPPING" };
-  }
-
-  return {
-    status: "ok",
-    fields: { clientLegacyId: application.client_legacy_id, applicationLegacyId: application.legacy_id, type },
-  };
-}
-
 export interface CreateDocumentEvidenceInput {
   requirementSlotId: string;
   file: File;
@@ -296,9 +203,6 @@ export type CreateDocumentEvidenceResult =
         | "SLOT_TERMINAL"
         | "REPLACES_NOT_FOUND"
         | "CROSS_SLOT_REPLACEMENT"
-        | "NO_LEGACY_APPLICATION_BRIDGE"
-        | "NO_LEGACY_TYPE_MAPPING"
-        | "LEGACY_LOOKUP_FAILED"
         | "UPLOAD_FAILED"
         | "INSERT_FAILED";
     };
@@ -306,8 +210,8 @@ export type CreateDocumentEvidenceResult =
 /**
  * Creates a NEW Evidence row for a document-kind Requirement Slot — never
  * updates an existing row (see the architecture review's "Every Upload =
- * New Row"). Sequencing mirrors documents.ts#uploadDocumentFile: every
- * validation that can be checked without touching Storage happens first,
+ * New Row"). Every validation that can be checked without touching
+ * Storage happens first,
  * Storage upload happens before the DB insert using a freshly generated,
  * never-reused path, and a failed insert after a successful upload
  * triggers the same best-effort orphan cleanup (logged, never blocking).
@@ -394,11 +298,6 @@ export async function createDocumentEvidence(
     }
   }
 
-  const legacyFields = await resolveLegacyCompatibilityFields(supabase, slot.application_id, slot.code);
-  if (legacyFields.status !== "ok") {
-    return { status: "error", code: legacyFields.code };
-  }
-
   const bytes = Buffer.from(await input.file.arrayBuffer());
   const fileSha256 = createHash("sha256").update(bytes).digest("hex");
   const extension = MIME_TYPE_EXTENSIONS[mimeType];
@@ -430,11 +329,6 @@ export async function createDocumentEvidence(
       uploaded_source: input.uploadedSource,
       uploaded_at: new Date().toISOString(),
       uploaded_by_profile_id: input.actorProfileId,
-      // --- temporary 12B -> 12E legacy compatibility shim, see above ---
-      client_legacy_id: legacyFields.fields.clientLegacyId,
-      application_legacy_id: legacyFields.fields.applicationLegacyId,
-      type: legacyFields.fields.type,
-      status: "recibido",
     })
     .select(EVIDENCE_SELECT)
     .single<DocumentEvidenceRow>();
@@ -554,12 +448,10 @@ export type CreateSignedEvidenceUrlResult =
   | { status: "error"; code: "NOT_FOUND" | "SIGN_FAILED" };
 
 /**
- * Short-lived (same VIEW_URL_TTL_SECONDS as the legacy service — 90s),
- * freshly minted on every call, never cached or reused — identical
- * security posture to documents.ts#getDocumentViewUrl, just resolving
- * storage_bucket/storage_path via requirement_slot_id instead of the
- * legacy row shape. Only ever signs rows that are actually Evidence
- * (requirement_slot_id is not null) — never a purely-legacy row.
+ * Short-lived (VIEW_URL_TTL_SECONDS — 90s), freshly minted on every call,
+ * never cached or reused. Resolves storage_bucket/storage_path via
+ * requirement_slot_id, guarding on it being non-null as defense in depth
+ * even though the column is now NOT NULL for every row in the table.
  */
 export async function createSignedEvidenceUrl(evidenceId: string): Promise<CreateSignedEvidenceUrlResult> {
   const supabase = getSupabaseServerClient();
