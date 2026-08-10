@@ -768,6 +768,13 @@
       "rejected": "Rejected",
       "waived": "Waived",
       "missing": "Missing"
+    },
+    "applicationStatus": {
+      "new": "New",
+      "in_review": "Under review",
+      "approved": "Approved",
+      "not_eligible": "Not eligible",
+      "cancelled": "Cancelled"
     }
   },
   "roles": {

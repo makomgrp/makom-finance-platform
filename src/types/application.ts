@@ -1,3 +1,5 @@
+import type { LocalizedText } from "@/types/product";
+
 /**
  * The application's own 5-value execution lifecycle — independent from
  * products.status and requirement_templates.status (both configuration
@@ -58,4 +60,23 @@ export interface Application {
   /** Which advisor currently owns this case — freely reassignable, no
    * accompanying audit trail by deliberate design. */
   assignedAdvisorProfileId?: string;
+}
+
+/**
+ * `Application` plus its resolved Product identity and advisor name
+ * (Milestone 13B — the foundation layer for the future Solicitudes
+ * migration; see the Milestone 13A architecture review and its final
+ * validation, "Application Workspace" question). Returned only by
+ * src/lib/services/applications.ts#getApplications() — a thin, additive
+ * extension of Application, not a separate read model: productId's
+ * FK is NOT NULL, so productCode/productName are always resolved for
+ * every row; assignedAdvisorProfileId remains independently nullable, so
+ * assignedAdvisorFullName is populated only when it is.
+ */
+export interface ApplicationListItem extends Application {
+  productCode: string;
+  productName: LocalizedText;
+  /** Resolved server-side (joined from profiles) — never guessed
+   * client-side. Undefined exactly when assignedAdvisorProfileId is. */
+  assignedAdvisorFullName?: string;
 }

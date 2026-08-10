@@ -2,7 +2,7 @@ import "server-only";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { createRequirementSlotsForApplication } from "@/lib/services/requirement-slots";
 import { APPLICATION_STATUS_TRANSITIONS } from "@/lib/config/application";
-import type { Application, ApplicationSource, ApplicationStatus } from "@/types";
+import type { Application, ApplicationListItem, ApplicationSource, ApplicationStatus, LocalizedText } from "@/types";
 
 /**
  * Server-only service for the Application Engine's identity + lifecycle
@@ -62,6 +62,41 @@ function toApplication(row: ApplicationRow): Application {
     statusChangedByProfileId: row.status_changed_by_profile_id ?? undefined,
     statusChangedSource: (row.status_changed_source as ApplicationSource | null) ?? undefined,
     assignedAdvisorProfileId: row.assigned_advisor_profile_id ?? undefined,
+  };
+}
+
+/**
+ * getApplications()-only row shape (Milestone 13B) — ApplicationRow plus
+ * the two embeds the future Solicitudes list/kanban needs to render
+ * without doing its own demo-data-style lookups. Not used by any other
+ * function in this file: getApplicationById/getApplicationByLegacyId/
+ * createApplication/setApplicationStatus/assignApplicationAdvisor stay on
+ * the bare APPLICATION_SELECT, since none of them are display reads (see
+ * the Milestone 13A architecture review's "Application Workspace"
+ * question — extending the existing list read, not introducing a second
+ * read model, and not paying a join cost anywhere it isn't needed).
+ */
+interface ApplicationListRow extends ApplicationRow {
+  product: { code: string; name: Record<string, string> } | null;
+  advisor: { full_name: string } | null;
+}
+
+// Same !constraint embed-hint pattern already used throughout this app
+// (document-evidence.ts, requirement-slots.ts, document-workspace.ts).
+// product_id is `not null` at the schema level, so the product embed is
+// always resolved; assigned_advisor_profile_id is independently nullable,
+// so the advisor embed is not.
+const APPLICATION_LIST_SELECT =
+  `${APPLICATION_SELECT}, ` +
+  "product:products!applications_product_id_fkey(code, name), " +
+  "advisor:profiles!applications_assigned_advisor_profile_id_fkey(full_name)";
+
+function toApplicationListItem(row: ApplicationListRow): ApplicationListItem {
+  return {
+    ...toApplication(row),
+    productCode: row.product?.code ?? "",
+    productName: (row.product?.name as LocalizedText | undefined) ?? ({} as LocalizedText),
+    assignedAdvisorFullName: row.advisor?.full_name ?? undefined,
   };
 }
 
@@ -138,18 +173,26 @@ export async function getApplicationByLegacyId(legacyId: string): Promise<GetApp
   }
 }
 
-export type GetApplicationsResult = { status: "ok"; applications: Application[] } | { status: "error" };
+export type GetApplicationsResult = { status: "ok"; applications: ApplicationListItem[] } | { status: "error" };
 
-/** Loads every application, newest first. Deliberately no filter
- * parameters yet (by client, product, status, advisor) — no consumer
- * needs one until a real UI is migrated onto this table; adding filters
- * later is purely additive, not a redesign. */
+/**
+ * Loads every application, newest first, with its Product code/name and
+ * assigned advisor's name resolved via embedded joins — everything the
+ * future Solicitudes list/kanban needs to render a row without its own
+ * demo-data-style lookups (Milestone 13B foundation layer; see the
+ * Milestone 13A architecture review and its final validation). No UI
+ * calls this yet — this milestone is additive only.
+ *
+ * Deliberately no filter parameters yet (by client, product, status,
+ * advisor) — no consumer needs one until a real UI is migrated onto this
+ * table; adding filters later is purely additive, not a redesign.
+ */
 export async function getApplications(): Promise<GetApplicationsResult> {
   try {
     const supabase = getSupabaseServerClient();
     const { data, error } = await supabase
       .from("applications")
-      .select(APPLICATION_SELECT)
+      .select(APPLICATION_LIST_SELECT)
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -157,8 +200,8 @@ export async function getApplications(): Promise<GetApplicationsResult> {
       return { status: "error" };
     }
 
-    const rows = (data ?? []) as unknown as ApplicationRow[];
-    return { status: "ok", applications: rows.map(toApplication) };
+    const rows = (data ?? []) as unknown as ApplicationListRow[];
+    return { status: "ok", applications: rows.map(toApplicationListItem) };
   } catch (error) {
     console.error(
       "[applications service] Unexpected failure loading applications:",
