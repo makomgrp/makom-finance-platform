@@ -9,12 +9,12 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { getCompanyById } from "@/lib/demo-data";
 import { formatCurrency, formatDateTime } from "@/lib/format";
 import type { Locale } from "@/i18n/config";
-import type { Client, LoanApplication } from "@/types";
+import type { ApplicationListItem, Client } from "@/types";
 import type { DossierRequirementsData } from "@/components/dossier/dossier-view";
 
 interface SummaryTabProps {
   client: Client;
-  application?: LoanApplication;
+  application?: ApplicationListItem;
   /** Milestone 12E1: the same Requirement Slot + Evidence bundle
    * RequirementsTab already receives (dossier-view.tsx's
    * activeRequirementsData) — no new fetch, no new service method.
@@ -84,14 +84,18 @@ export function SummaryTab({ client, application, requirementsData }: SummaryTab
               <div>
                 <dt className="text-xs text-muted-foreground">{t("dossier.summary.loanType")}</dt>
                 <dd className="text-sm font-medium text-foreground">
-                  {t(`statuses.loanType.${application.loanType}`)}
+                  {application.productName[locale]}
                 </dd>
               </div>
             )}
             <div>
               <dt className="text-xs text-muted-foreground">{t("dossier.summary.nextAction")}</dt>
               <dd className="text-sm font-medium text-foreground">
-                {application?.nextAction ?? t("dossier.summary.noNextAction")}
+                {/* nextAction has no home on the real Application (Milestone
+                    13A architecture review: a workflow/task-engine concept,
+                    deliberately not recreated here) — always the fallback
+                    until a future CRM-workflow milestone. */}
+                {t("dossier.summary.noNextAction")}
               </dd>
             </div>
           </dl>
@@ -157,7 +161,7 @@ export function SummaryTab({ client, application, requirementsData }: SummaryTab
           <div className="border-t border-border pt-3">
             <dt className="text-xs text-muted-foreground">{t("dossier.summary.lastUpdate")}</dt>
             <dd className="text-sm font-medium text-foreground">
-              {application ? formatDateTime(application.lastActivityAt, locale) : "—"}
+              {application ? formatDateTime(application.statusChangedAt ?? application.createdAt, locale) : "—"}
             </dd>
           </div>
         </CardContent>

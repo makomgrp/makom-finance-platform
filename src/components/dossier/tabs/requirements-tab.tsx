@@ -39,8 +39,8 @@ import { formatDate } from "@/lib/format";
 import type { Locale } from "@/i18n/config";
 import type {
   ActivityEvent,
+  ApplicationListItem,
   DocumentEvidence,
-  LoanApplication,
   RequirementSlot,
   RequirementSlotStatus,
 } from "@/types";
@@ -65,10 +65,10 @@ const MAX_FILE_SIZE_BYTES = 20 * 1024 * 1024;
 const ALLOWED_MIME_TYPES = ["application/pdf", "image/jpeg", "image/png", "image/webp"];
 
 interface RequirementsTabProps {
-  application?: LoanApplication;
-  /** null = no real Application exists yet for the active demo
-   * application (applications.legacy_id has no match) — render the
-   * "not yet migrated" state, never throw or show a blank screen. */
+  application?: ApplicationListItem;
+  /** null defensively covers a lookup miss — see DossierRequirementsData's
+   * own doc comment; render the "not yet migrated" state rather than
+   * throwing or showing a blank screen if it's ever actually hit. */
   requirementsData: DossierRequirementsData | null;
   onRefetch: () => Promise<void>;
   onActivity: (

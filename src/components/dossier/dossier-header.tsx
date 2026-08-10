@@ -9,19 +9,18 @@ import { StatusBadge } from "@/components/shared/status-badge";
 import { ApplicationStatusMenu } from "@/components/applications/application-status-menu";
 import { ClientFormDialog } from "@/components/clients/client-form-dialog";
 import { CLIENT_STATUS_BADGE_CLASS } from "@/lib/config/client-status";
-import { LOAN_STATUS_BADGE_CLASS, LOAN_STATUS_ORDER } from "@/lib/config/loan-status";
-import { getUserById } from "@/lib/demo-data";
+import { APPLICATION_STATUS_BADGE_CLASS, APPLICATION_STATUS_TRANSITIONS } from "@/lib/config/application";
 import { formatDate, getInitials } from "@/lib/format";
 import type { Locale } from "@/i18n/config";
-import type { Client, LoanApplication, LoanStatus } from "@/types";
+import type { ApplicationListItem, ApplicationStatus, Client } from "@/types";
 
 interface DossierHeaderProps {
   client: Client;
-  applications: LoanApplication[];
-  activeApplication?: LoanApplication;
+  applications: ApplicationListItem[];
+  activeApplication?: ApplicationListItem;
   onSelectApplication: (applicationId: string) => void;
   onClientUpdate: (client: Client) => void;
-  onApplicationStatusChange: (applicationId: string, status: LoanStatus) => void;
+  onApplicationStatusChange: (applicationId: string, status: ApplicationStatus) => void;
 }
 
 export function DossierHeader({
@@ -35,9 +34,12 @@ export function DossierHeader({
   const router = useRouter();
   const locale = useLocale() as Locale;
   const t = useTranslations();
-  const advisor = getUserById(
-    activeApplication?.advisorId ?? client.assignedAdvisorId
-  );
+  // Advisor is only ever rendered in the activeApplication branch below
+  // (matching the pre-13E behavior exactly — client.assignedAdvisorId was
+  // never actually displayed in the no-application branch either), and
+  // now comes resolved from the real engine (assignedAdvisorFullName),
+  // not a demo lookup.
+  const legalStatusTargets = activeApplication ? APPLICATION_STATUS_TRANSITIONS[activeApplication.status] : [];
 
   return (
     <div className="rounded-xl border border-border bg-card p-5">
@@ -71,12 +73,12 @@ export function DossierHeader({
                 <span className="font-medium text-foreground">
                   {activeApplication.applicationNumber}
                 </span>
-                <span>{t(`statuses.loanType.${activeApplication.loanType}`)}</span>
+                <span>{activeApplication.productName[locale]}</span>
                 <span>
-                  {t("dossier.advisor")}: {advisor?.fullName ?? t("common.unassigned")}
+                  {t("dossier.advisor")}: {activeApplication.assignedAdvisorFullName ?? t("common.unassigned")}
                 </span>
                 <span>
-                  {t("dossier.createdOn")}: {formatDate(activeApplication.requestDate, locale)}
+                  {t("dossier.createdOn")}: {formatDate(activeApplication.createdAt, locale)}
                 </span>
               </div>
             ) : (
@@ -111,16 +113,16 @@ export function DossierHeader({
           {activeApplication && (
             <>
               <StatusBadge
-                label={t(`statuses.loanApplication.${activeApplication.status}`)}
-                className={LOAN_STATUS_BADGE_CLASS[activeApplication.status]}
+                label={t(`statuses.applicationStatus.${activeApplication.status}`)}
+                className={APPLICATION_STATUS_BADGE_CLASS[activeApplication.status]}
               />
               <ApplicationStatusMenu
-                options={LOAN_STATUS_ORDER.map((status) => ({
+                options={legalStatusTargets.map((status) => ({
                   value: status,
-                  label: t(`statuses.loanApplication.${status}`),
-                  disabled: status === activeApplication.status,
+                  label: t(`statuses.applicationStatus.${status}`),
                 }))}
-                onChange={(status) => onApplicationStatusChange(activeApplication.id, status as LoanStatus)}
+                triggerDisabled={legalStatusTargets.length === 0}
+                onChange={(status) => onApplicationStatusChange(activeApplication.id, status as ApplicationStatus)}
               />
             </>
           )}

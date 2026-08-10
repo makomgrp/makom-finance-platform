@@ -1,48 +1,38 @@
 import { notFound } from "next/navigation";
-import { getClientById, getApplicationsByClientId } from "@/lib/demo-data";
+import { getClientById } from "@/lib/demo-data";
 import { getNotesByClientId } from "@/lib/services/notes";
 import { getAlertsByClientId } from "@/lib/services/alerts";
-import { getApplicationByLegacyId } from "@/lib/services/applications";
+import { getApplications } from "@/lib/services/applications";
 import { getRequirementSlotsByApplicationId } from "@/lib/services/requirement-slots";
 import { getEvidenceByApplicationId } from "@/lib/services/document-evidence";
 import { DossierView, type DossierRequirementsData } from "@/components/dossier/dossier-view";
+import type { ApplicationListItem } from "@/types";
 
 /**
- * Milestone 12C addition: for each of the client's demo LoanApplications,
- * resolves whether a real Application exists (applications.legacy_id —
- * the Milestone 11 bridge) and, only when one does, fetches its
- * Requirement Slots and Evidence in parallel. A null entry means no real
- * Application exists for that demo application yet — the expected,
- * common case for everything except ap-001 today — and the Dossier must
- * render a "not yet migrated" state for it, never an error.
- *
- * Deliberately resolves for EVERY one of the client's demo applications,
- * not just whichever is initially active: a client can have more than
- * one, and this app has no client-triggered re-fetch mechanism for
- * switching between them (see dossier-view.tsx) — resolving all of them
- * server-side up front is what lets switching applications work
- * correctly without inventing one.
+ * Milestone 13E — resolves Requirement Slots + Evidence for each of the
+ * client's REAL Applications directly, keyed by real application id.
+ * Replaces Milestone 12C's per-demo-application legacy_id bridge
+ * (getApplicationByLegacyId): that bridge existed to answer "does a real
+ * Application exist for this demo application yet?" — a question that no
+ * longer applies once the Dossier works from real Applications end to
+ * end. getApplicationByLegacyId is no longer called by this page; it has
+ * no remaining callers anywhere in src/ as of this milestone (see the
+ * Milestone 13E implementation report).
  */
-async function resolveRequirementsByDemoApplicationId(
-  demoApplicationIds: string[]
-): Promise<Record<string, DossierRequirementsData | null>> {
+async function resolveRequirementsByApplicationId(
+  applications: ApplicationListItem[]
+): Promise<Record<string, DossierRequirementsData>> {
   const entries = await Promise.all(
-    demoApplicationIds.map(async (demoApplicationId): Promise<readonly [string, DossierRequirementsData | null]> => {
-      const bridgeResult = await getApplicationByLegacyId(demoApplicationId);
-      if (bridgeResult.status !== "ok") {
-        return [demoApplicationId, null] as const;
-      }
-
-      const realApplicationId = bridgeResult.application.id;
+    applications.map(async (application): Promise<readonly [string, DossierRequirementsData]> => {
       const [slotsResult, evidenceResult] = await Promise.all([
-        getRequirementSlotsByApplicationId(realApplicationId),
-        getEvidenceByApplicationId(realApplicationId),
+        getRequirementSlotsByApplicationId(application.id),
+        getEvidenceByApplicationId(application.id),
       ]);
 
       return [
-        demoApplicationId,
+        application.id,
         {
-          applicationId: realApplicationId,
+          applicationId: application.id,
           requirementSlots: slotsResult.status === "ok" ? slotsResult.requirementSlots : [],
           evidence: evidenceResult.status === "ok" ? evidenceResult.evidence : [],
           loadError: slotsResult.status === "error" || evidenceResult.status === "error",
@@ -67,13 +57,27 @@ export default async function ExpedientePage({
   const client = getClientById(id);
   if (!client) notFound();
 
-  const demoApplications = getApplicationsByClientId(client.id);
-
-  const [notesResult, alertsResult, requirementsByDemoApplicationId] = await Promise.all([
+  // client_legacy_id is the one bridge dimension this milestone leaves in
+  // place — Client Engine is explicitly deferred (see the Milestone 13A
+  // architecture review's "Client Dependency" question) — so real
+  // Applications for this client are still resolved by filtering on it,
+  // exactly like Solicitudes already does. getApplications() is the same,
+  // unmodified, already-extended (Milestone 13B) service every other
+  // migrated surface reuses.
+  const [notesResult, alertsResult, applicationsResult] = await Promise.all([
     getNotesByClientId(client.id),
     getAlertsByClientId(client.id),
-    resolveRequirementsByDemoApplicationId(demoApplications.map((application) => application.id)),
+    getApplications(),
   ]);
+
+  const applications =
+    applicationsResult.status === "ok"
+      ? applicationsResult.applications.filter((application) => application.clientLegacyId === client.id)
+      : [];
+
+  // Requires the filtered application list above, so it cannot join the
+  // Promise.all — a genuine data dependency, not a duplicated query.
+  const requirementsByApplicationId = await resolveRequirementsByApplicationId(applications);
 
   return (
     <DossierView
@@ -84,7 +88,8 @@ export default async function ExpedientePage({
       notesLoadError={notesResult.status === "error"}
       initialAlerts={alertsResult.status === "ok" ? alertsResult.alerts : []}
       alertsLoadError={alertsResult.status === "error"}
-      initialRequirementsByDemoApplicationId={requirementsByDemoApplicationId}
+      initialApplications={applications}
+      initialRequirementsByApplicationId={requirementsByApplicationId}
     />
   );
 }

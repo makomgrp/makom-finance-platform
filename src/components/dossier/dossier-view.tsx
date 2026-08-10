@@ -17,29 +17,28 @@ import { NotesTab } from "@/components/dossier/tabs/notes-tab";
 import { AlertsTab } from "@/components/dossier/tabs/alerts-tab";
 import { ActivityTab } from "@/components/dossier/tabs/activity-tab";
 import { getDossierRequirements } from "@/app/(app)/expedientes/actions";
-import {
-  getClientById,
-  getApplicationsByClientId,
-  getActivitiesByClientId,
-} from "@/lib/demo-data";
+import { setSolicitudApplicationStatus } from "@/app/(app)/solicitudes/actions";
+import { getClientById, getActivitiesByClientId } from "@/lib/demo-data";
 import type {
   ActivityEvent,
+  ApplicationListItem,
+  ApplicationStatus,
   Client,
   DocumentEvidence,
   DossierAlert,
   InternalNote,
-  LoanApplication,
-  LoanStatus,
   RequirementSlot,
 } from "@/types";
 
 /**
- * Per-demo-application bundle of real Requirement Slot + Evidence data
- * (Milestone 12C). A null value means no real Application exists yet for
- * that demo application (applications.legacy_id has no match) — the
- * expected, common case for everything except ap-001 today. Deliberately
- * NOT the legacy DossierDocument model — see src/lib/services/document-
- * evidence.ts and the Milestone 12 architecture review.
+ * Real Requirement Slot + Evidence bundle for one real Application
+ * (Milestone 12C, re-keyed by real application id in Milestone 13E — see
+ * expedientes/[id]/page.tsx). The `| null` a caller may still see on a
+ * lookup miss is defensive only: every Application this component ever
+ * knows about (initialApplications) always has a corresponding entry
+ * populated by the server. Deliberately NOT the legacy DossierDocument
+ * model — see src/lib/services/document-evidence.ts and the Milestone 12
+ * architecture review.
  */
 export interface DossierRequirementsData {
   applicationId: string;
@@ -56,13 +55,14 @@ interface DossierViewProps {
   notesLoadError: boolean;
   initialAlerts: DossierAlert[];
   alertsLoadError: boolean;
-  /** The real Requirement Slot + Evidence bundle for each of the client's
-   * demo applications (Milestone 12C) — the sole source of document data
-   * for both the Requirements tab and SummaryTab's completion widget
-   * (Milestone 12E1). Keyed by demo LoanApplication id; a null value
-   * means no real Application bridge exists yet for that demo
-   * application. */
-  initialRequirementsByDemoApplicationId: Record<string, DossierRequirementsData | null>;
+  /** This client's real Applications (Milestone 13E — replaces the demo
+   * LoanApplication[] this component used to seed itself from). May be
+   * empty — a client with no real Application yet is the expected,
+   * common case for everyone except ap-001 today. */
+  initialApplications: ApplicationListItem[];
+  /** The real Requirement Slot + Evidence bundle for each of
+   * initialApplications, keyed by real application id. */
+  initialRequirementsByApplicationId: Record<string, DossierRequirementsData>;
 }
 
 const VALID_TABS = ["resumen", "datos", "documentos", "notas", "alertas", "actividad"];
@@ -75,13 +75,12 @@ export function DossierView({
   notesLoadError,
   initialAlerts,
   alertsLoadError,
-  initialRequirementsByDemoApplicationId,
+  initialApplications,
+  initialRequirementsByApplicationId,
 }: DossierViewProps) {
   const t = useTranslations();
   const [client, setClient] = useState<Client>(() => getClientById(clientId)!);
-  const [applications, setApplications] = useState<LoanApplication[]>(() =>
-    getApplicationsByClientId(clientId)
-  );
+  const [applications, setApplications] = useState<ApplicationListItem[]>(initialApplications);
   const [notes, setNotes] = useState<InternalNote[]>(initialNotes);
   const [alerts, setAlerts] = useState<DossierAlert[]>(initialAlerts);
   const [activities, setActivities] = useState<ActivityEvent[]>(() =>
@@ -100,14 +99,13 @@ export function DossierView({
     [applications, activeApplicationId]
   );
 
-  // Milestone 12C: the new Requirement Slot + Document Evidence state,
-  // keyed by demo application id exactly like initialRequirementsByDemo
-  // ApplicationId.
-  const [requirementsByDemoApplicationId, setRequirementsByDemoApplicationId] = useState<
-    Record<string, DossierRequirementsData | null>
-  >(initialRequirementsByDemoApplicationId);
+  // Milestone 12C, re-keyed by real application id in 13E: the Requirement
+  // Slot + Document Evidence state.
+  const [requirementsByApplicationId, setRequirementsByApplicationId] = useState<
+    Record<string, DossierRequirementsData>
+  >(initialRequirementsByApplicationId);
   const activeRequirementsData = activeApplicationId
-    ? (requirementsByDemoApplicationId[activeApplicationId] ?? null)
+    ? (requirementsByApplicationId[activeApplicationId] ?? null)
     : null;
 
   /**
@@ -120,7 +118,7 @@ export function DossierView({
    */
   const handleRequirementsRefetch = async () => {
     if (!activeApplicationId) return;
-    const current = requirementsByDemoApplicationId[activeApplicationId];
+    const current = requirementsByApplicationId[activeApplicationId];
     if (!current) return;
 
     const result = await getDossierRequirements(current.applicationId);
@@ -129,7 +127,7 @@ export function DossierView({
       return;
     }
 
-    setRequirementsByDemoApplicationId((prev) => ({
+    setRequirementsByApplicationId((prev) => ({
       ...prev,
       [activeApplicationId]: {
         applicationId: current.applicationId,
@@ -167,15 +165,38 @@ export function DossierView({
     toast.success(t("clients.toasts.clientUpdated"));
   };
 
-  const handleApplicationStatusChange = (applicationId: string, status: LoanStatus) => {
+  /**
+   * Reuses src/app/(app)/solicitudes/actions.ts#setSolicitudApplicationStatus
+   * unchanged (Milestone 13E — see the Milestone 13A architecture review's
+   * "Shared ApplicationStatusMenu" question and the Milestone 13C
+   * implementation report) — no transition logic is duplicated here.
+   * Local replacement of only the fields that mutation can ever change,
+   * not a full-row replace, for the exact same reason
+   * solicitudes-view.tsx#handleStatusChange does it that way: the
+   * returned Application carries no productName/assignedAdvisorFullName,
+   * and a status change can never itself alter either.
+   */
+  const handleApplicationStatusChange = async (applicationId: string, status: ApplicationStatus) => {
+    const result = await setSolicitudApplicationStatus({ applicationId, status });
+    if (result.status !== "success") {
+      toast.error(t("applications.toasts.statusChangeError"));
+      return;
+    }
+
     setApplications((prev) =>
       prev.map((app) =>
         app.id === applicationId
-          ? { ...app, status, lastActivityAt: new Date().toISOString() }
+          ? {
+              ...app,
+              status: result.application.status,
+              statusChangedAt: result.application.statusChangedAt,
+              statusChangedByProfileId: result.application.statusChangedByProfileId,
+              statusChangedSource: result.application.statusChangedSource,
+            }
           : app
       )
     );
-    const statusLabel = t(`statuses.loanApplication.${status}`);
+    const statusLabel = t(`statuses.applicationStatus.${status}`);
     logActivity("statusChanged", { status: statusLabel }, "estado_modificado");
     toast.success(t("applications.toasts.statusChanged", { status: statusLabel }));
   };
