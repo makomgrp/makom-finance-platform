@@ -148,7 +148,12 @@
     "toasts": {
       "newApplicationDemo": "New application for {name} (demonstration).",
       "clientUpdated": "Client updated successfully.",
-      "clientCreated": "Client registered successfully."
+      "clientCreated": "Client registered successfully.",
+      "duplicateIdentification": "A client with that identification is already registered.",
+      "createError": "Could not create the client. Please try again.",
+      "updateError": "Could not update the client. Please try again.",
+      "statusChanged": "Client moved to \"{status}\".",
+      "statusChangeError": "Could not change the client's status. Please try again."
     },
     "form": {
       "titleNew": "New client",

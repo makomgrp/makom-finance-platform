@@ -148,7 +148,12 @@
     "toasts": {
       "newApplicationDemo": "Nueva solicitud para {name} (demostración).",
       "clientUpdated": "Cliente actualizado correctamente.",
-      "clientCreated": "Cliente registrado correctamente."
+      "clientCreated": "Cliente registrado correctamente.",
+      "duplicateIdentification": "Ya existe un cliente registrado con esa identificación.",
+      "createError": "No se pudo crear el cliente. Intente de nuevo.",
+      "updateError": "No se pudo actualizar el cliente. Intente de nuevo.",
+      "statusChanged": "Cliente movido a \"{status}\".",
+      "statusChangeError": "No se pudo cambiar el estado del cliente. Intente nuevamente."
     },
     "form": {
       "titleNew": "Nuevo cliente",

@@ -22,6 +22,19 @@ export const CLIENT_STATUS_VALUES: ClientStatus[] = [
  * Milestone 14B — added ahead of the UI that will consume it (mirrors
  * src/lib/config/application.ts's APPLICATION_STATUS_ORDER precedent).
  * The sole legal-value list for RealClient.status, used by
- * setClientStatus's server-side validation. No UI reads this yet.
+ * setClientStatus's server-side validation. Milestone 14C is its first UI
+ * consumer (the Clientes table's status filter and status-change menu).
  */
 export const REAL_CLIENT_STATUS_VALUES: RealClientStatus[] = ["prospecto", "activo", "inactivo"];
+
+/**
+ * Milestone 14C. Reuses the exact same three color treatments the demo
+ * CLIENT_STATUS_BADGE_CLASS above already assigns to these same three
+ * status names (prospecto/activo/inactivo) — no new visual language
+ * introduced for the real Client Engine.
+ */
+export const REAL_CLIENT_STATUS_BADGE_CLASS: Record<RealClientStatus, string> = {
+  prospecto: "bg-secondary text-secondary-foreground border-border",
+  activo: "bg-success/10 text-success border-success/20",
+  inactivo: "bg-muted text-muted-foreground border-border",
+};

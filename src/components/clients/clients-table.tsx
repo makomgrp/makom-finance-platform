@@ -41,31 +41,41 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { EmptyState } from "@/components/shared/empty-state";
 import { PaginationBar } from "@/components/shared/pagination-bar";
-import { ClientFormDialog } from "@/components/clients/client-form-dialog";
-import { CLIENT_STATUS_BADGE_CLASS, CLIENT_STATUS_VALUES } from "@/lib/config/client-status";
-import { CLIENTS as INITIAL_CLIENTS, getCompanyById } from "@/lib/demo-data";
+import { RealClientFormDialog } from "@/components/clients/real-client-form-dialog";
+import { ApplicationStatusMenu } from "@/components/applications/application-status-menu";
+import {
+  REAL_CLIENT_STATUS_BADGE_CLASS,
+  REAL_CLIENT_STATUS_VALUES,
+} from "@/lib/config/client-status";
+import { getCompanyById } from "@/lib/demo-data";
+import { setClientStatusAction } from "@/app/(app)/clientes/actions";
 import { formatDate, getInitials } from "@/lib/format";
-import type { ApplicationListItem, Client, ClientStatus } from "@/types";
+import type { ApplicationListItem, RealClient, RealClientStatus } from "@/types";
 import type { Locale } from "@/i18n/config";
 
 const PAGE_SIZE = 8;
 
 interface ClientsTableProps {
-  /** Milestone 13F: real Applications (Application Engine), used to compute
-   * each client's application count via clientLegacyId — replaces the demo
-   * APPLICATIONS array this component used to filter directly. */
+  /** Milestone 14C: the real Client Engine's rows (src/lib/services/
+   * clients.ts#getClients()) — replaces the demo CLIENTS array this
+   * component used to seed itself from. */
+  initialClients: RealClient[];
+  /** Milestone 13F: real Applications, used to compute each client's
+   * application count via clientLegacyId — unchanged by this milestone;
+   * the bridge field is now read off RealClient.legacyId instead of the
+   * demo Client.id, since client_legacy_id itself is untouched. */
   applications: ApplicationListItem[];
 }
 
-export function ClientsTable({ applications }: ClientsTableProps) {
+export function ClientsTable({ initialClients, applications }: ClientsTableProps) {
   const router = useRouter();
   const locale = useLocale() as Locale;
   const t = useTranslations();
-  const [clients, setClients] = useState<Client[]>(INITIAL_CLIENTS);
+  const [clients, setClients] = useState<RealClient[]>(initialClients);
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<ClientStatus | "todos">("todos");
+  const [statusFilter, setStatusFilter] = useState<RealClientStatus | "todos">("todos");
   const [page, setPage] = useState(1);
-  const [editingClient, setEditingClient] = useState<Client | null>(null);
+  const [editingClient, setEditingClient] = useState<RealClient | null>(null);
 
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -73,7 +83,7 @@ export function ClientsTable({ applications }: ClientsTableProps) {
       const matchesSearch =
         term.length === 0 ||
         client.fullName.toLowerCase().includes(term) ||
-        client.idNumber.toLowerCase().includes(term) ||
+        client.identificationNumber.toLowerCase().includes(term) ||
         client.email.toLowerCase().includes(term);
       const matchesStatus = statusFilter === "todos" || client.status === statusFilter;
       return matchesSearch && matchesStatus;
@@ -84,13 +94,23 @@ export function ClientsTable({ applications }: ClientsTableProps) {
   const currentPage = Math.min(page, totalPages);
   const paginated = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
-  const handleCreate = (client: Client) => {
+  const handleCreated = (client: RealClient) => {
     setClients((prev) => [client, ...prev]);
     setPage(1);
   };
 
-  const handleUpdate = (client: Client) => {
+  const handleUpdated = (client: RealClient) => {
     setClients((prev) => prev.map((existing) => (existing.id === client.id ? client : existing)));
+  };
+
+  const handleStatusChange = async (clientId: string, status: RealClientStatus) => {
+    const result = await setClientStatusAction({ clientId, status });
+    if (result.status !== "success") {
+      toast.error(t("clients.toasts.statusChangeError"));
+      return;
+    }
+    setClients((prev) => prev.map((client) => (client.id === clientId ? result.client : client)));
+    toast.success(t("clients.toasts.statusChanged", { status: t(`statuses.client.${status}`) }));
   };
 
   return (
@@ -113,7 +133,7 @@ export function ClientsTable({ applications }: ClientsTableProps) {
             value={statusFilter}
             onValueChange={(value) => {
               if (!value) return;
-              setStatusFilter(value as ClientStatus | "todos");
+              setStatusFilter(value as RealClientStatus | "todos");
               setPage(1);
             }}
           >
@@ -122,13 +142,13 @@ export function ClientsTable({ applications }: ClientsTableProps) {
                 {(value: string) =>
                   value === "todos"
                     ? t("clients.allStatuses")
-                    : t(`statuses.client.${value as ClientStatus}`)
+                    : t(`statuses.client.${value as RealClientStatus}`)
                 }
               </SelectValue>
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="todos">{t("clients.allStatuses")}</SelectItem>
-              {CLIENT_STATUS_VALUES.map((status) => (
+              {REAL_CLIENT_STATUS_VALUES.map((status) => (
                 <SelectItem key={status} value={status}>
                   {t(`statuses.client.${status}`)}
                 </SelectItem>
@@ -137,8 +157,8 @@ export function ClientsTable({ applications }: ClientsTableProps) {
           </Select>
         </div>
 
-        <ClientFormDialog
-          onSave={handleCreate}
+        <RealClientFormDialog
+          onSaved={handleCreated}
           trigger={
             <Button className="shrink-0">
               <UserPlus className="size-4" />
@@ -173,30 +193,47 @@ export function ClientsTable({ applications }: ClientsTableProps) {
             </TableHeader>
             <TableBody>
               {paginated.map((client) => {
-                const company = getCompanyById(client.companyId);
+                const company = client.companyLegacyId ? getCompanyById(client.companyLegacyId) : undefined;
                 const applicationCount = applications.filter(
-                  (application) => application.clientLegacyId === client.id
+                  (application) => client.legacyId !== undefined && application.clientLegacyId === client.legacyId
                 ).length;
+                // A newly-created real client has no legacyId, so the
+                // Dossier (still demo-Client-id-routed until Milestone
+                // 14D) has no route to resolve it by — disable the
+                // Dossier-dependent actions rather than ship a broken
+                // link, per the Milestone 14C implementation report.
+                const hasDossier = client.legacyId !== undefined;
 
                 return (
                   <TableRow key={client.id}>
                     <TableCell>
-                      <button
-                        onClick={() => router.push(`/expedientes/${client.id}`)}
-                        className="flex items-center gap-2.5 text-left"
-                      >
-                        <Avatar className="size-8">
-                          <AvatarFallback className="bg-primary/10 text-xs font-semibold text-primary">
-                            {getInitials(client.fullName)}
-                          </AvatarFallback>
-                        </Avatar>
-                        <span className="font-medium text-foreground hover:underline">
-                          {client.fullName}
-                        </span>
-                      </button>
+                      {hasDossier ? (
+                        <button
+                          onClick={() => router.push(`/expedientes/${client.legacyId}`)}
+                          className="flex items-center gap-2.5 text-left"
+                        >
+                          <Avatar className="size-8">
+                            <AvatarFallback className="bg-primary/10 text-xs font-semibold text-primary">
+                              {getInitials(client.fullName)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <span className="font-medium text-foreground hover:underline">
+                            {client.fullName}
+                          </span>
+                        </button>
+                      ) : (
+                        <div className="flex items-center gap-2.5">
+                          <Avatar className="size-8">
+                            <AvatarFallback className="bg-primary/10 text-xs font-semibold text-primary">
+                              {getInitials(client.fullName)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <span className="font-medium text-foreground">{client.fullName}</span>
+                        </div>
+                      )}
                     </TableCell>
                     <TableCell className="text-muted-foreground">{client.phone}</TableCell>
-                    <TableCell className="text-muted-foreground">{client.idNumber}</TableCell>
+                    <TableCell className="text-muted-foreground">{client.identificationNumber}</TableCell>
                     <TableCell className="text-muted-foreground">
                       {company?.name ?? "—"}
                     </TableCell>
@@ -204,13 +241,24 @@ export function ClientsTable({ applications }: ClientsTableProps) {
                       {applicationCount}
                     </TableCell>
                     <TableCell>
-                      <StatusBadge
-                        label={t(`statuses.client.${client.status}`)}
-                        className={CLIENT_STATUS_BADGE_CLASS[client.status]}
-                      />
+                      <div className="flex items-center gap-2">
+                        <StatusBadge
+                          label={t(`statuses.client.${client.status}`)}
+                          className={REAL_CLIENT_STATUS_BADGE_CLASS[client.status]}
+                        />
+                        <ApplicationStatusMenu
+                          options={REAL_CLIENT_STATUS_VALUES.filter((status) => status !== client.status).map(
+                            (status) => ({
+                              value: status,
+                              label: t(`statuses.client.${status}`),
+                            })
+                          )}
+                          onChange={(status) => handleStatusChange(client.id, status as RealClientStatus)}
+                        />
+                      </div>
                     </TableCell>
                     <TableCell className="text-muted-foreground">
-                      {formatDate(client.registeredAt, locale)}
+                      {formatDate(client.createdAt, locale)}
                     </TableCell>
                     <TableCell className="text-right">
                       <DropdownMenu>
@@ -224,7 +272,8 @@ export function ClientsTable({ applications }: ClientsTableProps) {
                         />
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem
-                            onClick={() => router.push(`/expedientes/${client.id}`)}
+                            disabled={!hasDossier}
+                            onClick={() => hasDossier && router.push(`/expedientes/${client.legacyId}`)}
                           >
                             <FolderOpen className="size-4" />
                             {t("clients.rowActions.viewDossier")}
@@ -245,13 +294,15 @@ export function ClientsTable({ applications }: ClientsTableProps) {
                             {t("clients.rowActions.createApplication")}
                           </DropdownMenuItem>
                           <DropdownMenuItem
-                            onClick={() => router.push(`/expedientes/${client.id}?tab=notas`)}
+                            disabled={!hasDossier}
+                            onClick={() => hasDossier && router.push(`/expedientes/${client.legacyId}?tab=notas`)}
                           >
                             <StickyNote className="size-4" />
                             {t("clients.rowActions.addNote")}
                           </DropdownMenuItem>
                           <DropdownMenuItem
-                            onClick={() => router.push(`/expedientes/${client.id}?tab=alertas`)}
+                            disabled={!hasDossier}
+                            onClick={() => hasDossier && router.push(`/expedientes/${client.legacyId}?tab=alertas`)}
                           >
                             <ShieldAlert className="size-4" />
                             {t("clients.rowActions.registerAlert")}
@@ -276,10 +327,10 @@ export function ClientsTable({ applications }: ClientsTableProps) {
       />
 
       {editingClient && (
-        <ClientFormDialog
+        <RealClientFormDialog
           key={editingClient.id}
           initialClient={editingClient}
-          onSave={handleUpdate}
+          onSaved={handleUpdated}
           open={editingClient !== null}
           onOpenChange={(value) => {
             if (!value) setEditingClient(null);
