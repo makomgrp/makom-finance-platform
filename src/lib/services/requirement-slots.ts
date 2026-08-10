@@ -315,3 +315,66 @@ export async function getDocumentSlotsAwaitingReviewCount(): Promise<GetDocument
     return { status: "error" };
   }
 }
+
+export type DocumentSlotCompletionCounts = Record<string, { completed: number; total: number }>;
+
+export type GetDocumentSlotCompletionCountsResult =
+  | { status: "ok"; counts: DocumentSlotCompletionCounts }
+  | { status: "error" };
+
+/**
+ * Per-application document-kind Requirement Slot completion counts —
+ * completed = satisfied or waived, total = every document-kind slot —
+ * backing the Solicitudes list/kanban's documentation-progress indicator
+ * (Milestone 13C; see the Milestone 13A architecture review's
+ * "Documentation Progress" question). Deliberately never reads or derives
+ * from the legacy documentationProgress demo field, which this replaces.
+ *
+ * One query for every application at once, grouped in memory — not one
+ * query per application — the same "avoid N+1" posture as
+ * getDocumentEvidenceWorkspace(), at a fraction of its cost: only
+ * application_id and status are selected, no Evidence, no Application/
+ * Advisor embed. Not built as its own workspace read: this is two columns
+ * and an in-memory tally, far short of justifying a parallel read model
+ * (see the Milestone 13A architecture validation's "Application
+ * Workspace" question for why that bar is deliberately high in this app).
+ *
+ * Applications with zero document-kind slots (e.g. the slot snapshot
+ * failed, or the product has no document requirements) are simply absent
+ * from the returned map — callers must treat a missing key as "0 of 0",
+ * not as an error.
+ */
+export async function getDocumentSlotCompletionCounts(): Promise<GetDocumentSlotCompletionCountsResult> {
+  try {
+    const supabase = getSupabaseServerClient();
+    const { data, error } = await supabase
+      .from("requirement_slots")
+      .select("application_id, status")
+      .eq("requirement_kind", "document");
+
+    if (error) {
+      console.error(
+        "[requirement-slots service] Failed to load document slot completion counts:",
+        error.message
+      );
+      return { status: "error" };
+    }
+
+    const counts: DocumentSlotCompletionCounts = {};
+    for (const row of data ?? []) {
+      const bucket = (counts[row.application_id as string] ??= { completed: 0, total: 0 });
+      bucket.total += 1;
+      if (row.status === "satisfied" || row.status === "waived") {
+        bucket.completed += 1;
+      }
+    }
+
+    return { status: "ok", counts };
+  } catch (error) {
+    console.error(
+      "[requirement-slots service] Unexpected failure loading document slot completion counts:",
+      error instanceof Error ? error.message : "unknown error"
+    );
+    return { status: "error" };
+  }
+}

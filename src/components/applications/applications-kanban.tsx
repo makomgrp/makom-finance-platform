@@ -6,32 +6,35 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ApplicationStatusMenu } from "@/components/applications/application-status-menu";
-import { LOAN_STATUS_ORDER } from "@/lib/config/loan-status";
-import { getClientById, getUserById } from "@/lib/demo-data";
+import { APPLICATION_STATUS_ORDER, APPLICATION_STATUS_TRANSITIONS } from "@/lib/config/application";
+import { getClientById } from "@/lib/demo-data";
 import { formatRelativeTime, getInitials } from "@/lib/format";
 import type { Locale } from "@/i18n/config";
-import type { LoanApplication, LoanStatus } from "@/types";
+import type { ApplicationListItem, ApplicationStatus } from "@/types";
 
 interface ApplicationsKanbanProps {
-  applications: LoanApplication[];
-  onStatusChange: (applicationId: string, status: LoanStatus) => void;
+  applications: ApplicationListItem[];
+  /** See ApplicationsTableProps — same shape, same "missing key = 0 of 0"
+   * contract. */
+  documentSlotCounts: Record<string, { completed: number; total: number }>;
+  onStatusChange: (applicationId: string, status: ApplicationStatus) => void;
 }
 
-export function ApplicationsKanban({ applications, onStatusChange }: ApplicationsKanbanProps) {
+export function ApplicationsKanban({ applications, documentSlotCounts, onStatusChange }: ApplicationsKanbanProps) {
   const router = useRouter();
   const locale = useLocale() as Locale;
   const t = useTranslations();
 
   return (
     <div className="flex gap-4 overflow-x-auto pb-2">
-      {LOAN_STATUS_ORDER.map((status) => {
+      {APPLICATION_STATUS_ORDER.map((status) => {
         const columnApps = applications.filter((app) => app.status === status);
 
         return (
           <div key={status} className="w-72 shrink-0">
             <div className="mb-3 flex items-center justify-between px-1">
               <h3 className="text-sm font-semibold text-foreground">
-                {t(`statuses.loanApplication.${status}`)}
+                {t(`statuses.applicationStatus.${status}`)}
               </h3>
               <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
                 {columnApps.length}
@@ -40,8 +43,10 @@ export function ApplicationsKanban({ applications, onStatusChange }: Application
 
             <div className="space-y-3">
               {columnApps.map((app) => {
-                const client = getClientById(app.clientId);
-                const advisor = getUserById(app.advisorId);
+                const client = getClientById(app.clientLegacyId);
+                const counts = documentSlotCounts[app.id] ?? { completed: 0, total: 0 };
+                const documentationPercent = counts.total > 0 ? Math.round((counts.completed / counts.total) * 100) : 0;
+                const legalTargets = APPLICATION_STATUS_TRANSITIONS[app.status];
 
                 return (
                   <Card key={app.id} className="gap-3">
@@ -49,7 +54,7 @@ export function ApplicationsKanban({ applications, onStatusChange }: Application
                       <div>
                         <button
                           onClick={() =>
-                            router.push(`/expedientes/${app.clientId}?solicitud=${app.id}`)
+                            router.push(`/expedientes/${app.clientLegacyId}?solicitud=${app.id}`)
                           }
                           className="text-sm font-medium text-foreground hover:underline"
                         >
@@ -58,37 +63,39 @@ export function ApplicationsKanban({ applications, onStatusChange }: Application
                         <p className="text-xs text-muted-foreground">{app.applicationNumber}</p>
                       </div>
 
-                      <p className="text-xs text-muted-foreground">
-                        {t(`statuses.loanType.${app.loanType}`)}
-                      </p>
+                      <p className="text-xs text-muted-foreground">{app.productName[locale]}</p>
 
                       <div>
                         <div className="mb-1 flex items-center justify-between text-[11px] text-muted-foreground">
                           <span>{t("applications.columns.documentation")}</span>
-                          <span>{app.documentationProgress}%</span>
+                          <span>{documentationPercent}%</span>
                         </div>
-                        <Progress value={app.documentationProgress} />
+                        <Progress value={documentationPercent} />
                       </div>
 
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-1.5">
                           <Avatar className="size-5">
                             <AvatarFallback className="bg-primary/10 text-[10px] font-semibold text-primary">
-                              {advisor ? getInitials(advisor.fullName) : "—"}
+                              {app.assignedAdvisorFullName ? getInitials(app.assignedAdvisorFullName) : "—"}
                             </AvatarFallback>
                           </Avatar>
                           <span className="text-[11px] text-muted-foreground">
-                            {advisor?.fullName ?? t("common.unassigned")}
+                            {app.assignedAdvisorFullName ?? t("common.unassigned")}
                           </span>
                         </div>
                         <span className="text-[11px] text-muted-foreground">
-                          {formatRelativeTime(app.lastActivityAt, locale, t)}
+                          {formatRelativeTime(app.statusChangedAt ?? app.createdAt, locale, t)}
                         </span>
                       </div>
 
                       <ApplicationStatusMenu
-                        currentStatus={app.status}
-                        onChange={(newStatus) => onStatusChange(app.id, newStatus)}
+                        options={legalTargets.map((target) => ({
+                          value: target,
+                          label: t(`statuses.applicationStatus.${target}`),
+                        }))}
+                        triggerDisabled={legalTargets.length === 0}
+                        onChange={(newStatus) => onStatusChange(app.id, newStatus as ApplicationStatus)}
                         triggerLabel={t("applications.statusMenu.move")}
                         className="w-full"
                       />

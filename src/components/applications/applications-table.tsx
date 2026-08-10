@@ -25,31 +25,41 @@ import { StatusBadge } from "@/components/shared/status-badge";
 import { EmptyState } from "@/components/shared/empty-state";
 import { PaginationBar } from "@/components/shared/pagination-bar";
 import { ApplicationStatusMenu } from "@/components/applications/application-status-menu";
-import { LOAN_STATUS_BADGE_CLASS, LOAN_STATUS_ORDER } from "@/lib/config/loan-status";
-import { getClientById, getUserById } from "@/lib/demo-data";
+import {
+  APPLICATION_STATUS_BADGE_CLASS,
+  APPLICATION_STATUS_ORDER,
+  APPLICATION_STATUS_TRANSITIONS,
+} from "@/lib/config/application";
+import { getClientById } from "@/lib/demo-data";
 import { formatDate, formatRelativeTime } from "@/lib/format";
 import type { Locale } from "@/i18n/config";
-import type { LoanApplication, LoanStatus } from "@/types";
+import type { ApplicationListItem, ApplicationStatus } from "@/types";
 
 interface ApplicationsTableProps {
-  applications: LoanApplication[];
-  onStatusChange: (applicationId: string, status: LoanStatus) => void;
+  applications: ApplicationListItem[];
+  /** Per-application document-kind Requirement Slot completion, keyed by
+   * application id — see src/lib/services/requirement-slots.ts#
+   * getDocumentSlotCompletionCounts. A missing key means "0 of 0", not an
+   * error. Replaces the demo LoanApplication.documentationProgress field,
+   * which is never stored on the real Application. */
+  documentSlotCounts: Record<string, { completed: number; total: number }>;
+  onStatusChange: (applicationId: string, status: ApplicationStatus) => void;
 }
 
 const PAGE_SIZE = 8;
 
-export function ApplicationsTable({ applications, onStatusChange }: ApplicationsTableProps) {
+export function ApplicationsTable({ applications, documentSlotCounts, onStatusChange }: ApplicationsTableProps) {
   const router = useRouter();
   const locale = useLocale() as Locale;
   const t = useTranslations();
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<LoanStatus | "todos">("todos");
+  const [statusFilter, setStatusFilter] = useState<ApplicationStatus | "todos">("todos");
   const [page, setPage] = useState(1);
 
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
     return applications.filter((app) => {
-      const client = getClientById(app.clientId);
+      const client = getClientById(app.clientLegacyId);
       const matchesSearch =
         term.length === 0 ||
         app.applicationNumber.toLowerCase().includes(term) ||
@@ -82,7 +92,7 @@ export function ApplicationsTable({ applications, onStatusChange }: Applications
           value={statusFilter}
           onValueChange={(value) => {
             if (!value) return;
-            setStatusFilter(value as LoanStatus | "todos");
+            setStatusFilter(value as ApplicationStatus | "todos");
             setPage(1);
           }}
         >
@@ -91,15 +101,15 @@ export function ApplicationsTable({ applications, onStatusChange }: Applications
               {(value: string) =>
                 value === "todos"
                   ? t("applications.allStatuses")
-                  : t(`statuses.loanApplication.${value as LoanStatus}`)
+                  : t(`statuses.applicationStatus.${value as ApplicationStatus}`)
               }
             </SelectValue>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="todos">{t("applications.allStatuses")}</SelectItem>
-            {LOAN_STATUS_ORDER.map((status) => (
+            {APPLICATION_STATUS_ORDER.map((status) => (
               <SelectItem key={status} value={status}>
-                {t(`statuses.loanApplication.${status}`)}
+                {t(`statuses.applicationStatus.${status}`)}
               </SelectItem>
             ))}
           </SelectContent>
@@ -132,8 +142,10 @@ export function ApplicationsTable({ applications, onStatusChange }: Applications
             </TableHeader>
             <TableBody>
               {paginated.map((app) => {
-                const client = getClientById(app.clientId);
-                const advisor = getUserById(app.advisorId);
+                const client = getClientById(app.clientLegacyId);
+                const counts = documentSlotCounts[app.id] ?? { completed: 0, total: 0 };
+                const documentationPercent = counts.total > 0 ? Math.round((counts.completed / counts.total) * 100) : 0;
+                const legalTargets = APPLICATION_STATUS_TRANSITIONS[app.status];
 
                 return (
                   <TableRow key={app.id}>
@@ -143,7 +155,7 @@ export function ApplicationsTable({ applications, onStatusChange }: Applications
                     <TableCell>
                       <button
                         onClick={() =>
-                          router.push(`/expedientes/${app.clientId}?solicitud=${app.id}`)
+                          router.push(`/expedientes/${app.clientLegacyId}?solicitud=${app.id}`)
                         }
                         className="text-foreground hover:underline"
                       >
@@ -151,35 +163,39 @@ export function ApplicationsTable({ applications, onStatusChange }: Applications
                       </button>
                     </TableCell>
                     <TableCell className="text-muted-foreground">
-                      {t(`statuses.loanType.${app.loanType}`)}
+                      {app.productName[locale]}
                     </TableCell>
                     <TableCell className="text-muted-foreground">
-                      {formatDate(app.requestDate, locale)}
+                      {formatDate(app.createdAt, locale)}
                     </TableCell>
                     <TableCell className="text-muted-foreground">
-                      {advisor?.fullName ?? "—"}
+                      {app.assignedAdvisorFullName ?? "—"}
                     </TableCell>
                     <TableCell>
                       <StatusBadge
-                        label={t(`statuses.loanApplication.${app.status}`)}
-                        className={LOAN_STATUS_BADGE_CLASS[app.status]}
+                        label={t(`statuses.applicationStatus.${app.status}`)}
+                        className={APPLICATION_STATUS_BADGE_CLASS[app.status]}
                       />
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
-                        <Progress value={app.documentationProgress} />
+                        <Progress value={documentationPercent} />
                         <span className="w-9 shrink-0 text-xs text-muted-foreground">
-                          {app.documentationProgress}%
+                          {documentationPercent}%
                         </span>
                       </div>
                     </TableCell>
                     <TableCell className="text-muted-foreground">
-                      {formatRelativeTime(app.lastActivityAt, locale, t)}
+                      {formatRelativeTime(app.statusChangedAt ?? app.createdAt, locale, t)}
                     </TableCell>
                     <TableCell className="text-right">
                       <ApplicationStatusMenu
-                        currentStatus={app.status}
-                        onChange={(status) => onStatusChange(app.id, status)}
+                        options={legalTargets.map((status) => ({
+                          value: status,
+                          label: t(`statuses.applicationStatus.${status}`),
+                        }))}
+                        triggerDisabled={legalTargets.length === 0}
+                        onChange={(status) => onStatusChange(app.id, status as ApplicationStatus)}
                       />
                     </TableCell>
                   </TableRow>

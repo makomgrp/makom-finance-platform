@@ -9,7 +9,7 @@ import { StatusBadge } from "@/components/shared/status-badge";
 import { ApplicationStatusMenu } from "@/components/applications/application-status-menu";
 import { ClientFormDialog } from "@/components/clients/client-form-dialog";
 import { CLIENT_STATUS_BADGE_CLASS } from "@/lib/config/client-status";
-import { LOAN_STATUS_BADGE_CLASS } from "@/lib/config/loan-status";
+import { LOAN_STATUS_BADGE_CLASS, LOAN_STATUS_ORDER } from "@/lib/config/loan-status";
 import { getUserById } from "@/lib/demo-data";
 import { formatDate, getInitials } from "@/lib/format";
 import type { Locale } from "@/i18n/config";
@@ -115,8 +115,12 @@ export function DossierHeader({
                 className={LOAN_STATUS_BADGE_CLASS[activeApplication.status]}
               />
               <ApplicationStatusMenu
-                currentStatus={activeApplication.status}
-                onChange={(status) => onApplicationStatusChange(activeApplication.id, status)}
+                options={LOAN_STATUS_ORDER.map((status) => ({
+                  value: status,
+                  label: t(`statuses.loanApplication.${status}`),
+                  disabled: status === activeApplication.status,
+                }))}
+                onChange={(status) => onApplicationStatusChange(activeApplication.id, status as LoanStatus)}
               />
             </>
           )}

@@ -184,6 +184,8 @@
     "emptyTitle": "No se encontraron solicitudes",
     "emptyDescription": "Ajuste la búsqueda o los filtros para ver más resultados.",
     "noApplicationsInColumn": "Sin solicitudes",
+    "loadErrorTitle": "No se pudieron cargar las solicitudes",
+    "loadErrorDescription": "Ocurrió un error al conectar con el servidor. Intente recargar la página.",
     "columns": {
       "number": "N.º de solicitud",
       "client": "Cliente",
@@ -201,7 +203,8 @@
       "moveTo": "Mover a..."
     },
     "toasts": {
-      "statusChanged": "Solicitud movida a \"{status}\"."
+      "statusChanged": "Solicitud movida a \"{status}\".",
+      "statusChangeError": "No se pudo cambiar el estado. Intente nuevamente."
     }
   },
   "dossier": {

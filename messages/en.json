@@ -184,6 +184,8 @@
     "emptyTitle": "No applications found",
     "emptyDescription": "Adjust the search or filters to see more results.",
     "noApplicationsInColumn": "No applications",
+    "loadErrorTitle": "Applications could not be loaded",
+    "loadErrorDescription": "There was an error connecting to the server. Try reloading the page.",
     "columns": {
       "number": "Application no.",
       "client": "Client",
@@ -201,7 +203,8 @@
       "moveTo": "Move to..."
     },
     "toasts": {
-      "statusChanged": "Application moved to \"{status}\"."
+      "statusChanged": "Application moved to \"{status}\".",
+      "statusChangeError": "Could not change the status. Please try again."
     }
   },
   "dossier": {
