@@ -268,3 +268,50 @@ export async function setRequirementSlotStatus(
 
   return { status: "ok", requirementSlot: toRequirementSlot(updated) };
 }
+
+export type GetDocumentSlotsAwaitingReviewCountResult =
+  | { status: "ok"; count: number }
+  | { status: "error" };
+
+/**
+ * Server-side count only (no row payload) — backs the Dashboard's
+ * document-requirements KPI (Milestone 12E1b — see the Milestone 12E
+ * architecture review, Question 2). Counts document-kind Requirement
+ * Slots in 'submitted' or 'under_review': Evidence has arrived and no
+ * staff judgment has been made yet — the actual staff-facing work queue,
+ * not client-side-pending work (pending/missing) nobody at the CRM needs
+ * to act on, and not already-concluded outcomes (satisfied/rejected/
+ * waived). Deliberately does not reuse getDocumentEvidenceWorkspace() —
+ * that read exists to populate a table of rows for /documentos; a KPI
+ * card needs one integer, not every Slot's full Application/Evidence
+ * embed. Never returns a fabricated 0 on failure — callers must treat
+ * "error" as unknown, not zero, same contract as every other count-only
+ * read in this app (see src/lib/services/documents.ts#
+ * getPendingDocumentCount, the legacy function this replaces).
+ */
+export async function getDocumentSlotsAwaitingReviewCount(): Promise<GetDocumentSlotsAwaitingReviewCountResult> {
+  try {
+    const supabase = getSupabaseServerClient();
+    const { count, error } = await supabase
+      .from("requirement_slots")
+      .select("id", { count: "exact", head: true })
+      .eq("requirement_kind", "document")
+      .in("status", ["submitted", "under_review"]);
+
+    if (error) {
+      console.error(
+        "[requirement-slots service] Failed to count document slots awaiting review:",
+        error.message
+      );
+      return { status: "error" };
+    }
+
+    return { status: "ok", count: count ?? 0 };
+  } catch (error) {
+    console.error(
+      "[requirement-slots service] Unexpected failure counting document slots awaiting review:",
+      error instanceof Error ? error.message : "unknown error"
+    );
+    return { status: "error" };
+  }
+}

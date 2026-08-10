@@ -6,11 +6,11 @@ import { RecentActivityCard } from "@/components/dashboard/recent-activity-card"
 import { StatusDistributionCard } from "@/components/dashboard/status-distribution-card";
 import { PendingTasksCard } from "@/components/dashboard/pending-tasks-card";
 import { CLIENTS, APPLICATIONS } from "@/lib/demo-data";
-import { getPendingDocumentCount } from "@/lib/services/documents";
+import { getDocumentSlotsAwaitingReviewCount } from "@/lib/services/requirement-slots";
 
 export default async function DashboardPage() {
   const t = await getTranslations("dashboard");
-  const pendingDocumentsResult = await getPendingDocumentCount();
+  const documentsAwaitingReviewResult = await getDocumentSlotsAwaitingReviewCount();
 
   const kpis = [
     {
@@ -24,9 +24,9 @@ export default async function DashboardPage() {
       icon: FilePlus2,
     },
     {
-      label: t("kpis.pendingDocuments"),
-      value: pendingDocumentsResult.status === "ok" ? pendingDocumentsResult.count : "—",
-      hint: pendingDocumentsResult.status === "error" ? t("kpis.pendingDocumentsUnavailable") : undefined,
+      label: t("kpis.documentsAwaitingReview"),
+      value: documentsAwaitingReviewResult.status === "ok" ? documentsAwaitingReviewResult.count : "—",
+      hint: documentsAwaitingReviewResult.status === "error" ? t("kpis.documentsAwaitingReviewUnavailable") : undefined,
       icon: FileClock,
       accentClass: "bg-warning/10 text-warning",
     },

@@ -1,26 +1,50 @@
 "use client";
 
 import { useLocale, useTranslations } from "next-intl";
+import { FileText } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { StatusBadge } from "@/components/shared/status-badge";
+import { EmptyState } from "@/components/shared/empty-state";
 import { getCompanyById } from "@/lib/demo-data";
 import { formatCurrency, formatDateTime } from "@/lib/format";
 import type { Locale } from "@/i18n/config";
-import type { Client, DossierDocument, LoanApplication } from "@/types";
+import type { Client, LoanApplication } from "@/types";
+import type { DossierRequirementsData } from "@/components/dossier/dossier-view";
 
 interface SummaryTabProps {
   client: Client;
   application?: LoanApplication;
-  documents: DossierDocument[];
+  /** Milestone 12E1: the same Requirement Slot + Evidence bundle
+   * RequirementsTab already receives (dossier-view.tsx's
+   * activeRequirementsData) — no new fetch, no new service method.
+   * null means no real Application bridge exists yet for the active
+   * demo application; see the three-way fallback below, which mirrors
+   * RequirementsTab's own fallback states exactly. */
+  requirementsData: DossierRequirementsData | null;
 }
 
-export function SummaryTab({ client, application, documents }: SummaryTabProps) {
+export function SummaryTab({ client, application, requirementsData }: SummaryTabProps) {
   const locale = useLocale() as Locale;
   const t = useTranslations();
   const company = getCompanyById(client.companyId);
-  const verifiedCount = documents.filter((doc) => doc.status === "verificado").length;
-  const totalDocs = documents.length;
+
+  // Milestone 12E1: "how many document requirements for this Application
+  // require no further action" — document-kind Requirement Slots whose
+  // status is satisfied OR waived. Deliberately NOT required-only (an
+  // outstanding optional Slot is still real remaining work), NOT Evidence
+  // existence (a file having arrived means nothing is being reviewed yet,
+  // not that nothing further is needed), and NOT submitted/under_review
+  // (those are still open, not completed). Never touches legacy
+  // dossier_documents.status or DossierDocument — see the Milestone 12E
+  // architecture review, Question 1.
+  const documentSlots = requirementsData?.requirementSlots.filter(
+    (slot) => slot.requirementKind === "document"
+  ) ?? [];
+  const completedCount = documentSlots.filter(
+    (slot) => slot.status === "satisfied" || slot.status === "waived"
+  ).length;
+  const totalSlots = documentSlots.length;
 
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
@@ -79,7 +103,25 @@ export function SummaryTab({ client, application, documents }: SummaryTabProps) 
           <CardTitle>{t("dossier.summary.documentStatusTitle")}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          {totalDocs > 0 ? (
+          {!application ? (
+            <EmptyState
+              icon={FileText}
+              title={t("dossier.documents.noApplicationTitle")}
+              description={t("dossier.documents.noApplicationDescription")}
+            />
+          ) : !requirementsData ? (
+            <EmptyState
+              icon={FileText}
+              title={t("dossier.documents.notMigratedTitle")}
+              description={t("dossier.documents.notMigratedDescription")}
+            />
+          ) : requirementsData.loadError ? (
+            <EmptyState
+              icon={FileText}
+              title={t("dossier.documents.loadErrorTitle")}
+              description={t("dossier.documents.loadErrorDescription")}
+            />
+          ) : totalSlots > 0 ? (
             <>
               <div>
                 <div className="mb-1 flex items-center justify-between text-sm">
@@ -88,14 +130,14 @@ export function SummaryTab({ client, application, documents }: SummaryTabProps) 
                   </span>
                   <span className="font-medium text-foreground">
                     {t("dossier.summary.requirementsOf", {
-                      completed: verifiedCount,
-                      total: totalDocs,
+                      completed: completedCount,
+                      total: totalSlots,
                     })}
                   </span>
                 </div>
-                <Progress value={(verifiedCount / totalDocs) * 100} />
+                <Progress value={(completedCount / totalSlots) * 100} />
               </div>
-              {verifiedCount === totalDocs ? (
+              {completedCount === totalSlots ? (
                 <StatusBadge
                   label={t("dossier.summary.documentSetComplete")}
                   className="bg-success/10 text-success border-success/20"
@@ -108,7 +150,7 @@ export function SummaryTab({ client, application, documents }: SummaryTabProps) 
             </>
           ) : (
             <p className="text-sm text-muted-foreground">
-              {t("dossier.summary.noApplicationDocuments")}
+              {t("dossier.summary.noDocumentRequirements")}
             </p>
           )}
 

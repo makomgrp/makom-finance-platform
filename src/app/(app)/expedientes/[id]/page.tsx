@@ -2,7 +2,6 @@ import { notFound } from "next/navigation";
 import { getClientById, getApplicationsByClientId } from "@/lib/demo-data";
 import { getNotesByClientId } from "@/lib/services/notes";
 import { getAlertsByClientId } from "@/lib/services/alerts";
-import { getDocumentsByClientId } from "@/lib/services/documents";
 import { getApplicationByLegacyId } from "@/lib/services/applications";
 import { getRequirementSlotsByApplicationId } from "@/lib/services/requirement-slots";
 import { getEvidenceByApplicationId } from "@/lib/services/document-evidence";
@@ -70,10 +69,9 @@ export default async function ExpedientePage({
 
   const demoApplications = getApplicationsByClientId(client.id);
 
-  const [notesResult, alertsResult, documentsResult, requirementsByDemoApplicationId] = await Promise.all([
+  const [notesResult, alertsResult, requirementsByDemoApplicationId] = await Promise.all([
     getNotesByClientId(client.id),
     getAlertsByClientId(client.id),
-    getDocumentsByClientId(client.id),
     resolveRequirementsByDemoApplicationId(demoApplications.map((application) => application.id)),
   ]);
 
@@ -86,8 +84,6 @@ export default async function ExpedientePage({
       notesLoadError={notesResult.status === "error"}
       initialAlerts={alertsResult.status === "ok" ? alertsResult.alerts : []}
       alertsLoadError={alertsResult.status === "error"}
-      initialDocuments={documentsResult.status === "ok" ? documentsResult.documents : []}
-      documentsLoadError={documentsResult.status === "error"}
       initialRequirementsByDemoApplicationId={requirementsByDemoApplicationId}
     />
   );
