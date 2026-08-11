@@ -21,10 +21,29 @@ import { NextResponse, type NextRequest } from "next/server";
  * subtle (valid session, no/inactive profile) is the layout's job, not
  * this one's. See the Auth migration plan.
  */
-const PUBLIC_PATHS = ["/", "/login", "/forgot-password", "/reset-password", "/auth/callback"];
+const PUBLIC_PATHS = [
+  "/",
+  "/login",
+  "/forgot-password",
+  "/reset-password",
+  "/auth/callback",
+  // Milestone 15C: the public website loan-application form. Genuinely
+  // public — a prospective applicant has no CRM session, and this is the
+  // whole point of the page.
+  "/solicitud",
+];
+
+// Milestone 15C: every public-facing API route lives under this prefix,
+// so future public channel adapters (this app's own future website
+// features, never WhatsApp/email — those hit the Intake Engine through
+// their own out-of-band transport, not this Next.js app's HTTP surface)
+// don't each need their own PUBLIC_PATHS entry. Everything under here is
+// untrusted-internet-facing by design; each route is responsible for its
+// own input validation (see src/app/api/public/application-intake/route.ts).
+const PUBLIC_API_PREFIX = "/api/public/";
 
 function isPublicPath(pathname: string): boolean {
-  return PUBLIC_PATHS.some((path) => pathname === path);
+  return PUBLIC_PATHS.some((path) => pathname === path) || pathname.startsWith(PUBLIC_API_PREFIX);
 }
 
 export async function proxy(request: NextRequest) {

@@ -835,5 +835,50 @@
   },
   "validation": {
     "fieldRequired": "Este campo es obligatorio."
+  },
+  "publicIntake": {
+    "meta": {
+      "title": "Solicitud de préstamo | ODL Financial Corporation",
+      "description": "Complete su solicitud de préstamo en línea con ODL Financial Corporation."
+    },
+    "hero": {
+      "title": "Solicitud de préstamo",
+      "subtitle": "Complete el siguiente formulario para iniciar su solicitud con ODL Financial Corporation. Un asesor revisará su información y se pondrá en contacto si se requiere algo adicional."
+    },
+    "sections": {
+      "applicant": "Datos del solicitante",
+      "employment": "Información laboral",
+      "loan": "Detalles del préstamo"
+    },
+    "fields": {
+      "employerName": "Empresa donde labora",
+      "employerNameOptional": "(opcional)",
+      "product": "Tipo de préstamo",
+      "productPlaceholder": "Seleccionar tipo de préstamo",
+      "requestedAmount": "Monto solicitado (USD)",
+      "requestedTermMonths": "Plazo solicitado (meses)"
+    },
+    "consent": {
+      "label": "He leído y acepto que ODL Financial Corporation utilice la información proporcionada para evaluar mi solicitud de préstamo. Un asesor podrá contactarme para solicitar información adicional."
+    },
+    "submit": "Enviar solicitud",
+    "submitting": "Enviando...",
+    "successTitle": "Solicitud recibida",
+    "successBody": "ODL Financial Corporation ha recibido su solicitud. Nuestro equipo revisará la información proporcionada y nos pondremos en contacto si se requiere información adicional. Esto no constituye una aprobación del préstamo.",
+    "successReference": "Número de referencia",
+    "errorGenericTitle": "No se pudo enviar la solicitud",
+    "errorGenericBody": "Ocurrió un problema al enviar su solicitud. Por favor intente nuevamente en unos minutos.",
+    "retry": "Intentar de nuevo",
+    "errors": {
+      "REQUIRED": "Este campo es obligatorio.",
+      "TOO_LONG": "Este valor es demasiado largo.",
+      "INVALID_EMAIL": "Ingrese un correo electrónico válido.",
+      "INVALID_IDENTIFICATION_TYPE": "Seleccione un tipo de identificación válido.",
+      "INVALID_DATE": "Ingrese una fecha válida.",
+      "DATE_IN_FUTURE": "La fecha no puede ser futura.",
+      "INVALID_NUMBER": "Ingrese un número válido.",
+      "OUT_OF_RANGE": "Este valor no es válido.",
+      "MUST_ACCEPT": "Debe aceptar para continuar."
+    }
   }
 }

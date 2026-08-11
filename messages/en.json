@@ -835,5 +835,50 @@
   },
   "validation": {
     "fieldRequired": "This field is required."
+  },
+  "publicIntake": {
+    "meta": {
+      "title": "Loan Application | ODL Financial Corporation",
+      "description": "Complete your loan application online with ODL Financial Corporation."
+    },
+    "hero": {
+      "title": "Loan Application",
+      "subtitle": "Complete the form below to start your application with ODL Financial Corporation. An advisor will review your information and contact you if anything additional is needed."
+    },
+    "sections": {
+      "applicant": "Applicant information",
+      "employment": "Employment information",
+      "loan": "Loan details"
+    },
+    "fields": {
+      "employerName": "Employer name",
+      "employerNameOptional": "(optional)",
+      "product": "Loan type",
+      "productPlaceholder": "Select a loan type",
+      "requestedAmount": "Requested amount (USD)",
+      "requestedTermMonths": "Requested term (months)"
+    },
+    "consent": {
+      "label": "I have read and agree that ODL Financial Corporation may use the information provided to evaluate my loan application. An advisor may contact me to request additional information."
+    },
+    "submit": "Submit application",
+    "submitting": "Submitting...",
+    "successTitle": "Application received",
+    "successBody": "ODL Financial Corporation has received your application. Our team will review the information provided and will contact you if additional information is needed. This does not constitute loan approval.",
+    "successReference": "Reference number",
+    "errorGenericTitle": "We could not submit your application",
+    "errorGenericBody": "Something went wrong while submitting your application. Please try again in a few minutes.",
+    "retry": "Try again",
+    "errors": {
+      "REQUIRED": "This field is required.",
+      "TOO_LONG": "This value is too long.",
+      "INVALID_EMAIL": "Enter a valid email address.",
+      "INVALID_IDENTIFICATION_TYPE": "Select a valid identification type.",
+      "INVALID_DATE": "Enter a valid date.",
+      "DATE_IN_FUTURE": "The date cannot be in the future.",
+      "INVALID_NUMBER": "Enter a valid number.",
+      "OUT_OF_RANGE": "This value is not valid.",
+      "MUST_ACCEPT": "You must accept to continue."
+    }
   }
 }
