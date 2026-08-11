@@ -8,15 +8,18 @@ import type { InternalNote, NotePriority, NoteType } from "@/types";
  * enabled on dossier_notes with zero policies, so this is the only way to
  * read or write it until a real per-client-note permissions model exists.
  *
- * client_legacy_id is stored and queried as plain text — there is no real
- * Supabase clients table yet to validate it against here; that check
- * happens at the Server Action layer (src/app/(app)/expedientes/actions.ts)
- * against the existing demo client list.
+ * client_id is a real, FK-constrained clients.id uuid as of Milestone
+ * 14E — see the Milestone 14E implementation report. The Server Action
+ * layer (src/app/(app)/expedientes/actions.ts) still validates it against
+ * the real Client Engine before calling createNote, matching the same
+ * "never trust client-supplied identity blindly" discipline this app has
+ * always applied, just against the real clients table now instead of the
+ * demo client list.
  */
 
 interface DossierNoteRow {
   id: string;
-  client_legacy_id: string;
+  client_id: string;
   author_profile_id: string;
   body: string;
   type: string;
@@ -28,7 +31,7 @@ interface DossierNoteRow {
 function toInternalNote(row: DossierNoteRow): InternalNote {
   return {
     id: row.id,
-    clientId: row.client_legacy_id,
+    clientId: row.client_id,
     text: row.body,
     authorId: row.author_profile_id,
     authorFullName: row.profiles?.full_name ?? "—",
@@ -39,7 +42,7 @@ function toInternalNote(row: DossierNoteRow): InternalNote {
 }
 
 const NOTE_SELECT =
-  "id, client_legacy_id, author_profile_id, body, type, priority, created_at, profiles(full_name)";
+  "id, client_id, author_profile_id, body, type, priority, created_at, profiles(full_name)";
 
 export type GetDossierNotesResult = { status: "ok"; notes: InternalNote[] } | { status: "error" };
 
@@ -49,13 +52,13 @@ export type GetDossierNotesResult = { status: "ok"; notes: InternalNote[] } | { 
  * show that the real connection is down, matching the pattern already
  * established in src/lib/services/profiles.ts.
  */
-export async function getNotesByClientId(clientLegacyId: string): Promise<GetDossierNotesResult> {
+export async function getNotesByClientId(clientId: string): Promise<GetDossierNotesResult> {
   try {
     const supabase = getSupabaseServerClient();
     const { data, error } = await supabase
       .from("dossier_notes")
       .select(NOTE_SELECT)
-      .eq("client_legacy_id", clientLegacyId)
+      .eq("client_id", clientId)
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -75,7 +78,7 @@ export async function getNotesByClientId(clientLegacyId: string): Promise<GetDos
 }
 
 export interface CreateDossierNoteInput {
-  clientLegacyId: string;
+  clientId: string;
   authorProfileId: string;
   text: string;
   type: NoteType;
@@ -92,7 +95,7 @@ export async function createNote(input: CreateDossierNoteInput): Promise<Interna
   const { data, error } = await supabase
     .from("dossier_notes")
     .insert({
-      client_legacy_id: input.clientLegacyId,
+      client_id: input.clientId,
       author_profile_id: input.authorProfileId,
       body: input.text,
       type: input.type,

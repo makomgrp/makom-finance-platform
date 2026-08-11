@@ -14,9 +14,8 @@ export default async function ClientsPage() {
   const clients = clientsResult.status === "ok" ? clientsResult.clients : [];
 
   // Milestone 13F: per-client application counts still come from the real
-  // Application Engine (filtered client-side by clientLegacyId, same
-  // fallback-to-empty pattern as expedientes/[id]/page.tsx) — unchanged by
-  // this milestone.
+  // Application Engine (Milestone 14E: matched client-side by the real
+  // application.clientId === client.id relationship).
   const applications = applicationsResult.status === "ok" ? applicationsResult.applications : [];
 
   return (

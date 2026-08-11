@@ -10,7 +10,7 @@ import {
 } from "@/lib/services/document-evidence";
 import { setRequirementSlotStatus, getRequirementSlotsByApplicationId } from "@/lib/services/requirement-slots";
 import { getCurrentProfile } from "@/lib/auth/get-current-profile";
-import { getClientById } from "@/lib/demo-data";
+import { getClientById } from "@/lib/services/clients";
 import { NOTE_PRIORITY_VALUES, NOTE_TYPE_VALUES } from "@/lib/config/note";
 import { ALERT_LEVEL_VALUES, ALERT_TYPE_VALUES } from "@/lib/config/alert";
 import { REQUIREMENT_SLOT_STATUS_TRANSITIONABLE } from "@/lib/config/requirement-slot";
@@ -79,7 +79,7 @@ export type CreateDossierNoteResult =
 export async function createDossierNote(
   input: CreateDossierNoteInput
 ): Promise<CreateDossierNoteResult> {
-  if (!isNonEmptyString(input.clientId)) {
+  if (!isNonEmptyString(input.clientId) || !UUID_PATTERN.test(input.clientId)) {
     return { status: "error", code: "INVALID_INPUT" };
   }
   const text = isNonEmptyString(input.text) ? input.text.trim() : "";
@@ -90,10 +90,11 @@ export async function createDossierNote(
     return { status: "error", code: "INVALID_INPUT" };
   }
 
-  // No real `clients` table exists yet (see the Milestone 6 architecture
-  // review) — this is only a soft check against demo data, not a database
-  // constraint. dossier_notes.client_legacy_id itself is unconstrained.
-  if (!getClientById(input.clientId)) {
+  // Real existence check against the Client Engine (Milestone 14E) —
+  // replaces the former soft check against demo data now that
+  // dossier_notes.client_id is a real, FK-constrained reference.
+  const clientResult = await getClientById(input.clientId);
+  if (clientResult.status !== "ok") {
     return { status: "error", code: "CLIENT_NOT_FOUND" };
   }
 
@@ -105,7 +106,7 @@ export async function createDossierNote(
 
   try {
     const note = await createNote({
-      clientLegacyId: input.clientId,
+      clientId: input.clientId,
       authorProfileId: profile.id,
       text,
       type: input.type,
@@ -143,7 +144,7 @@ export type CreateDossierAlertResult =
 export async function createDossierAlert(
   input: CreateDossierAlertInput
 ): Promise<CreateDossierAlertResult> {
-  if (!isNonEmptyString(input.clientId)) {
+  if (!isNonEmptyString(input.clientId) || !UUID_PATTERN.test(input.clientId)) {
     return { status: "error", code: "INVALID_INPUT" };
   }
   const reason = isNonEmptyString(input.reason) ? input.reason.trim() : "";
@@ -158,10 +159,11 @@ export async function createDossierAlert(
     return { status: "error", code: "INVALID_INPUT" };
   }
 
-  // No real `clients` table exists yet (see the Milestone 7 architecture
-  // review) — this is only a soft check against demo data, not a database
-  // constraint. dossier_alerts.client_legacy_id itself is unconstrained.
-  if (!getClientById(input.clientId)) {
+  // Real existence check against the Client Engine (Milestone 14E) —
+  // replaces the former soft check against demo data now that
+  // dossier_alerts.client_id is a real, FK-constrained reference.
+  const clientResult = await getClientById(input.clientId);
+  if (clientResult.status !== "ok") {
     return { status: "error", code: "CLIENT_NOT_FOUND" };
   }
 
@@ -173,7 +175,7 @@ export async function createDossierAlert(
 
   try {
     const alert = await createAlert({
-      clientLegacyId: input.clientId,
+      clientId: input.clientId,
       createdByProfileId: profile.id,
       type: input.type,
       level: input.level,

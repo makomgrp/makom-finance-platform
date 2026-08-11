@@ -64,7 +64,6 @@ import type { Locale } from "@/i18n/config";
 import type {
   DocumentEvidence,
   DocumentWorkspaceRow,
-  RealClient,
   RequirementSlot,
   RequirementSlotStatus,
 } from "@/types";
@@ -78,12 +77,6 @@ type ReviewFilter = "todos" | "reviewed" | "needsReview";
 interface DocumentsTableProps {
   initialRows: DocumentWorkspaceRow[];
   loadError: boolean;
-  /** Milestone 14D: the real Client Engine's rows, fetched once
-   * server-side and joined here by legacyId (row.application.
-   * clientLegacyId) — replaces the demo getClientById lookup this table
-   * used purely for display. A single additional query in
-   * documentos/page.tsx, not a per-row fetch — no N+1. */
-  clients: RealClient[];
 }
 
 interface PendingUpload {
@@ -111,7 +104,7 @@ interface ViewDialogState {
  * tab, for the same reason (a single Evidence upload can silently
  * transition its own Slot's status).
  */
-export function DocumentsTable({ initialRows, loadError: initialLoadError, clients }: DocumentsTableProps) {
+export function DocumentsTable({ initialRows, loadError: initialLoadError }: DocumentsTableProps) {
   const router = useRouter();
   const locale = useLocale() as Locale;
   const t = useTranslations();
@@ -140,9 +133,8 @@ export function DocumentsTable({ initialRows, loadError: initialLoadError, clien
   };
 
   // Derived from the loaded rows themselves, not a separate profiles
-  // fetch — applications.assigned_advisor_profile_id is a real profiles.id
-  // UUID with no demo-data bridge (unlike clientLegacyId), so the filter
-  // options can only ever be "advisors who actually have a row here."
+  // fetch — the filter options can only ever be "advisors who actually
+  // have a row here."
   const advisorOptions = useMemo(() => {
     const map = new Map<string, string>();
     for (const row of rows) {
@@ -156,33 +148,24 @@ export function DocumentsTable({ initialRows, loadError: initialLoadError, clien
     return [...map.entries()];
   }, [rows]);
 
-  // Milestone 14D: single map built once from the clients prop, not a
-  // per-row query — the real Client Engine replacement for the demo
-  // getClientById lookup this table used to do inline.
-  const clientsByLegacyId = useMemo(() => {
-    const map = new Map<string, RealClient>();
-    for (const client of clients) {
-      if (client.legacyId) map.set(client.legacyId, client);
-    }
-    return map;
-  }, [clients]);
-
+  // Milestone 14E: client name is resolved server-side via an embedded
+  // join (src/lib/services/document-workspace.ts's WORKSPACE_SELECT) —
+  // replaces the client-side legacyId join this table used in 14D.
   const enriched = useMemo(() => {
     return rows.map((row) => {
-      const client = clientsByLegacyId.get(row.application.clientLegacyId);
       const currentEvidence = row.evidence.filter((item) => !item.supersededByEvidenceId);
       const historicalEvidence = row.evidence.filter((item) => item.supersededByEvidenceId);
-      return { row, client, currentEvidence, historicalEvidence };
+      return { row, currentEvidence, historicalEvidence };
     });
-  }, [rows, clientsByLegacyId]);
+  }, [rows]);
 
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
-    return enriched.filter(({ row, client, currentEvidence }) => {
+    return enriched.filter(({ row, currentEvidence }) => {
       const name = row.requirementSlot.name[locale] ?? row.requirementSlot.code;
       const matchesSearch =
         term.length === 0 ||
-        client?.fullName.toLowerCase().includes(term) ||
+        row.application.clientFullName.toLowerCase().includes(term) ||
         row.application.applicationNumber.toLowerCase().includes(term) ||
         name.toLowerCase().includes(term);
       const matchesStatus = statusFilter === "todos" || row.requirementSlot.status === statusFilter;
@@ -464,7 +447,7 @@ export function DocumentsTable({ initialRows, loadError: initialLoadError, clien
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {paginated.map(({ row, client, currentEvidence, historicalEvidence }) => {
+                {paginated.map(({ row, currentEvidence, historicalEvidence }) => {
                   const slotId = row.requirementSlot.id;
                   const isBusy = busySlotId === slotId;
                   const isTerminal = row.requirementSlot.status === "satisfied" || row.requirementSlot.status === "waived";
@@ -474,7 +457,7 @@ export function DocumentsTable({ initialRows, loadError: initialLoadError, clien
                   return (
                     <Fragment key={slotId}>
                       <TableRow>
-                        <TableCell className="font-medium text-foreground">{client?.fullName ?? "—"}</TableCell>
+                        <TableCell className="font-medium text-foreground">{row.application.clientFullName}</TableCell>
                         <TableCell className="text-muted-foreground">{row.application.applicationNumber}</TableCell>
                         <TableCell className="text-muted-foreground">{name}</TableCell>
                         <TableCell>
@@ -581,18 +564,7 @@ export function DocumentsTable({ initialRows, loadError: initialLoadError, clien
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem
                                   onClick={() =>
-                                    // Milestone 14D: prefer the real Client
-                                    // uuid (available "for free" via the
-                                    // same clientsByLegacyId join used for
-                                    // display above); falls back to the
-                                    // legacy-shaped id only if this row's
-                                    // client somehow isn't in the loaded
-                                    // list — the Dossier route resolves
-                                    // either shape (see
-                                    // expedientes/[id]/page.tsx#resolveClient).
-                                    router.push(
-                                      `/expedientes/${client?.id ?? row.application.clientLegacyId}?tab=documentos`
-                                    )
+                                    router.push(`/expedientes/${row.application.clientId}?tab=documentos`)
                                   }
                                 >
                                   <FolderOpen className="size-4" />

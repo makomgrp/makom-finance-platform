@@ -25,19 +25,20 @@ export type ApplicationSource = "crm_manual" | "website_form" | "whatsapp" | "ai
  *
  * productId, requestedAmount, and requestedTermMonths are immutable
  * forever once set — no update path exists for any of them in
- * src/lib/services/applications.ts. clientLegacyId is a TEMPORARY bridge
- * to the existing demo-data client ids, following the same pattern
- * RequirementSlot's former applicationLegacyId used until this same
- * milestone replaced it.
+ * src/lib/services/applications.ts. clientId is the real Client Engine
+ * relationship (Milestone 14E — see the Milestone 14E implementation
+ * report), replacing the former TEMPORARY clientLegacyId bridge as the
+ * primary relationship; the underlying client_legacy_id column still
+ * exists on the row but is no longer exposed here (see applications.
+ * client_legacy_id's own migration comment for why it isn't dropped yet).
  */
 export interface Application {
   id: string;
   applicationNumber: string;
-  /** TEMPORARY bridge to the existing demo-data client ids (e.g.
-   * "cl-001") — the Client module has no Supabase table yet. See the
-   * migration comment for the recommended replacement path once a real
-   * clients table exists. */
-  clientLegacyId: string;
+  /** The real Client this application belongs to (Milestone 14E). NOT
+   * NULL, ON DELETE RESTRICT — see applications.client_id's migration
+   * comment. */
+  clientId: string;
   /** Immutable — no update path exists. See the migration comment for
    * why product switching is deliberately unsupported. */
   productId: string;
@@ -79,4 +80,7 @@ export interface ApplicationListItem extends Application {
   /** Resolved server-side (joined from profiles) — never guessed
    * client-side. Undefined exactly when assignedAdvisorProfileId is. */
   assignedAdvisorFullName?: string;
+  /** Resolved server-side (joined from clients) — never guessed
+   * client-side. Always populated: clientId is NOT NULL. */
+  clientFullName: string;
 }

@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { getClientById, getClientByLegacyId } from "@/lib/services/clients";
-import { getNotesByClientId, type GetDossierNotesResult } from "@/lib/services/notes";
-import { getAlertsByClientId, type GetDossierAlertsResult } from "@/lib/services/alerts";
+import { getNotesByClientId } from "@/lib/services/notes";
+import { getAlertsByClientId } from "@/lib/services/alerts";
 import { getApplications } from "@/lib/services/applications";
 import { getRequirementSlotsByApplicationId } from "@/lib/services/requirement-slots";
 import { getEvidenceByApplicationId } from "@/lib/services/document-evidence";
@@ -46,13 +46,14 @@ async function resolveRequirementsByApplicationId(
 
 /**
  * Milestone 14D — resolves the real Client Engine record. The canonical
- * route identity is now public.clients.id (a real uuid); getClientById is
+ * route identity is public.clients.id (a real uuid); getClientById is
  * tried first. A TEMPORARY fallback, destined for retirement in 14F (see
  * the Milestone 14A/14D architecture decisions): if that fails, the param
- * is tried again as a legacy bridge id via getClientByLegacyId — this
- * keeps every existing /expedientes/cl-001-style link (Solicitudes'
- * clientLegacyId-based navigation, Document Workspace, old bookmarks)
- * working without requiring those callers to change yet. Both lookups
+ * is tried again as a legacy bridge id via getClientByLegacyId. As of
+ * Milestone 14E, every active navigation source (Solicitudes, Document
+ * Workspace, standalone Alerts, Clientes) already routes with a real
+ * client uuid — this fallback now exists purely for old /expedientes/
+ * cl-001-style bookmarks/links, not for any current caller. Both lookups
  * failing is a genuine 404 — there is no third fallback to demo data.
  */
 async function resolveClient(routeParam: string) {
@@ -78,30 +79,22 @@ export default async function ExpedientePage({
   const client = await resolveClient(id);
   if (!client) notFound();
 
-  // client_legacy_id is the one bridge dimension this milestone leaves in
-  // place — applications.client_id does not exist yet (Milestone 14E) —
-  // so real Applications are still resolved by filtering on it, exactly
-  // like Solicitudes already does. A newly-created real Client
-  // (client.legacyId === undefined) has, by construction, zero
-  // bridgeable Applications — never fabricate a legacy id to work around
-  // this; the Dossier renders cleanly with an empty Applications list
-  // instead. Same reasoning for Notes/Alerts: both dossier_notes and
-  // dossier_alerts still key on client_legacy_id (Milestone 14E's scope,
-  // not this one), so a client with no legacyId gets empty notes/alerts
-  // rather than a query keyed on undefined.
+  // Milestone 14E: Applications, Notes, and Alerts all now carry a real,
+  // FK-constrained client_id — every real Client, seeded or
+  // newly-created, always has one (it is NOT NULL), so all three reads
+  // below run unconditionally, keyed on client.id. legacyId is no longer
+  // needed for any of this; the one remaining use of it is resolveClient
+  // itself, above, for the TEMPORARY legacy-route fallback (see its own
+  // comment).
   const [notesResult, alertsResult, applicationsResult] = await Promise.all([
-    client.legacyId
-      ? getNotesByClientId(client.legacyId)
-      : (Promise.resolve({ status: "ok", notes: [] }) as Promise<GetDossierNotesResult>),
-    client.legacyId
-      ? getAlertsByClientId(client.legacyId)
-      : (Promise.resolve({ status: "ok", alerts: [] }) as Promise<GetDossierAlertsResult>),
+    getNotesByClientId(client.id),
+    getAlertsByClientId(client.id),
     getApplications(),
   ]);
 
   const applications =
-    client.legacyId && applicationsResult.status === "ok"
-      ? applicationsResult.applications.filter((application) => application.clientLegacyId === client.legacyId)
+    applicationsResult.status === "ok"
+      ? applicationsResult.applications.filter((application) => application.clientId === client.id)
       : [];
 
   // Requires the filtered application list above, so it cannot join the

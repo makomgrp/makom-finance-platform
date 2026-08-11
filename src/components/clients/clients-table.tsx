@@ -61,9 +61,11 @@ interface ClientsTableProps {
    * component used to seed itself from. */
   initialClients: RealClient[];
   /** Milestone 13F: real Applications, used to compute each client's
-   * application count via clientLegacyId — unchanged by this milestone;
-   * the bridge field is now read off RealClient.legacyId instead of the
-   * demo Client.id, since client_legacy_id itself is untouched. */
+   * application count. Milestone 14E: counted via the real
+   * application.clientId === client.id relationship (applications.
+   * client_id is now a real, FK-constrained reference) — replaces the
+   * former clientLegacyId-based match, and now correctly includes
+   * Applications for a client with no legacyId too. */
   applications: ApplicationListItem[];
 }
 
@@ -195,7 +197,7 @@ export function ClientsTable({ initialClients, applications }: ClientsTableProps
               {paginated.map((client) => {
                 const company = client.companyLegacyId ? getCompanyById(client.companyLegacyId) : undefined;
                 const applicationCount = applications.filter(
-                  (application) => client.legacyId !== undefined && application.clientLegacyId === client.legacyId
+                  (application) => application.clientId === client.id
                 ).length;
                 return (
                   <TableRow key={client.id}>

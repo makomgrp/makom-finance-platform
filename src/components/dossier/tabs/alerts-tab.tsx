@@ -34,13 +34,10 @@ import type { Locale } from "@/i18n/config";
 import type { ActivityEvent, AlertLevel, AlertType, DossierAlert } from "@/types";
 
 interface AlertsTabProps {
-  /** Milestone 14D: the client's TEMPORARY legacy bridge id
-   * (RealClient.legacyId), since dossier_alerts.client_legacy_id is
-   * still the write target (Milestone 14E's scope, not this one).
-   * Undefined for a newly-created real Client with no legacy identity —
-   * alert registration is disabled below rather than writing a
-   * fabricated bridge value. */
-  clientId?: string;
+  /** The real Client this alert belongs to (RealClient.id) — Milestone
+   * 14E migrated dossier_alerts onto a real, FK-constrained client_id, so
+   * every real Client, seeded or newly-created, can register alerts. */
+  clientId: string;
   alerts: DossierAlert[];
   onAlertsChange: (alerts: DossierAlert[]) => void;
   onActivity: (
@@ -67,7 +64,6 @@ export function AlertsTab({ clientId, alerts, onAlertsChange, onActivity, loadEr
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!clientId) return;
     setSubmitting(true);
     const result = await createDossierAlert({ clientId, type, level, reason, observation });
     setSubmitting(false);
@@ -111,7 +107,7 @@ export function AlertsTab({ clientId, alerts, onAlertsChange, onActivity, loadEr
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger
             render={
-              <Button size="sm" disabled={!clientId}>
+              <Button size="sm">
                 <Plus className="size-4" />
                 {t("dossier.alerts.registerAlert")}
               </Button>

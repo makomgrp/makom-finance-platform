@@ -5,7 +5,7 @@ import { KpiCard } from "@/components/dashboard/kpi-card";
 import { RecentActivityCard } from "@/components/dashboard/recent-activity-card";
 import { StatusDistributionCard } from "@/components/dashboard/status-distribution-card";
 import { PendingTasksCard } from "@/components/dashboard/pending-tasks-card";
-import { CLIENTS } from "@/lib/demo-data";
+import { getClients } from "@/lib/services/clients";
 import { getApplications } from "@/lib/services/applications";
 import { getDocumentSlotsAwaitingReviewCount } from "@/lib/services/requirement-slots";
 import type { ApplicationListItem } from "@/types";
@@ -21,15 +21,18 @@ import type { ApplicationListItem } from "@/types";
  * abstraction: getApplications() already carries everything a
  * status-count needs.
  *
- * registeredClients (Client Engine) and documentsAwaitingReview
- * (Requirement Slot Engine, migrated in 12E1b) are untouched — neither
- * derives from demo Applications, so neither belongs to this milestone.
+ * registeredClients now reads the real Client Engine (Milestone 14E —
+ * previously the demo CLIENTS array, migrated here since it's a one-line
+ * data-source swap, not a redesign). documentsAwaitingReview (Requirement
+ * Slot Engine, migrated in 12E1b) is untouched — it derives from neither
+ * demo Applications nor demo Clients.
  */
 export default async function DashboardPage() {
   const t = await getTranslations("dashboard");
-  const [documentsAwaitingReviewResult, applicationsResult] = await Promise.all([
+  const [documentsAwaitingReviewResult, applicationsResult, clientsResult] = await Promise.all([
     getDocumentSlotsAwaitingReviewCount(),
     getApplications(),
+    getClients(),
   ]);
 
   const applications: ApplicationListItem[] =
@@ -40,7 +43,7 @@ export default async function DashboardPage() {
   const kpis = [
     {
       label: t("kpis.registeredClients"),
-      value: CLIENTS.length,
+      value: clientsResult.status === "ok" ? clientsResult.clients.length : "—",
       icon: Users,
     },
     {

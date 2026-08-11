@@ -14,7 +14,7 @@ import type { Application, ApplicationListItem, ApplicationSource, ApplicationSt
  *
  * Deliberately minimal: create (with slot snapshot), read (single + list),
  * status transition, advisor assignment. No updateApplicationDetails —
- * every immutable field (applicationNumber, clientLegacyId, productId,
+ * every immutable field (applicationNumber, clientId, productId,
  * requestedAmount, requestedTermMonths, createdAt, createdByProfileId,
  * createdSource) has no update path anywhere in this file. No delete.
  *
@@ -29,7 +29,7 @@ import type { Application, ApplicationListItem, ApplicationSource, ApplicationSt
 interface ApplicationRow {
   id: string;
   application_number: string;
-  client_legacy_id: string;
+  client_id: string;
   product_id: string;
   requested_amount: number;
   requested_term_months: number;
@@ -44,13 +44,13 @@ interface ApplicationRow {
 }
 
 const APPLICATION_SELECT =
-  "id, application_number, client_legacy_id, product_id, requested_amount, requested_term_months, created_at, created_by_profile_id, created_source, status, status_changed_at, status_changed_by_profile_id, status_changed_source, assigned_advisor_profile_id";
+  "id, application_number, client_id, product_id, requested_amount, requested_term_months, created_at, created_by_profile_id, created_source, status, status_changed_at, status_changed_by_profile_id, status_changed_source, assigned_advisor_profile_id";
 
 function toApplication(row: ApplicationRow): Application {
   return {
     id: row.id,
     applicationNumber: row.application_number,
-    clientLegacyId: row.client_legacy_id,
+    clientId: row.client_id,
     productId: row.product_id,
     requestedAmount: row.requested_amount,
     requestedTermMonths: row.requested_term_months,
@@ -79,17 +79,24 @@ function toApplication(row: ApplicationRow): Application {
 interface ApplicationListRow extends ApplicationRow {
   product: { code: string; name: Record<string, string> } | null;
   advisor: { full_name: string } | null;
+  client: { full_name: string } | null;
 }
 
 // Same !constraint embed-hint pattern already used throughout this app
 // (document-evidence.ts, requirement-slots.ts, document-workspace.ts).
-// product_id is `not null` at the schema level, so the product embed is
-// always resolved; assigned_advisor_profile_id is independently nullable,
-// so the advisor embed is not.
+// product_id and client_id are both `not null` at the schema level, so
+// the product and client embeds are always resolved; assigned_advisor_
+// profile_id is independently nullable, so the advisor embed is not.
+// Resolving the client's name here (Milestone 14E) is what lets
+// Solicitudes/the Clientes application count/Document Workspace display a
+// client name and route to its real Dossier without their own
+// browser-side lookup or a second query — see the Milestone 14E
+// implementation report's Solicitudes section.
 const APPLICATION_LIST_SELECT =
   `${APPLICATION_SELECT}, ` +
   "product:products!applications_product_id_fkey(code, name), " +
-  "advisor:profiles!applications_assigned_advisor_profile_id_fkey(full_name)";
+  "advisor:profiles!applications_assigned_advisor_profile_id_fkey(full_name), " +
+  "client:clients!applications_client_id_fkey(full_name)";
 
 function toApplicationListItem(row: ApplicationListRow): ApplicationListItem {
   return {
@@ -97,6 +104,7 @@ function toApplicationListItem(row: ApplicationListRow): ApplicationListItem {
     productCode: row.product?.code ?? "",
     productName: (row.product?.name as LocalizedText | undefined) ?? ({} as LocalizedText),
     assignedAdvisorFullName: row.advisor?.full_name ?? undefined,
+    clientFullName: row.client?.full_name ?? "",
   };
 }
 
@@ -212,7 +220,7 @@ export async function getApplications(): Promise<GetApplicationsResult> {
 }
 
 export interface CreateApplicationInput {
-  clientLegacyId: string;
+  clientId: string;
   productId: string;
   requestedAmount: number;
   requestedTermMonths: number;
@@ -263,7 +271,7 @@ export async function createApplication(input: CreateApplicationInput): Promise<
   const { data: inserted, error: insertError } = await supabase
     .from("applications")
     .insert({
-      client_legacy_id: input.clientLegacyId,
+      client_id: input.clientId,
       product_id: input.productId,
       requested_amount: input.requestedAmount,
       requested_term_months: input.requestedTermMonths,

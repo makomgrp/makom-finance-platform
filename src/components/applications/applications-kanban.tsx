@@ -7,7 +7,6 @@ import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ApplicationStatusMenu } from "@/components/applications/application-status-menu";
 import { APPLICATION_STATUS_ORDER, APPLICATION_STATUS_TRANSITIONS } from "@/lib/config/application";
-import { getClientById } from "@/lib/demo-data";
 import { formatRelativeTime, getInitials } from "@/lib/format";
 import type { Locale } from "@/i18n/config";
 import type { ApplicationListItem, ApplicationStatus } from "@/types";
@@ -43,7 +42,6 @@ export function ApplicationsKanban({ applications, documentSlotCounts, onStatusC
 
             <div className="space-y-3">
               {columnApps.map((app) => {
-                const client = getClientById(app.clientLegacyId);
                 const counts = documentSlotCounts[app.id] ?? { completed: 0, total: 0 };
                 const documentationPercent = counts.total > 0 ? Math.round((counts.completed / counts.total) * 100) : 0;
                 const legalTargets = APPLICATION_STATUS_TRANSITIONS[app.status];
@@ -53,12 +51,10 @@ export function ApplicationsKanban({ applications, documentSlotCounts, onStatusC
                     <CardContent className="space-y-3">
                       <div>
                         <button
-                          onClick={() =>
-                            router.push(`/expedientes/${app.clientLegacyId}?solicitud=${app.id}`)
-                          }
+                          onClick={() => router.push(`/expedientes/${app.clientId}?solicitud=${app.id}`)}
                           className="text-sm font-medium text-foreground hover:underline"
                         >
-                          {client?.fullName ?? "—"}
+                          {app.clientFullName}
                         </button>
                         <p className="text-xs text-muted-foreground">{app.applicationNumber}</p>
                       </div>

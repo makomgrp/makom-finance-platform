@@ -50,10 +50,11 @@ export interface DossierRequirementsData {
 interface DossierViewProps {
   /** Milestone 14D: the already-resolved real Client Engine record
    * (src/lib/services/clients.ts) — replaces the demo clientId lookup
-   * this component used to do internally. legacyId, when present, is the
-   * TEMPORARY bridge every legacy-keyed section (Applications, Notes,
-   * Alerts) still needs; see expedientes/[id]/page.tsx's resolveClient
-   * and this file's own use of it below. */
+   * this component used to do internally. As of Milestone 14E,
+   * Applications/Notes/Alerts all key on client.id directly (a real,
+   * always-present uuid) — legacyId is used only for the demo-only
+   * Activity tab below and expedientes/[id]/page.tsx's TEMPORARY
+   * legacy-route fallback. */
   initialClient: RealClient;
   initialTab?: string;
   initialApplicationId?: string;
@@ -262,7 +263,7 @@ export function DossierView({
 
         <TabsContent value="notas" className="mt-4">
           <NotesTab
-            clientId={client.legacyId}
+            clientId={client.id}
             notes={notes}
             onNotesChange={setNotes}
             onActivity={logActivity}
@@ -272,7 +273,7 @@ export function DossierView({
 
         <TabsContent value="alertas" className="mt-4">
           <AlertsTab
-            clientId={client.legacyId}
+            clientId={client.id}
             alerts={alerts}
             onAlertsChange={setAlerts}
             onActivity={logActivity}

@@ -33,12 +33,10 @@ import type { Locale } from "@/i18n/config";
 import type { ActivityEvent, InternalNote, NotePriority, NoteType } from "@/types";
 
 interface NotesTabProps {
-  /** Milestone 14D: the client's TEMPORARY legacy bridge id
-   * (RealClient.legacyId), since dossier_notes.client_legacy_id is still
-   * the write target (Milestone 14E's scope, not this one). Undefined for
-   * a newly-created real Client with no legacy identity — note creation
-   * is disabled below rather than writing a fabricated bridge value. */
-  clientId?: string;
+  /** The real Client this note belongs to (RealClient.id) — Milestone
+   * 14E migrated dossier_notes onto a real, FK-constrained client_id, so
+   * every real Client, seeded or newly-created, can create notes. */
+  clientId: string;
   notes: InternalNote[];
   onNotesChange: (notes: InternalNote[]) => void;
   onActivity: (
@@ -63,7 +61,6 @@ export function NotesTab({ clientId, notes, onNotesChange, onActivity, loadError
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!clientId) return;
     setSubmitting(true);
     const result = await createDossierNote({ clientId, text, type, priority });
     setSubmitting(false);
@@ -88,7 +85,7 @@ export function NotesTab({ clientId, notes, onNotesChange, onActivity, loadError
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger
             render={
-              <Button size="sm" disabled={!clientId}>
+              <Button size="sm">
                 <Plus className="size-4" />
                 {t("dossier.notes.addNote")}
               </Button>

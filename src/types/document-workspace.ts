@@ -4,24 +4,24 @@ import type { RequirementSlot } from "./requirement-slot";
 /**
  * The minimal Application identity the global /documentos workspace
  * (Milestone 12D) needs to display and filter by — not the full
- * Application type. clientLegacyId is the same TEMPORARY demo-data bridge
- * every real Application already carries (see src/types/application.ts);
- * resolved to a display name client-side via getClientById(), exactly like
- * the legacy /documentos table already did for DossierDocument.clientId.
+ * Application type. clientId is the real Client Engine relationship
+ * (Milestone 14E — see src/types/application.ts), with clientFullName
+ * resolved server-side via the same embedded join, never a browser-side
+ * lookup.
  *
  * assignedAdvisorFullName is resolved server-side via the applications ->
  * profiles foreign key (src/lib/services/document-workspace.ts) — never
- * guessed client-side, and deliberately NOT resolved through the demo
- * ADVISORS array: applications.assigned_advisor_profile_id is a real
- * profiles.id UUID with no corresponding demo-data bridge, unlike
- * clientLegacyId.
+ * guessed client-side, same posture as clientFullName.
  */
 export interface DocumentWorkspaceApplication {
   id: string;
   applicationNumber: string;
-  clientLegacyId: string;
+  clientId: string;
   assignedAdvisorProfileId?: string;
   assignedAdvisorFullName?: string;
+  /** Resolved server-side (joined from clients) — never guessed
+   * client-side. Always populated: clientId is NOT NULL. */
+  clientFullName: string;
 }
 
 /**

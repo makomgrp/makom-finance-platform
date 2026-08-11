@@ -30,7 +30,6 @@ import {
   APPLICATION_STATUS_ORDER,
   APPLICATION_STATUS_TRANSITIONS,
 } from "@/lib/config/application";
-import { getClientById } from "@/lib/demo-data";
 import { formatDate, formatRelativeTime } from "@/lib/format";
 import type { Locale } from "@/i18n/config";
 import type { ApplicationListItem, ApplicationStatus } from "@/types";
@@ -59,11 +58,10 @@ export function ApplicationsTable({ applications, documentSlotCounts, onStatusCh
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
     return applications.filter((app) => {
-      const client = getClientById(app.clientLegacyId);
       const matchesSearch =
         term.length === 0 ||
         app.applicationNumber.toLowerCase().includes(term) ||
-        client?.fullName.toLowerCase().includes(term);
+        app.clientFullName.toLowerCase().includes(term);
       const matchesStatus = statusFilter === "todos" || app.status === statusFilter;
       return matchesSearch && matchesStatus;
     });
@@ -142,7 +140,6 @@ export function ApplicationsTable({ applications, documentSlotCounts, onStatusCh
             </TableHeader>
             <TableBody>
               {paginated.map((app) => {
-                const client = getClientById(app.clientLegacyId);
                 const counts = documentSlotCounts[app.id] ?? { completed: 0, total: 0 };
                 const documentationPercent = counts.total > 0 ? Math.round((counts.completed / counts.total) * 100) : 0;
                 const legalTargets = APPLICATION_STATUS_TRANSITIONS[app.status];
@@ -154,12 +151,10 @@ export function ApplicationsTable({ applications, documentSlotCounts, onStatusCh
                     </TableCell>
                     <TableCell>
                       <button
-                        onClick={() =>
-                          router.push(`/expedientes/${app.clientLegacyId}?solicitud=${app.id}`)
-                        }
+                        onClick={() => router.push(`/expedientes/${app.clientId}?solicitud=${app.id}`)}
                         className="text-foreground hover:underline"
                       >
-                        {client?.fullName ?? "—"}
+                        {app.clientFullName}
                       </button>
                     </TableCell>
                     <TableCell className="text-muted-foreground">

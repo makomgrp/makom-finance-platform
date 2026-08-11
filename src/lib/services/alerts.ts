@@ -1,7 +1,7 @@
 import "server-only";
 import { cache } from "react";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
-import type { AlertLevel, AlertType, DossierAlert } from "@/types";
+import type { AlertLevel, AlertType, DossierAlert, DossierAlertListItem } from "@/types";
 
 /**
  * Server-only service for dossier_alerts (see the Milestone 7 architecture
@@ -15,15 +15,18 @@ import type { AlertLevel, AlertType, DossierAlert } from "@/types";
  * /alertas table and summary (getAllAlerts), and the Topbar badge
  * (getActiveAlertsCount). None of them read demo alert data anymore.
  *
- * client_legacy_id is stored and queried as plain text — there is no real
- * Supabase clients table yet to validate it against here; that check
- * happens at the Server Action layer (src/app/(app)/expedientes/actions.ts)
- * against the existing demo client list.
+ * client_id is a real, FK-constrained clients.id uuid as of Milestone
+ * 14E — see the Milestone 14E implementation report. The Server Action
+ * layer (src/app/(app)/expedientes/actions.ts) still validates it against
+ * the real Client Engine before calling createAlert, matching the same
+ * "never trust client-supplied identity blindly" discipline this app has
+ * always applied, just against the real clients table now instead of the
+ * demo client list.
  */
 
 interface DossierAlertRow {
   id: string;
-  client_legacy_id: string;
+  client_id: string;
   created_by_profile_id: string;
   type: string;
   level: string;
@@ -40,16 +43,20 @@ interface DossierAlertRow {
 // Two foreign keys to profiles on this table (created_by_profile_id and
 // resolved_by_profile_id) — the !constraint_name hints below disambiguate
 // which relationship each embed follows. Names are Postgres's own default
-// <table>_<column>_fkey convention, not something chosen separately.
+// <table>_<column>_fkey convention, not something chosen separately. Bare
+// select only — no client name embed — matching src/lib/services/
+// applications.ts's APPLICATION_SELECT/APPLICATION_LIST_SELECT split:
+// getAlertsByClientId/createAlert/setAlertStatus are never display reads
+// across multiple different clients, so none of them need it.
 const ALERT_SELECT =
-  "id, client_legacy_id, created_by_profile_id, type, level, reason, observation, active, created_at, resolved_at, resolved_by_profile_id, " +
+  "id, client_id, created_by_profile_id, type, level, reason, observation, active, created_at, resolved_at, resolved_by_profile_id, " +
   "created_by:profiles!dossier_alerts_created_by_profile_id_fkey(full_name), " +
   "resolved_by:profiles!dossier_alerts_resolved_by_profile_id_fkey(full_name)";
 
 function toDossierAlert(row: DossierAlertRow): DossierAlert {
   return {
     id: row.id,
-    clientId: row.client_legacy_id,
+    clientId: row.client_id,
     type: row.type as AlertType,
     level: row.level as AlertLevel,
     reason: row.reason,
@@ -64,6 +71,26 @@ function toDossierAlert(row: DossierAlertRow): DossierAlert {
   };
 }
 
+// getAllAlerts-only row shape (Milestone 14E) — DossierAlertRow plus the
+// one embed the standalone /alertas table needs to display and search by
+// client name without its own demo-data-style lookup (see the Milestone
+// 14E implementation report's Standalone Alerts section). Not used by
+// getAlertsByClientId/createAlert/setAlertStatus — none of them are
+// display reads across multiple clients, same reasoning
+// APPLICATION_LIST_SELECT documents.
+interface DossierAlertListRow extends DossierAlertRow {
+  client: { full_name: string } | null;
+}
+
+const ALERT_LIST_SELECT = `${ALERT_SELECT}, client:clients!dossier_alerts_client_id_fkey(full_name)`;
+
+function toDossierAlertListItem(row: DossierAlertListRow): DossierAlertListItem {
+  return {
+    ...toDossierAlert(row),
+    clientFullName: row.client?.full_name ?? "",
+  };
+}
+
 export type GetDossierAlertsResult = { status: "ok"; alerts: DossierAlert[] } | { status: "error" };
 
 /**
@@ -71,13 +98,13 @@ export type GetDossierAlertsResult = { status: "ok"; alerts: DossierAlert[] } | 
  * data on failure — callers get an explicit "error" status, matching
  * src/lib/services/notes.ts's convention.
  */
-export async function getAlertsByClientId(clientLegacyId: string): Promise<GetDossierAlertsResult> {
+export async function getAlertsByClientId(clientId: string): Promise<GetDossierAlertsResult> {
   try {
     const supabase = getSupabaseServerClient();
     const { data, error } = await supabase
       .from("dossier_alerts")
       .select(ALERT_SELECT)
-      .eq("client_legacy_id", clientLegacyId)
+      .eq("client_id", clientId)
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -96,19 +123,25 @@ export async function getAlertsByClientId(clientLegacyId: string): Promise<GetDo
   }
 }
 
+export type GetAllDossierAlertsResult =
+  | { status: "ok"; alerts: DossierAlertListItem[] }
+  | { status: "error" };
+
 /**
- * Loads every alert across every client, most recent first — the global
- * /alertas table and summary's data source. Wrapped in React's cache() so
- * both components (rendered as siblings under the same /alertas page
- * request) share one actual Supabase query instead of issuing it twice,
- * the same reasoning already applied to getCurrentProfile().
+ * Loads every alert across every client, most recent first, with each
+ * alert's client name resolved via an embedded join (Milestone 14E — see
+ * ALERT_LIST_SELECT above) — the global /alertas table and summary's data
+ * source. Wrapped in React's cache() so both components (rendered as
+ * siblings under the same /alertas page request) share one actual
+ * Supabase query instead of issuing it twice, the same reasoning already
+ * applied to getCurrentProfile().
  */
-export const getAllAlerts = cache(async (): Promise<GetDossierAlertsResult> => {
+export const getAllAlerts = cache(async (): Promise<GetAllDossierAlertsResult> => {
   try {
     const supabase = getSupabaseServerClient();
     const { data, error } = await supabase
       .from("dossier_alerts")
-      .select(ALERT_SELECT)
+      .select(ALERT_LIST_SELECT)
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -116,8 +149,8 @@ export const getAllAlerts = cache(async (): Promise<GetDossierAlertsResult> => {
       return { status: "error" };
     }
 
-    const rows = (data ?? []) as unknown as DossierAlertRow[];
-    return { status: "ok", alerts: rows.map(toDossierAlert) };
+    const rows = (data ?? []) as unknown as DossierAlertListRow[];
+    return { status: "ok", alerts: rows.map(toDossierAlertListItem) };
   } catch (error) {
     console.error(
       "[alerts service] Unexpected failure loading all dossier alerts:",
@@ -192,7 +225,7 @@ export async function getActiveAlertsCount(): Promise<number | null> {
 }
 
 export interface CreateDossierAlertInput {
-  clientLegacyId: string;
+  clientId: string;
   createdByProfileId: string;
   type: AlertType;
   level: AlertLevel;
@@ -211,7 +244,7 @@ export async function createAlert(input: CreateDossierAlertInput): Promise<Dossi
   const { data, error } = await supabase
     .from("dossier_alerts")
     .insert({
-      client_legacy_id: input.clientLegacyId,
+      client_id: input.clientId,
       created_by_profile_id: input.createdByProfileId,
       type: input.type,
       level: input.level,

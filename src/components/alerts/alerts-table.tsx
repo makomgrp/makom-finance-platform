@@ -32,14 +32,13 @@ import { MoreHorizontal } from "lucide-react";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ALERT_LEVEL_BADGE_CLASS, ALERT_LEVEL_VALUES, ALERT_TYPE_VALUES } from "@/lib/config/alert";
-import { getClientById } from "@/lib/demo-data";
 import { setDossierAlertStatus } from "@/app/(app)/expedientes/actions";
 import { formatDate } from "@/lib/format";
 import type { Locale } from "@/i18n/config";
-import type { AlertLevel, AlertType, DossierAlert } from "@/types";
+import type { AlertLevel, AlertType, DossierAlertListItem } from "@/types";
 
 interface AlertsTableProps {
-  initialAlerts: DossierAlert[];
+  initialAlerts: DossierAlertListItem[];
   /** True when the parent page's getAllAlerts() call failed. Never falls
    * back to demo data or an empty-looking table — shows a distinct error
    * state instead. */
@@ -59,7 +58,7 @@ export function AlertsTable({ initialAlerts, loadError }: AlertsTableProps) {
   const router = useRouter();
   const locale = useLocale() as Locale;
   const t = useTranslations();
-  const [alerts, setAlerts] = useState<DossierAlert[]>(initialAlerts);
+  const [alerts, setAlerts] = useState<DossierAlertListItem[]>(initialAlerts);
   const [search, setSearch] = useState("");
   const [levelFilter, setLevelFilter] = useState<AlertLevel | "todos">("todos");
   const [typeFilter, setTypeFilter] = useState<AlertType | "todos">("todos");
@@ -69,10 +68,9 @@ export function AlertsTable({ initialAlerts, loadError }: AlertsTableProps) {
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
     return alerts.filter((alert) => {
-      const client = getClientById(alert.clientId);
       const matchesSearch =
         term.length === 0 ||
-        client?.fullName.toLowerCase().includes(term) ||
+        alert.clientFullName.toLowerCase().includes(term) ||
         alert.reason.toLowerCase().includes(term);
       const matchesLevel = levelFilter === "todos" || alert.level === levelFilter;
       const matchesType = typeFilter === "todos" || alert.type === typeFilter;
@@ -84,7 +82,7 @@ export function AlertsTable({ initialAlerts, loadError }: AlertsTableProps) {
     });
   }, [alerts, search, levelFilter, typeFilter, statusFilter]);
 
-  const toggleResolved = async (alert: DossierAlert) => {
+  const toggleResolved = async (alert: DossierAlertListItem) => {
     setResolvingId(alert.id);
     const result = await setDossierAlertStatus({ alertId: alert.id, targetActive: !alert.active });
     setResolvingId(null);
@@ -94,7 +92,24 @@ export function AlertsTable({ initialAlerts, loadError }: AlertsTableProps) {
       return;
     }
 
-    setAlerts((prev) => prev.map((item) => (item.id === alert.id ? result.alert : item)));
+    // Local replacement of only the fields the mutation can ever change,
+    // not a full-row replace — setDossierAlertStatus returns a bare
+    // DossierAlert (no clientFullName), and a resolve/reactivate can
+    // never itself change which client the alert belongs to. Same
+    // discipline as dossier-view.tsx#handleApplicationStatusChange.
+    setAlerts((prev) =>
+      prev.map((item) =>
+        item.id === alert.id
+          ? {
+              ...item,
+              active: result.alert.active,
+              resolvedAt: result.alert.resolvedAt,
+              resolvedByProfileId: result.alert.resolvedByProfileId,
+              resolvedByFullName: result.alert.resolvedByFullName,
+            }
+          : item
+      )
+    );
     toast.success(alert.active ? t("alertsModule.toasts.resolved") : t("alertsModule.toasts.reactivated"));
   };
 
@@ -213,12 +228,10 @@ export function AlertsTable({ initialAlerts, loadError }: AlertsTableProps) {
             </TableHeader>
             <TableBody>
               {filtered.map((alert) => {
-                const client = getClientById(alert.clientId);
-
                 return (
                   <TableRow key={alert.id}>
                     <TableCell className="font-medium text-foreground">
-                      {client?.fullName ?? "—"}
+                      {alert.clientFullName}
                     </TableCell>
                     <TableCell className="text-muted-foreground">
                       {t(`statuses.alertType.${alert.type}`)}
@@ -260,9 +273,7 @@ export function AlertsTable({ initialAlerts, loadError }: AlertsTableProps) {
                         />
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem
-                            onClick={() =>
-                              client && router.push(`/expedientes/${client.id}?tab=alertas`)
-                            }
+                            onClick={() => router.push(`/expedientes/${alert.clientId}?tab=alertas`)}
                           >
                             <FolderOpen className="size-4" />
                             {t("alertsModule.viewDossier")}
