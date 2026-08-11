@@ -3,11 +3,11 @@
 import { createNote } from "@/lib/services/notes";
 import { createAlert, setAlertStatus } from "@/lib/services/alerts";
 import {
-  createDocumentEvidence,
   reviewDocumentEvidence,
   createSignedEvidenceUrl,
   getEvidenceByApplicationId,
 } from "@/lib/services/document-evidence";
+import { ingestDocument } from "@/lib/services/document-intake";
 import { setRequirementSlotStatus, getRequirementSlotsByApplicationId } from "@/lib/services/requirement-slots";
 import { getCurrentProfile } from "@/lib/auth/get-current-profile";
 import { getClientById } from "@/lib/services/clients";
@@ -270,28 +270,47 @@ export type UploadRequirementEvidenceResult =
     };
 
 /**
- * Accepts FormData (requirementSlotId + file + optional
+ * Accepts FormData (applicationId + requirementSlotId + file + optional
  * replacesEvidenceId), since a File can't cross a Server Action boundary
- * as JSON. Every call creates a
- * NEW Evidence row (src/lib/services/document-evidence.ts#
- * createDocumentEvidence never updates an existing one); there is no
- * "replace" distinct from upload here — replacesEvidenceId, when present,
- * is explicit supersession of one specific prior row, never a mutation of
- * it. The "partial" result (Evidence created, Slot transition failed) is
- * passed through as its own distinct status — never collapsed into
- * "success" — so the caller can surface it and retry the transition alone
- * rather than re-uploading.
+ * as JSON. Every call creates a NEW Evidence row (createDocumentEvidence
+ * never updates an existing one); there is no "replace" distinct from
+ * upload here — replacesEvidenceId, when present, is explicit
+ * supersession of one specific prior row, never a mutation of it. The
+ * "partial" result (Evidence created, Slot transition failed) is passed
+ * through as its own distinct status — never collapsed into "success" —
+ * so the caller can surface it and retry the transition alone rather
+ * than re-uploading.
  *
  * The actor is always the caller's own getCurrentProfile() — never
  * accepted from the client — and uploadedSource is hardcoded to
  * 'crm_manual': this action is reachable only from an authenticated CRM
  * session.
+ *
+ * Milestone 15D: routes through the canonical
+ * src/lib/services/document-intake.ts#ingestDocument orchestrator
+ * instead of calling createDocumentEvidence directly — the same
+ * channel-neutral entry point a future WhatsApp/email adapter will use
+ * — rather than maintaining two parallel upload implementations.
+ * applicationId is now required so ingestDocument's classification step
+ * can enforce that requirementSlotId genuinely belongs to THIS
+ * Application (closing a gap this action never actually checked before:
+ * it previously trusted any well-formed UUID). Because this UI always
+ * supplies requirementSlotId, classification always resolves via the
+ * "explicit_selection" method — behavior for every legitimate upload is
+ * unchanged; only a slot that doesn't belong to this Application, or
+ * isn't a document-kind slot, now surfaces one call earlier than before
+ * (as needs_review, mapped to SLOT_NOT_FOUND below — the same code this
+ * action already returned for "slot not found" prior to this milestone).
  */
 export async function uploadRequirementEvidence(formData: FormData): Promise<UploadRequirementEvidenceResult> {
+  const applicationId = formData.get("applicationId");
   const requirementSlotId = formData.get("requirementSlotId");
   const file = formData.get("file");
   const replacesEvidenceIdRaw = formData.get("replacesEvidenceId");
 
+  if (typeof applicationId !== "string" || !UUID_PATTERN.test(applicationId)) {
+    return { status: "error", code: "INVALID_INPUT" };
+  }
   if (typeof requirementSlotId !== "string" || !UUID_PATTERN.test(requirementSlotId)) {
     return { status: "error", code: "INVALID_INPUT" };
   }
@@ -311,19 +330,40 @@ export async function uploadRequirementEvidence(formData: FormData): Promise<Upl
     return { status: "error", code: "UNAUTHENTICATED" };
   }
 
-  const result = await createDocumentEvidence({
+  const result = await ingestDocument({
+    applicationId,
     requirementSlotId,
     file,
     actorProfileId: profile.id,
-    uploadedSource: "crm_manual",
+    source: "crm_manual",
     replacesEvidenceId: typeof replacesEvidenceIdRaw === "string" ? replacesEvidenceIdRaw : undefined,
   });
 
   if (result.status === "error") {
-    return { status: "error", code: result.code };
+    // CLASSIFICATION_FAILED is a genuine infra read failure (loading the
+    // Application's Requirement Slots) — maps to the same generic
+    // infra-failure code this action already exposed for other
+    // unrecoverable backend failures.
+    return { status: "error", code: result.code === "CLASSIFICATION_FAILED" ? "INSERT_FAILED" : result.code };
   }
   if (result.status === "partial") {
     return { status: "partial", evidence: result.evidence, code: result.code };
+  }
+  if (result.status === "needs_review") {
+    // Unreachable via this UI in practice — requirementSlotId is always
+    // supplied, so classification always takes the explicit_selection
+    // path (found or not found), never single_open_slot/ambiguous. Kept
+    // exhaustive and mapped to the same codes this action already
+    // returned for these exact conditions before Milestone 15D.
+    const code =
+      result.reason === "unsupported_file_type"
+        ? "INVALID_MIME"
+        : result.reason === "invalid_file"
+          ? "INVALID_FILE_SIZE"
+          : result.reason === "no_matching_requirement"
+            ? "SLOT_NOT_FOUND"
+            : "INVALID_INPUT";
+    return { status: "error", code };
   }
   return { status: "success", evidence: result.evidence };
 }

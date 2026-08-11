@@ -214,6 +214,7 @@ export function DocumentsTable({ initialRows, loadError: initialLoadError }: Doc
 
     setBusySlotId(target.slotId);
     const formData = new FormData();
+    formData.set("applicationId", slotRow?.requirementSlot.applicationId ?? "");
     formData.set("requirementSlotId", target.slotId);
     formData.set("file", file);
     if (target.replacesEvidenceId) {
