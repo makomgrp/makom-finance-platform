@@ -33,7 +33,7 @@ import type { Locale } from "@/i18n/config";
 import type { ActivityEvent, InternalNote, NotePriority, NoteType } from "@/types";
 
 interface NotesTabProps {
-  /** The real Client this note belongs to (RealClient.id) — Milestone
+  /** The real Client this note belongs to (Client.id) — Milestone
    * 14E migrated dossier_notes onto a real, FK-constrained client_id, so
    * every real Client, seeded or newly-created, can create notes. */
   clientId: string;

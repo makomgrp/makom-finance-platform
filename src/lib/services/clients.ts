@@ -1,7 +1,7 @@
 import "server-only";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
-import { REAL_CLIENT_STATUS_VALUES } from "@/lib/config/client-status";
-import type { ApplicationSource, RealClient, RealClientStatus, RealIdentificationType } from "@/types";
+import { CLIENT_STATUS_VALUES } from "@/lib/config/client-status";
+import type { ApplicationSource, Client, ClientStatus, IdentificationType } from "@/types";
 
 /**
  * Server-only service for the Client Engine's identity table (Milestone
@@ -47,12 +47,12 @@ const CLIENT_SELECT =
   "position, monthly_salary, birth_date, nationality, address, observations, status, restricted, created_at, " +
   "created_by_profile_id, created_source";
 
-function toRealClient(row: ClientRow): RealClient {
+function toClient(row: ClientRow): Client {
   return {
     id: row.id,
     legacyId: row.legacy_id ?? undefined,
     fullName: row.full_name,
-    identificationType: row.identification_type as RealIdentificationType,
+    identificationType: row.identification_type as IdentificationType,
     identificationNumber: row.identification_number,
     phone: row.phone,
     email: row.email,
@@ -63,7 +63,7 @@ function toRealClient(row: ClientRow): RealClient {
     nationality: row.nationality,
     address: row.address,
     observations: row.observations ?? undefined,
-    status: row.status as RealClientStatus,
+    status: row.status as ClientStatus,
     restricted: row.restricted,
     createdAt: row.created_at,
     createdByProfileId: row.created_by_profile_id ?? undefined,
@@ -71,7 +71,7 @@ function toRealClient(row: ClientRow): RealClient {
   };
 }
 
-export type GetClientsResult = { status: "ok"; clients: RealClient[] } | { status: "error" };
+export type GetClientsResult = { status: "ok"; clients: Client[] } | { status: "error" };
 
 /** Loads every real client, alphabetically by full name — no filter
  * params, matching getApplications()'s established "load everything,
@@ -91,7 +91,7 @@ export async function getClients(): Promise<GetClientsResult> {
     }
 
     const rows = (data ?? []) as unknown as ClientRow[];
-    return { status: "ok", clients: rows.map(toRealClient) };
+    return { status: "ok", clients: rows.map(toClient) };
   } catch (error) {
     console.error(
       "[clients service] Unexpected failure loading clients:",
@@ -102,7 +102,7 @@ export async function getClients(): Promise<GetClientsResult> {
 }
 
 export type GetClientResult =
-  | { status: "ok"; client: RealClient }
+  | { status: "ok"; client: Client }
   | { status: "error"; code: "NOT_FOUND" | "QUERY_FAILED" };
 
 /** Loads a single real client by its real uuid id. */
@@ -123,7 +123,7 @@ export async function getClientById(id: string): Promise<GetClientResult> {
       return { status: "error", code: "NOT_FOUND" };
     }
 
-    return { status: "ok", client: toRealClient(data) };
+    return { status: "ok", client: toClient(data) };
   } catch (error) {
     console.error(
       "[clients service] Unexpected failure loading client by id:",
@@ -133,41 +133,8 @@ export async function getClientById(id: string): Promise<GetClientResult> {
   }
 }
 
-/** TRANSITIONAL — loads a single real client by its legacy_id bridge
- * (e.g. "cl-001"). Needed only while routes/consumers are still keyed by
- * the demo Client id; mirrors the now-retired getApplicationByLegacyId's
- * exact role (see the Milestone 13E implementation report). Should be
- * retired the same way, once no longer called — see the Milestone 14A
- * architecture review's Client Read Model section. */
-export async function getClientByLegacyId(legacyId: string): Promise<GetClientResult> {
-  try {
-    const supabase = getSupabaseServerClient();
-    const { data, error } = await supabase
-      .from("clients")
-      .select(CLIENT_SELECT)
-      .eq("legacy_id", legacyId)
-      .maybeSingle<ClientRow>();
-
-    if (error) {
-      console.error("[clients service] Failed to load client by legacy id:", error.message);
-      return { status: "error", code: "QUERY_FAILED" };
-    }
-    if (!data) {
-      return { status: "error", code: "NOT_FOUND" };
-    }
-
-    return { status: "ok", client: toRealClient(data) };
-  } catch (error) {
-    console.error(
-      "[clients service] Unexpected failure loading client by legacy id:",
-      error instanceof Error ? error.message : "unknown error"
-    );
-    return { status: "error", code: "QUERY_FAILED" };
-  }
-}
-
 export type FindClientByIdentificationResult =
-  | { status: "ok"; client: RealClient | null }
+  | { status: "ok"; client: Client | null }
   | { status: "error" };
 
 /** Narrow lookup used only for duplicate-detection ahead of createClient
@@ -175,7 +142,7 @@ export type FindClientByIdentificationResult =
  * distinct from getClientById's NOT_FOUND-is-an-error semantics. Not
  * intended as a general-purpose read API. */
 export async function findClientByIdentification(
-  identificationType: RealIdentificationType,
+  identificationType: IdentificationType,
   identificationNumber: string
 ): Promise<FindClientByIdentificationResult> {
   try {
@@ -192,7 +159,7 @@ export async function findClientByIdentification(
       return { status: "error" };
     }
 
-    return { status: "ok", client: data ? toRealClient(data) : null };
+    return { status: "ok", client: data ? toClient(data) : null };
   } catch (error) {
     console.error(
       "[clients service] Unexpected failure looking up client by identification:",
@@ -204,7 +171,7 @@ export async function findClientByIdentification(
 
 export interface CreateClientInput {
   fullName: string;
-  identificationType: RealIdentificationType;
+  identificationType: IdentificationType;
   identificationNumber: string;
   phone: string;
   email: string;
@@ -222,7 +189,7 @@ export interface CreateClientInput {
 }
 
 export type CreateClientResult =
-  | { status: "ok"; client: RealClient }
+  | { status: "ok"; client: Client }
   | { status: "error"; code: "INVALID_INPUT" | "INVALID_ACTOR" | "DUPLICATE_IDENTIFICATION" | "INSERT_FAILED" };
 
 /**
@@ -291,12 +258,12 @@ export async function createClient(input: CreateClientInput): Promise<CreateClie
     return { status: "error", code: "INSERT_FAILED" };
   }
 
-  return { status: "ok", client: toRealClient(data) };
+  return { status: "ok", client: toClient(data) };
 }
 
 export interface UpdateClientProfileInput {
   fullName: string;
-  identificationType: RealIdentificationType;
+  identificationType: IdentificationType;
   identificationNumber: string;
   phone: string;
   email: string;
@@ -310,7 +277,7 @@ export interface UpdateClientProfileInput {
 }
 
 export type UpdateClientProfileResult =
-  | { status: "ok"; client: RealClient }
+  | { status: "ok"; client: Client }
   | { status: "error"; code: "CLIENT_NOT_FOUND" | "DUPLICATE_IDENTIFICATION" | "UPDATE_FAILED" };
 
 /**
@@ -357,11 +324,11 @@ export async function updateClientProfile(
     return { status: "error", code: "CLIENT_NOT_FOUND" };
   }
 
-  return { status: "ok", client: toRealClient(data) };
+  return { status: "ok", client: toClient(data) };
 }
 
 export type SetClientStatusResult =
-  | { status: "ok"; client: RealClient }
+  | { status: "ok"; client: Client }
   | { status: "error"; code: "CLIENT_NOT_FOUND" | "INVALID_STATUS" | "UPDATE_FAILED" };
 
 /**
@@ -373,8 +340,8 @@ export type SetClientStatusResult =
  * three real values this table understands, since callers may eventually
  * sit behind a Server Action taking less-trusted input.
  */
-export async function setClientStatus(clientId: string, status: RealClientStatus): Promise<SetClientStatusResult> {
-  if (!REAL_CLIENT_STATUS_VALUES.includes(status)) {
+export async function setClientStatus(clientId: string, status: ClientStatus): Promise<SetClientStatusResult> {
+  if (!CLIENT_STATUS_VALUES.includes(status)) {
     return { status: "error", code: "INVALID_STATUS" };
   }
 
@@ -395,11 +362,11 @@ export async function setClientStatus(clientId: string, status: RealClientStatus
     return { status: "error", code: "CLIENT_NOT_FOUND" };
   }
 
-  return { status: "ok", client: toRealClient(data) };
+  return { status: "ok", client: toClient(data) };
 }
 
 export type SetClientRestrictedResult =
-  | { status: "ok"; client: RealClient }
+  | { status: "ok"; client: Client }
   | { status: "error"; code: "CLIENT_NOT_FOUND" | "UPDATE_FAILED" };
 
 /** Independently toggles the compliance/risk flag — never changes
@@ -426,5 +393,5 @@ export async function setClientRestricted(
     return { status: "error", code: "CLIENT_NOT_FOUND" };
   }
 
-  return { status: "ok", client: toRealClient(data) };
+  return { status: "ok", client: toClient(data) };
 }

@@ -2,8 +2,8 @@
 
 import { createClient, updateClientProfile, setClientStatus } from "@/lib/services/clients";
 import { getCurrentProfile } from "@/lib/auth/get-current-profile";
-import { REAL_CLIENT_STATUS_VALUES } from "@/lib/config/client-status";
-import type { RealClient, RealClientStatus, RealIdentificationType } from "@/types";
+import { CLIENT_STATUS_VALUES } from "@/lib/config/client-status";
+import type { Client, ClientStatus, IdentificationType } from "@/types";
 
 /**
  * Thin Server Action wrappers around src/lib/services/clients.ts, matching
@@ -28,11 +28,11 @@ function isNonEmptyString(value: unknown): value is string {
 }
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const IDENTIFICATION_TYPES: RealIdentificationType[] = ["cedula", "pasaporte"];
+const IDENTIFICATION_TYPES: IdentificationType[] = ["cedula", "pasaporte"];
 
 export interface ClientProfileFields {
   fullName: string;
-  identificationType: RealIdentificationType;
+  identificationType: IdentificationType;
   identificationNumber: string;
   phone: string;
   email: string;
@@ -62,7 +62,7 @@ function hasValidProfileFields(input: ClientProfileFields): boolean {
 }
 
 export type CreateClientActionResult =
-  | { status: "success"; client: RealClient }
+  | { status: "success"; client: Client }
   | {
       status: "error";
       code: "INVALID_INPUT" | "UNAUTHENTICATED" | "DUPLICATE_IDENTIFICATION" | "INSERT_FAILED";
@@ -109,7 +109,7 @@ export interface UpdateClientProfileActionInput extends ClientProfileFields {
 }
 
 export type UpdateClientProfileActionResult =
-  | { status: "success"; client: RealClient }
+  | { status: "success"; client: Client }
   | {
       status: "error";
       code: "INVALID_INPUT" | "UNAUTHENTICATED" | "CLIENT_NOT_FOUND" | "DUPLICATE_IDENTIFICATION" | "UPDATE_FAILED";
@@ -152,24 +152,24 @@ export async function updateClientProfileAction(
 
 export interface SetClientStatusActionInput {
   clientId: string;
-  status: RealClientStatus;
+  status: ClientStatus;
 }
 
 export type SetClientStatusActionResult =
-  | { status: "success"; client: RealClient }
+  | { status: "success"; client: Client }
   | { status: "error"; code: "INVALID_INPUT" | "UNAUTHENTICATED" | "CLIENT_NOT_FOUND" | "UPDATE_FAILED" };
 
 /** No transition-legality graph to enforce here (unlike
  * setSolicitudApplicationStatus) — per the Milestone 14A architecture
  * review, client status changes are administrative; every value in
- * REAL_CLIENT_STATUS_VALUES is always a legal target from any other. */
+ * CLIENT_STATUS_VALUES is always a legal target from any other. */
 export async function setClientStatusAction(
   input: SetClientStatusActionInput
 ): Promise<SetClientStatusActionResult> {
   if (
     !isNonEmptyString(input.clientId) ||
     !UUID_PATTERN.test(input.clientId) ||
-    !(REAL_CLIENT_STATUS_VALUES as string[]).includes(input.status)
+    !(CLIENT_STATUS_VALUES as string[]).includes(input.status)
   ) {
     return { status: "error", code: "INVALID_INPUT" };
   }

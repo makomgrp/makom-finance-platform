@@ -8,18 +8,18 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { ApplicationStatusMenu } from "@/components/applications/application-status-menu";
 import { RealClientFormDialog } from "@/components/clients/real-client-form-dialog";
-import { REAL_CLIENT_STATUS_BADGE_CLASS } from "@/lib/config/client-status";
+import { CLIENT_STATUS_BADGE_CLASS } from "@/lib/config/client-status";
 import { APPLICATION_STATUS_BADGE_CLASS, APPLICATION_STATUS_TRANSITIONS } from "@/lib/config/application";
 import { formatDate, getInitials } from "@/lib/format";
 import type { Locale } from "@/i18n/config";
-import type { ApplicationListItem, ApplicationStatus, RealClient } from "@/types";
+import type { ApplicationListItem, ApplicationStatus, Client } from "@/types";
 
 interface DossierHeaderProps {
-  client: RealClient;
+  client: Client;
   applications: ApplicationListItem[];
   activeApplication?: ApplicationListItem;
   onSelectApplication: (applicationId: string) => void;
-  onClientUpdate: (client: RealClient) => void;
+  onClientUpdate: (client: Client) => void;
   onApplicationStatusChange: (applicationId: string, status: ApplicationStatus) => void;
 }
 
@@ -65,7 +65,7 @@ export function DossierHeader({
               <h2 className="text-xl font-semibold text-foreground">{client.fullName}</h2>
               <StatusBadge
                 label={t(`statuses.client.${client.status}`)}
-                className={REAL_CLIENT_STATUS_BADGE_CLASS[client.status]}
+                className={CLIENT_STATUS_BADGE_CLASS[client.status]}
               />
             </div>
             {activeApplication ? (

@@ -34,7 +34,7 @@ import type { Locale } from "@/i18n/config";
 import type { ActivityEvent, AlertLevel, AlertType, DossierAlert } from "@/types";
 
 interface AlertsTabProps {
-  /** The real Client this alert belongs to (RealClient.id) — Milestone
+  /** The real Client this alert belongs to (Client.id) — Milestone
    * 14E migrated dossier_alerts onto a real, FK-constrained client_id, so
    * every real Client, seeded or newly-created, can register alerts. */
   clientId: string;

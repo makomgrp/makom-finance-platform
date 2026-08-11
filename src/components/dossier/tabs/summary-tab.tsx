@@ -9,11 +9,11 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { getCompanyById } from "@/lib/demo-data";
 import { formatCurrency, formatDateTime } from "@/lib/format";
 import type { Locale } from "@/i18n/config";
-import type { ApplicationListItem, RealClient } from "@/types";
+import type { ApplicationListItem, Client } from "@/types";
 import type { DossierRequirementsData } from "@/components/dossier/dossier-view";
 
 interface SummaryTabProps {
-  client: RealClient;
+  client: Client;
   application?: ApplicationListItem;
   /** Milestone 12E1: the same Requirement Slot + Evidence bundle
    * RequirementsTab already receives (dossier-view.tsx's

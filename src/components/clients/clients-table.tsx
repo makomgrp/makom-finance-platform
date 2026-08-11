@@ -44,13 +44,13 @@ import { PaginationBar } from "@/components/shared/pagination-bar";
 import { RealClientFormDialog } from "@/components/clients/real-client-form-dialog";
 import { ApplicationStatusMenu } from "@/components/applications/application-status-menu";
 import {
-  REAL_CLIENT_STATUS_BADGE_CLASS,
-  REAL_CLIENT_STATUS_VALUES,
+  CLIENT_STATUS_BADGE_CLASS,
+  CLIENT_STATUS_VALUES,
 } from "@/lib/config/client-status";
 import { getCompanyById } from "@/lib/demo-data";
 import { setClientStatusAction } from "@/app/(app)/clientes/actions";
 import { formatDate, getInitials } from "@/lib/format";
-import type { ApplicationListItem, RealClient, RealClientStatus } from "@/types";
+import type { ApplicationListItem, Client, ClientStatus } from "@/types";
 import type { Locale } from "@/i18n/config";
 
 const PAGE_SIZE = 8;
@@ -59,7 +59,7 @@ interface ClientsTableProps {
   /** Milestone 14C: the real Client Engine's rows (src/lib/services/
    * clients.ts#getClients()) — replaces the demo CLIENTS array this
    * component used to seed itself from. */
-  initialClients: RealClient[];
+  initialClients: Client[];
   /** Milestone 13F: real Applications, used to compute each client's
    * application count. Milestone 14E: counted via the real
    * application.clientId === client.id relationship (applications.
@@ -73,11 +73,11 @@ export function ClientsTable({ initialClients, applications }: ClientsTableProps
   const router = useRouter();
   const locale = useLocale() as Locale;
   const t = useTranslations();
-  const [clients, setClients] = useState<RealClient[]>(initialClients);
+  const [clients, setClients] = useState<Client[]>(initialClients);
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<RealClientStatus | "todos">("todos");
+  const [statusFilter, setStatusFilter] = useState<ClientStatus | "todos">("todos");
   const [page, setPage] = useState(1);
-  const [editingClient, setEditingClient] = useState<RealClient | null>(null);
+  const [editingClient, setEditingClient] = useState<Client | null>(null);
 
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -96,16 +96,16 @@ export function ClientsTable({ initialClients, applications }: ClientsTableProps
   const currentPage = Math.min(page, totalPages);
   const paginated = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
-  const handleCreated = (client: RealClient) => {
+  const handleCreated = (client: Client) => {
     setClients((prev) => [client, ...prev]);
     setPage(1);
   };
 
-  const handleUpdated = (client: RealClient) => {
+  const handleUpdated = (client: Client) => {
     setClients((prev) => prev.map((existing) => (existing.id === client.id ? client : existing)));
   };
 
-  const handleStatusChange = async (clientId: string, status: RealClientStatus) => {
+  const handleStatusChange = async (clientId: string, status: ClientStatus) => {
     const result = await setClientStatusAction({ clientId, status });
     if (result.status !== "success") {
       toast.error(t("clients.toasts.statusChangeError"));
@@ -135,7 +135,7 @@ export function ClientsTable({ initialClients, applications }: ClientsTableProps
             value={statusFilter}
             onValueChange={(value) => {
               if (!value) return;
-              setStatusFilter(value as RealClientStatus | "todos");
+              setStatusFilter(value as ClientStatus | "todos");
               setPage(1);
             }}
           >
@@ -144,13 +144,13 @@ export function ClientsTable({ initialClients, applications }: ClientsTableProps
                 {(value: string) =>
                   value === "todos"
                     ? t("clients.allStatuses")
-                    : t(`statuses.client.${value as RealClientStatus}`)
+                    : t(`statuses.client.${value as ClientStatus}`)
                 }
               </SelectValue>
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="todos">{t("clients.allStatuses")}</SelectItem>
-              {REAL_CLIENT_STATUS_VALUES.map((status) => (
+              {CLIENT_STATUS_VALUES.map((status) => (
                 <SelectItem key={status} value={status}>
                   {t(`statuses.client.${status}`)}
                 </SelectItem>
@@ -234,16 +234,16 @@ export function ClientsTable({ initialClients, applications }: ClientsTableProps
                       <div className="flex items-center gap-2">
                         <StatusBadge
                           label={t(`statuses.client.${client.status}`)}
-                          className={REAL_CLIENT_STATUS_BADGE_CLASS[client.status]}
+                          className={CLIENT_STATUS_BADGE_CLASS[client.status]}
                         />
                         <ApplicationStatusMenu
-                          options={REAL_CLIENT_STATUS_VALUES.filter((status) => status !== client.status).map(
+                          options={CLIENT_STATUS_VALUES.filter((status) => status !== client.status).map(
                             (status) => ({
                               value: status,
                               label: t(`statuses.client.${status}`),
                             })
                           )}
-                          onChange={(status) => handleStatusChange(client.id, status as RealClientStatus)}
+                          onChange={(status) => handleStatusChange(client.id, status as ClientStatus)}
                         />
                       </div>
                     </TableCell>

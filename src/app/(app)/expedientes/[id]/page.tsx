@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { getClientById, getClientByLegacyId } from "@/lib/services/clients";
+import { getClientById } from "@/lib/services/clients";
 import { getNotesByClientId } from "@/lib/services/notes";
 import { getAlertsByClientId } from "@/lib/services/alerts";
 import { getApplications } from "@/lib/services/applications";
@@ -44,28 +44,6 @@ async function resolveRequirementsByApplicationId(
   return Object.fromEntries(entries);
 }
 
-/**
- * Milestone 14D — resolves the real Client Engine record. The canonical
- * route identity is public.clients.id (a real uuid); getClientById is
- * tried first. A TEMPORARY fallback, destined for retirement in 14F (see
- * the Milestone 14A/14D architecture decisions): if that fails, the param
- * is tried again as a legacy bridge id via getClientByLegacyId. As of
- * Milestone 14E, every active navigation source (Solicitudes, Document
- * Workspace, standalone Alerts, Clientes) already routes with a real
- * client uuid — this fallback now exists purely for old /expedientes/
- * cl-001-style bookmarks/links, not for any current caller. Both lookups
- * failing is a genuine 404 — there is no third fallback to demo data.
- */
-async function resolveClient(routeParam: string) {
-  const byId = await getClientById(routeParam);
-  if (byId.status === "ok") return byId.client;
-
-  const byLegacyId = await getClientByLegacyId(routeParam);
-  if (byLegacyId.status === "ok") return byLegacyId.client;
-
-  return null;
-}
-
 export default async function ExpedientePage({
   params,
   searchParams,
@@ -76,16 +54,22 @@ export default async function ExpedientePage({
   const { id } = await params;
   const { tab, solicitud } = await searchParams;
 
-  const client = await resolveClient(id);
-  if (!client) notFound();
+  // Milestone 14F: the Dossier route is UUID-only — the canonical route
+  // identity is public.clients.id. The TEMPORARY getClientByLegacyId
+  // fallback (Milestone 14D) was retired here since every active
+  // navigation source (Solicitudes, Document Workspace, standalone
+  // Alerts, Clientes) already routes with a real client uuid as of
+  // Milestone 14E; nothing in the app generates a legacy-shaped
+  // /expedientes/cl-001 link anymore. A failed lookup is a genuine 404 —
+  // there is no fallback to demo data.
+  const clientResult = await getClientById(id);
+  if (clientResult.status !== "ok") notFound();
+  const client = clientResult.client;
 
-  // Milestone 14E: Applications, Notes, and Alerts all now carry a real,
+  // Milestone 14E: Applications, Notes, and Alerts all carry a real,
   // FK-constrained client_id — every real Client, seeded or
   // newly-created, always has one (it is NOT NULL), so all three reads
-  // below run unconditionally, keyed on client.id. legacyId is no longer
-  // needed for any of this; the one remaining use of it is resolveClient
-  // itself, above, for the TEMPORARY legacy-route fallback (see its own
-  // comment).
+  // below run unconditionally, keyed on client.id.
   const [notesResult, alertsResult, applicationsResult] = await Promise.all([
     getNotesByClientId(client.id),
     getAlertsByClientId(client.id),

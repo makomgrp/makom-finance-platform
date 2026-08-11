@@ -5,10 +5,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getCompanyById } from "@/lib/demo-data";
 import { formatCurrency, formatDate } from "@/lib/format";
 import type { Locale } from "@/i18n/config";
-import type { RealClient } from "@/types";
+import type { Client } from "@/types";
 
 interface PersonalDataTabProps {
-  client: RealClient;
+  client: Client;
 }
 
 function Field({ label, value }: { label: string; value: string }) {

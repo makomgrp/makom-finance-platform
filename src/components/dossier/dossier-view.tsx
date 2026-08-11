@@ -23,10 +23,10 @@ import type {
   ActivityEvent,
   ApplicationListItem,
   ApplicationStatus,
+  Client,
   DocumentEvidence,
   DossierAlert,
   InternalNote,
-  RealClient,
   RequirementSlot,
 } from "@/types";
 
@@ -55,7 +55,7 @@ interface DossierViewProps {
    * always-present uuid) — legacyId is used only for the demo-only
    * Activity tab below and expedientes/[id]/page.tsx's TEMPORARY
    * legacy-route fallback. */
-  initialClient: RealClient;
+  initialClient: Client;
   initialTab?: string;
   initialApplicationId?: string;
   initialNotes: InternalNote[];
@@ -86,7 +86,7 @@ export function DossierView({
   initialRequirementsByApplicationId,
 }: DossierViewProps) {
   const t = useTranslations();
-  const [client, setClient] = useState<RealClient>(initialClient);
+  const [client, setClient] = useState<Client>(initialClient);
   const [applications, setApplications] = useState<ApplicationListItem[]>(initialApplications);
   const [notes, setNotes] = useState<InternalNote[]>(initialNotes);
   const [alerts, setAlerts] = useState<DossierAlert[]>(initialAlerts);
@@ -178,7 +178,7 @@ export function DossierView({
    * is local state sync only, exactly like clients-table.tsx's
    * handleUpdated does for the same dialog.
    */
-  const handleClientUpdate = (updated: RealClient) => {
+  const handleClientUpdate = (updated: Client) => {
     setClient(updated);
     toast.success(t("clients.toasts.clientUpdated"));
   };

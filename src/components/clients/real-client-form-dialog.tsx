@@ -25,7 +25,7 @@ import {
 } from "@/components/ui/select";
 import { COMPANIES } from "@/lib/demo-data";
 import { createClientAction, updateClientProfileAction } from "@/app/(app)/clientes/actions";
-import type { RealClient, RealIdentificationType } from "@/types";
+import type { Client, IdentificationType } from "@/types";
 
 /**
  * Milestone 14C — the real-Client-Engine counterpart to
@@ -43,15 +43,15 @@ import type { RealClient, RealIdentificationType } from "@/types";
 
 interface RealClientFormDialogProps {
   trigger?: ReactNode;
-  onSaved: (client: RealClient) => void;
-  initialClient?: RealClient;
+  onSaved: (client: Client) => void;
+  initialClient?: Client;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
 }
 
 const EMPTY_FORM = {
   fullName: "",
-  identificationType: "cedula" as RealIdentificationType,
+  identificationType: "cedula" as IdentificationType,
   identificationNumber: "",
   phone: "",
   email: "",
@@ -109,7 +109,7 @@ export function RealClientFormDialog({
 
     const profileFields = {
       fullName: form.fullName,
-      identificationType: form.identificationType as RealIdentificationType,
+      identificationType: form.identificationType as IdentificationType,
       identificationNumber: form.identificationNumber,
       phone: form.phone,
       email: form.email,

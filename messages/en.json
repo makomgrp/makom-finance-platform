@@ -686,9 +686,6 @@
     "client": {
       "activo": "Active",
       "prospecto": "Prospect",
-      "en_evaluacion": "Under Review",
-      "aprobado": "Approved Client",
-      "restringido": "Restricted",
       "inactivo": "Inactive"
     },
     "document": {
