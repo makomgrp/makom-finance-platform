@@ -19,8 +19,10 @@ export type RequirementSlotStatus =
 /** Which channel/actor-type performed a status transition — mirrors
  * dossier_documents.uploaded_source, extended with "ai" for the first
  * actor-type in this schema with no corresponding authenticated CRM
- * profile at all. */
-export type RequirementSlotSource = "crm_manual" | "website_form" | "whatsapp" | "ai";
+ * profile at all. `email` added in Milestone 15B alongside
+ * ApplicationSource/EvidenceUploadedSource — see the Milestone 15A
+ * architecture review. */
+export type RequirementSlotSource = "crm_manual" | "website_form" | "whatsapp" | "email" | "ai";
 
 /**
  * The Requirement Engine's execution layer (Milestone 10B, migrated onto

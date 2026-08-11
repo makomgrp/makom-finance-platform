@@ -12,8 +12,13 @@ import type { LocalizedText } from "@/types/product";
 export type ApplicationStatus = "new" | "in_review" | "approved" | "not_eligible" | "cancelled";
 
 /** Which channel/actor-type created the application or performed a status
- * transition — same vocabulary as RequirementSlotSource. */
-export type ApplicationSource = "crm_manual" | "website_form" | "whatsapp" | "ai";
+ * transition — same vocabulary as RequirementSlotSource and
+ * EvidenceUploadedSource. `email` added in Milestone 15B (Application
+ * Intake Foundation) — see the Milestone 15A architecture review's
+ * Application Creation Strategy section for why Damion's explicit email
+ * requirement made this the one addition to an otherwise-stable
+ * vocabulary. */
+export type ApplicationSource = "crm_manual" | "website_form" | "whatsapp" | "email" | "ai";
 
 /**
  * The Application Engine's identity + lifecycle record (Milestone 11).

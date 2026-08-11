@@ -13,3 +13,5 @@ export * from "./requirement-slot";
 export * from "./application";
 export * from "./document-evidence";
 export * from "./document-workspace";
+export * from "./application-intake";
+export * from "./automation-event";

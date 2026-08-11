@@ -1,6 +1,7 @@
 /** Which channel/actor-type produced this Evidence row — same vocabulary
- * as ApplicationSource / RequirementSlotSource. */
-export type EvidenceUploadedSource = "crm_manual" | "website_form" | "whatsapp" | "ai";
+ * as ApplicationSource / RequirementSlotSource. `email` added in
+ * Milestone 15B — see the Milestone 15A architecture review. */
+export type EvidenceUploadedSource = "crm_manual" | "website_form" | "whatsapp" | "email" | "ai";
 
 /**
  * The Document Evidence Engine's read/write shape (Milestone 12B, finalized

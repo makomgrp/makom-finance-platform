@@ -169,6 +169,60 @@ export async function findClientByIdentification(
   }
 }
 
+export type FindClientsByEmailResult = { status: "ok"; clients: Client[] } | { status: "error" };
+
+/** Narrow lookup used only by the Application Intake matching service
+ * (src/lib/services/client-matching.ts) — email has no unique
+ * constraint on this table, so this deliberately returns every match
+ * rather than assuming at most one, letting the caller distinguish "no
+ * match" / "exactly one match" / "ambiguous" itself. Not intended as a
+ * general-purpose read API. */
+export async function findClientsByEmail(email: string): Promise<FindClientsByEmailResult> {
+  try {
+    const supabase = getSupabaseServerClient();
+    const { data, error } = await supabase.from("clients").select(CLIENT_SELECT).eq("email", email);
+
+    if (error) {
+      console.error("[clients service] Failed to look up clients by email:", error.message);
+      return { status: "error" };
+    }
+
+    const rows = (data ?? []) as unknown as ClientRow[];
+    return { status: "ok", clients: rows.map(toClient) };
+  } catch (error) {
+    console.error(
+      "[clients service] Unexpected failure looking up clients by email:",
+      error instanceof Error ? error.message : "unknown error"
+    );
+    return { status: "error" };
+  }
+}
+
+export type FindClientsByPhoneResult = { status: "ok"; clients: Client[] } | { status: "error" };
+
+/** Same rationale as findClientsByEmail, for phone — no unique
+ * constraint on this table either. */
+export async function findClientsByPhone(phone: string): Promise<FindClientsByPhoneResult> {
+  try {
+    const supabase = getSupabaseServerClient();
+    const { data, error } = await supabase.from("clients").select(CLIENT_SELECT).eq("phone", phone);
+
+    if (error) {
+      console.error("[clients service] Failed to look up clients by phone:", error.message);
+      return { status: "error" };
+    }
+
+    const rows = (data ?? []) as unknown as ClientRow[];
+    return { status: "ok", clients: rows.map(toClient) };
+  } catch (error) {
+    console.error(
+      "[clients service] Unexpected failure looking up clients by phone:",
+      error instanceof Error ? error.message : "unknown error"
+    );
+    return { status: "error" };
+  }
+}
+
 export interface CreateClientInput {
   fullName: string;
   identificationType: IdentificationType;
