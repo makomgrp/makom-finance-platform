@@ -15,3 +15,5 @@ export * from "./document-evidence";
 export * from "./document-workspace";
 export * from "./application-intake";
 export * from "./automation-event";
+export * from "./loan-criteria";
+export * from "./application-analysis";
