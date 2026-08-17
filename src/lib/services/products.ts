@@ -1,5 +1,6 @@
 import "server-only";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
+import { getProductIdsWithActiveRequirementTemplates } from "@/lib/services/requirement-templates";
 import { PRODUCT_STATUS_TRANSITIONS } from "@/lib/config/product";
 import type { LocalizedText, Product, ProductStatus } from "@/types";
 
@@ -74,6 +75,52 @@ export async function getAllProducts(): Promise<GetProductsResult> {
     );
     return { status: "error" };
   }
+}
+
+/**
+ * THE canonical answer to "may a new Application be created against this
+ * Product?" (Milestone 17). Every caller — the Solicitudes page, the
+ * Clientes page, and the createSolicitudApplication Server Action's own
+ * server-side re-validation — resolves through THIS function, so the list
+ * the UI offers and the list the server accepts can never disagree.
+ *
+ * A product is creatable when BOTH hold:
+ *   1. status = 'active'. `draft` and `inactive` are excluded — the same
+ *      rule the Application Intake pipeline already enforces for inbound
+ *      channels (see application-intake-processing.ts's `product_inactive`
+ *      review reason), applied here to the CRM path so both origination
+ *      routes agree on what a usable product is.
+ *   2. it has at least one ACTIVE requirement template. Without one,
+ *      createApplication() would succeed but come back "partial" with
+ *      SLOT_SNAPSHOT_FAILED, leaving an application with no Requirement
+ *      Slots to work. Milestone 17 (decision P1, option A) excludes those
+ *      products from origination instead; nothing here modifies them,
+ *      their status, or their templates.
+ *
+ * Returns "error" if EITHER underlying read fails — deliberately never a
+ * partial list. A half-resolved eligibility list would silently hide
+ * usable products from the operator, or worse, offer an unusable one.
+ */
+export type GetApplicationCreatableProductsResult =
+  | { status: "ok"; products: Product[] }
+  | { status: "error" };
+
+export async function getApplicationCreatableProducts(): Promise<GetApplicationCreatableProductsResult> {
+  const [productsResult, templatesResult] = await Promise.all([
+    getAllProducts(),
+    getProductIdsWithActiveRequirementTemplates(),
+  ]);
+
+  if (productsResult.status === "error" || templatesResult.status === "error") {
+    return { status: "error" };
+  }
+
+  return {
+    status: "ok",
+    products: productsResult.products.filter(
+      (product) => product.status === "active" && templatesResult.productIds.has(product.id)
+    ),
+  };
 }
 
 export type GetProductResult = { status: "ok"; product: Product } | { status: "error" };

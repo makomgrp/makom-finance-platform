@@ -43,6 +43,7 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { PaginationBar } from "@/components/shared/pagination-bar";
 import { RealClientFormDialog } from "@/components/clients/real-client-form-dialog";
 import { ApplicationStatusMenu } from "@/components/applications/application-status-menu";
+import { NewApplicationDialog } from "@/components/applications/new-application-dialog";
 import {
   CLIENT_STATUS_BADGE_CLASS,
   CLIENT_STATUS_VALUES,
@@ -51,7 +52,7 @@ import { getCompanyById } from "@/lib/demo-data";
 import { setClientStatusAction } from "@/app/(app)/clientes/actions";
 import { useCapability } from "@/lib/auth/use-capability";
 import { formatDate, getInitials } from "@/lib/format";
-import type { ApplicationListItem, Client, ClientStatus } from "@/types";
+import type { ApplicationListItem, Client, ClientStatus, Product } from "@/types";
 import type { Locale } from "@/i18n/config";
 
 const PAGE_SIZE = 8;
@@ -68,9 +69,19 @@ interface ClientsTableProps {
    * former clientLegacyId-based match, and now correctly includes
    * Applications for a client with no legacyId too. */
   applications: ApplicationListItem[];
+  /** Milestone 17: products eligible for origination, already filtered
+   * server-side by getApplicationCreatableProducts() — passed straight
+   * through to the shared NewApplicationDialog. */
+  creatableProducts: Product[];
+  productsLoadError: boolean;
 }
 
-export function ClientsTable({ initialClients, applications }: ClientsTableProps) {
+export function ClientsTable({
+  initialClients,
+  applications,
+  creatableProducts,
+  productsLoadError,
+}: ClientsTableProps) {
   const router = useRouter();
   const locale = useLocale() as Locale;
   const t = useTranslations();
@@ -82,11 +93,20 @@ export function ClientsTable({ initialClients, applications }: ClientsTableProps
   const canCreateClient = useCapability("client:create");
   const canUpdateClient = useCapability("client:update");
   const canSetClientStatus = useCapability("client:set_status");
+  // Milestone 17 — this row action used to be a demonstration toast and
+  // was therefore ungated. It is now a real mutation entry point, so it
+  // takes the same capability the Solicitudes entry point does and is
+  // enforced server-side by createSolicitudApplication.
+  const canCreateApplication = useCapability("application:create");
   const [clients, setClients] = useState<Client[]>(initialClients);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<ClientStatus | "todos">("todos");
   const [page, setPage] = useState(1);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
+  /** Milestone 17 — which client the shared creation dialog is currently
+   * open for. Non-null IS the dialog's open state; the client is locked,
+   * so the operator never re-searches for the row they just clicked. */
+  const [applicationClient, setApplicationClient] = useState<Client | null>(null);
 
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -284,17 +304,12 @@ export function ClientsTable({ initialClients, applications }: ClientsTableProps
                               {t("clients.rowActions.edit")}
                             </DropdownMenuItem>
                           )}
-                          <DropdownMenuItem
-                            onClick={() => {
-                              toast.info(
-                                t("clients.toasts.newApplicationDemo", { name: client.fullName })
-                              );
-                              router.push("/solicitudes");
-                            }}
-                          >
-                            <FilePlus2 className="size-4" />
-                            {t("clients.rowActions.createApplication")}
-                          </DropdownMenuItem>
+                          {canCreateApplication && (
+                            <DropdownMenuItem onClick={() => setApplicationClient(client)}>
+                              <FilePlus2 className="size-4" />
+                              {t("clients.rowActions.createApplication")}
+                            </DropdownMenuItem>
+                          )}
                           <DropdownMenuItem onClick={() => router.push(`/expedientes/${client.id}?tab=notas`)}>
                             <StickyNote className="size-4" />
                             {t("clients.rowActions.addNote")}
@@ -331,6 +346,23 @@ export function ClientsTable({ initialClients, applications }: ClientsTableProps
           onOpenChange={(value) => {
             if (!value) setEditingClient(null);
           }}
+        />
+      )}
+
+      {/* Milestone 17 — the SAME dialog /solicitudes opens, with the row's
+          client already resolved. `key` remounts it per client so no form
+          state leaks from one client's draft application to another's. */}
+      {applicationClient && (
+        <NewApplicationDialog
+          key={applicationClient.id}
+          open={applicationClient !== null}
+          onOpenChange={(value) => {
+            if (!value) setApplicationClient(null);
+          }}
+          products={creatableProducts}
+          productsLoadError={productsLoadError}
+          clients={clients}
+          lockedClient={applicationClient}
         />
       )}
     </div>

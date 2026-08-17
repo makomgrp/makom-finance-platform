@@ -89,6 +89,61 @@ export async function getRequirementTemplatesByProductId(
   }
 }
 
+export type GetProductIdsWithActiveRequirementTemplatesResult =
+  | { status: "ok"; productIds: Set<string> }
+  | { status: "error" };
+
+/**
+ * The set of product ids that currently have AT LEAST ONE active
+ * requirement template (Milestone 17). Lives here, not in products.ts,
+ * because `requirement_templates` is this service's table — products.ts
+ * composes the two into getApplicationCreatableProducts() rather than
+ * querying this table itself.
+ *
+ * WHY THIS EXISTS: createRequirementSlotsForApplication() returns
+ * NO_ACTIVE_TEMPLATES when a product has none, which makes
+ * createApplication() return "partial" — an application with zero
+ * Requirement Slots. Three of the five currently-active products are in
+ * exactly that state, so this is a live condition, not a theoretical one.
+ * Milestone 17's decision (P1, option A) is to make such products
+ * un-selectable rather than to create empty applications or to
+ * auto-generate requirements for them.
+ *
+ * Deliberately selects only `product_id` and de-duplicates in memory
+ * rather than embedding a join: the caller only needs membership, and
+ * this keeps the query to one column with no PostgREST embed semantics to
+ * reason about. `status = 'active'` here mirrors EXACTLY the filter
+ * createRequirementSlotsForApplication applies when it snapshots — the
+ * two must never diverge, or the UI would offer a product whose creation
+ * then produces zero slots.
+ */
+export async function getProductIdsWithActiveRequirementTemplates(): Promise<GetProductIdsWithActiveRequirementTemplatesResult> {
+  try {
+    const supabase = getSupabaseServerClient();
+    const { data, error } = await supabase
+      .from("requirement_templates")
+      .select("product_id")
+      .eq("status", "active");
+
+    if (error) {
+      console.error(
+        "[requirement-templates service] Failed to load product ids with active requirement templates:",
+        error.message
+      );
+      return { status: "error" };
+    }
+
+    const rows = (data ?? []) as { product_id: string }[];
+    return { status: "ok", productIds: new Set(rows.map((row) => row.product_id)) };
+  } catch (error) {
+    console.error(
+      "[requirement-templates service] Unexpected failure loading product ids with active requirement templates:",
+      error instanceof Error ? error.message : "unknown error"
+    );
+    return { status: "error" };
+  }
+}
+
 export interface CreateRequirementTemplateInput {
   productId: string;
   code: string;

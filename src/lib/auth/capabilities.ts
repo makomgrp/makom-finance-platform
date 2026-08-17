@@ -79,6 +79,22 @@ export type Capability =
 
   // --- Application operations --------------------------------------------
   /**
+   * Originate a new Application for a Client against a Product (Milestone
+   * 17). DELIBERATELY SEPARATE from `application:set_status` and granted
+   * MORE widely: registering what a client is asking for is ordinary
+   * client-facing intake work, which is why `asesor` holds it, while
+   * moving that request toward `approved` / `not_eligible` is the lending
+   * determination and stays with administrador/gerente. `analista` holds
+   * neither, consistent with holding no client mutation at all — the
+   * analyst evaluates an application, they do not originate one.
+   *
+   * Creating a Client inside the same flow is NOT covered by this
+   * capability: it independently requires `client:create`, so a holder of
+   * this capability alone may file an application for an existing client
+   * but may not invent a new one.
+   */
+  | "application:create"
+  /**
    * Move an Application through its lifecycle. NOTE: today this single
    * capability necessarily includes `approved` / `not_eligible`, i.e. the
    * lending determination itself — see APPLICATION_STATUS_TRANSITIONABLE in
@@ -153,6 +169,7 @@ export const ROLE_CAPABILITIES = {
     "client:create",
     "client:update",
     "client:set_status",
+    "application:create",
     "application:set_status",
     "note:create",
     "alert:create",
@@ -178,6 +195,7 @@ export const ROLE_CAPABILITIES = {
     "client:create",
     "client:update",
     "client:set_status",
+    "application:create",
     "application:set_status",
     "note:create",
     "alert:create",
@@ -191,7 +209,10 @@ export const ROLE_CAPABILITIES = {
    * Operational review / evaluation. Reads everything, and holds the two
    * analysis-judgment capabilities (evidence:review, requirement_slot:
    * set_status) plus evaluation note/alert authoring. Deliberately holds
-   * NO client mutation and NO application status authority: the brief
+   * NO client mutation, NO application origination (`application:create`,
+   * Milestone 17 — an analyst evaluates applications, they do not file
+   * them, consistent with holding no `client:create`) and NO application
+   * status authority: the brief
    * grants analysts read access to clients and applications only, and
    * broad managerial powers are not granted merely because the schema
    * currently lacks finer ownership rules. Future preliminary-analysis and
@@ -208,17 +229,20 @@ export const ROLE_CAPABILITIES = {
   ],
 
   /**
-   * Normal client-facing advisory work: owns the client record and the
-   * intake side of the document workflow. Deliberately holds NO
-   * analysis-specific review or override capability (evidence:review,
-   * requirement_slot:set_status) — those are the analyst's judgment, not
-   * the advisor's — and no system configuration.
+   * Normal client-facing advisory work: owns the client record, ORIGINATES
+   * applications (Milestone 16 granted nothing here; `application:create`
+   * was added in Milestone 17), and owns the intake side of the document
+   * workflow. Deliberately holds NO analysis-specific review or override
+   * capability (evidence:review, requirement_slot:set_status) — those are
+   * the analyst's judgment, not the advisor's — no `application:set_status`
+   * (filing a request is not deciding it) and no system configuration.
    */
   asesor: [
     ...BASELINE,
     ...CHAT,
     "client:create",
     "client:update",
+    "application:create",
     "note:create",
     "alert:create",
     "evidence:upload",

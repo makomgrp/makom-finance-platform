@@ -1,6 +1,8 @@
 "use server";
 
-import { setApplicationStatus } from "@/lib/services/applications";
+import { createApplication, setApplicationStatus } from "@/lib/services/applications";
+import { getApplicationCreatableProducts } from "@/lib/services/products";
+import { getClientById } from "@/lib/services/clients";
 import { requireCapability } from "@/lib/auth/authorize";
 import { APPLICATION_STATUS_TRANSITIONABLE } from "@/lib/config/application";
 import type { Application, ApplicationStatus } from "@/types";
@@ -14,11 +16,20 @@ import type { Application, ApplicationStatus } from "@/types";
  * result. Milestone 13C — see the Milestone 13A architecture review and
  * its final validation.
  *
- * Only the mutation this milestone's UI actually needs. No read action —
- * the initial Solicitudes list load is a direct Server Component ->
- * service call (src/app/(app)/solicitudes/page.tsx), per the Milestone
- * 13A validation's "Read Server Action" question; one is added later only
- * if a genuine client-triggered refetch need appears.
+ * Only the mutations this app's UI actually needs. No read action — the
+ * initial Solicitudes list load (and, as of Milestone 17, the client and
+ * creatable-product lists the creation dialog needs) are direct Server
+ * Component -> service calls (src/app/(app)/solicitudes/page.tsx,
+ * src/app/(app)/clientes/page.tsx), per the Milestone 13A validation's
+ * "Read Server Action" question; one is added later only if a genuine
+ * client-triggered refetch need appears.
+ *
+ * MILESTONE 17 adds createSolicitudApplication — the CRM's manual
+ * application-origination entry point, and the second caller of
+ * src/lib/services/applications.ts#createApplication after the Application
+ * Intake pipeline. Both routes converge on that one unmodified service, so
+ * a manually-filed application and a website-filed one are byte-identical
+ * in how they are created and how their Requirement Slots are snapshotted.
  */
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -96,6 +107,139 @@ export async function setSolicitudApplicationStatus(
   );
   if (result.status !== "ok") {
     return { status: "error", code: result.code };
+  }
+
+  return { status: "success", application: result.application };
+}
+
+/** Hard ceiling mirroring applications_requested_term_months_check — the
+ * database constraint stays authoritative; this re-states it so a bad
+ * value returns INVALID_INPUT instead of a raw constraint violation, the
+ * same posture createApplication() itself already takes. */
+const MAX_TERM_MONTHS = 360;
+
+export interface CreateSolicitudApplicationInput {
+  clientId: string;
+  productId: string;
+  requestedAmount: number;
+  requestedTermMonths: number;
+}
+
+export type CreateSolicitudApplicationResult =
+  | { status: "success"; application: Application }
+  /** The application EXISTS and is valid, but its Requirement Slot
+   * snapshot failed — surfaced distinctly, never folded into "success".
+   * See this action's doc comment. */
+  | { status: "partial"; application: Application; code: "SLOT_SNAPSHOT_FAILED" }
+  | {
+      status: "error";
+      code:
+        | "INVALID_INPUT"
+        | "UNAUTHENTICATED"
+        | "FORBIDDEN"
+        | "CLIENT_NOT_FOUND"
+        | "PRODUCT_NOT_AVAILABLE"
+        | "INVALID_ACTOR"
+        | "CREATE_FAILED";
+    };
+
+/**
+ * Creates a real Application from inside the CRM (Milestone 17) — the
+ * single Server Action behind BOTH entry points (Solicitudes' "Nueva
+ * solicitud" and the Clientes row action). There is no second
+ * implementation of this anywhere.
+ *
+ * DELEGATES, NEVER DUPLICATES: the actual insert, and the Requirement Slot
+ * snapshot that must accompany it, are done entirely by
+ * src/lib/services/applications.ts#createApplication, which is UNMODIFIED
+ * by this milestone and shared with the Application Intake pipeline. This
+ * action therefore never touches `requirement_slots`, never generates an
+ * application_number (a column default), never sets `status` or
+ * `status_changed_at` (the 'new' default, guarded by
+ * applications_status_new_pair_check), and never assigns an advisor
+ * (Milestone 17 decision P4 — assigned_advisor_profile_id stays NULL).
+ *
+ * ORDERING (Milestone 16 rule): requireCapability() is the FIRST
+ * statement — before input validation, before the client lookup, before
+ * the product lookup. An unauthorized caller must not be able to tell
+ * CLIENT_NOT_FOUND from PRODUCT_NOT_AVAILABLE from INVALID_INPUT and use
+ * this action to probe for records they may not touch.
+ *
+ * PRODUCT ELIGIBILITY IS RE-CHECKED SERVER-SIDE, deliberately against the
+ * exact same getApplicationCreatableProducts() the UI renders from — not a
+ * looser "is it active" check. A hand-crafted request naming an inactive
+ * product, a draft product, or an active product with zero active
+ * requirement templates gets PRODUCT_NOT_AVAILABLE and creates nothing.
+ * Client-side filtering is a convenience; this is the enforcement.
+ *
+ * PARTIAL RESULT: createApplication may return "partial" when the slot
+ * snapshot fails after the application row committed. This action passes
+ * that through as its own distinct "partial" status rather than reporting
+ * success. It performs NO destructive rollback — this schema never hard-
+ * deletes, and the existing recovery path (re-running
+ * createRequirementSlotsForApplication, whose upsert is idempotent) stays
+ * available. Note this is now unreachable through normal use, since a
+ * product with zero active templates cannot be selected in the first
+ * place; it remains handled because a template can be deactivated between
+ * the page render and the submit.
+ */
+export async function createSolicitudApplication(
+  input: CreateSolicitudApplicationInput
+): Promise<CreateSolicitudApplicationResult> {
+  const auth = await requireCapability("application:create");
+  if (auth.status === "denied") {
+    return { status: "error", code: auth.code };
+  }
+
+  if (!isNonEmptyString(input.clientId) || !UUID_PATTERN.test(input.clientId)) {
+    return { status: "error", code: "INVALID_INPUT" };
+  }
+  if (!isNonEmptyString(input.productId) || !UUID_PATTERN.test(input.productId)) {
+    return { status: "error", code: "INVALID_INPUT" };
+  }
+  if (!Number.isFinite(input.requestedAmount) || input.requestedAmount <= 0) {
+    return { status: "error", code: "INVALID_INPUT" };
+  }
+  if (
+    !Number.isInteger(input.requestedTermMonths) ||
+    input.requestedTermMonths < 1 ||
+    input.requestedTermMonths > MAX_TERM_MONTHS
+  ) {
+    return { status: "error", code: "INVALID_INPUT" };
+  }
+
+  const clientResult = await getClientById(input.clientId);
+  if (clientResult.status !== "ok") {
+    return { status: "error", code: "CLIENT_NOT_FOUND" };
+  }
+
+  const productsResult = await getApplicationCreatableProducts();
+  if (productsResult.status === "error") {
+    return { status: "error", code: "CREATE_FAILED" };
+  }
+  if (!productsResult.products.some((product) => product.id === input.productId)) {
+    // Covers all three rejection cases at once — inactive, draft, and
+    // "active but has no active requirement template" — because it asks
+    // the same single question the UI asked. Deliberately one opaque code:
+    // the caller is not told WHICH condition failed.
+    return { status: "error", code: "PRODUCT_NOT_AVAILABLE" };
+  }
+
+  const result = await createApplication({
+    clientId: input.clientId,
+    productId: input.productId,
+    requestedAmount: input.requestedAmount,
+    requestedTermMonths: input.requestedTermMonths,
+    source: "crm_manual",
+    actorProfileId: auth.profile.id,
+  });
+
+  if (result.status === "error") {
+    const code = result.code === "INSERT_FAILED" ? "CREATE_FAILED" : result.code;
+    return { status: "error", code };
+  }
+  if (result.status === "partial") {
+    return { status: "partial", application: result.application, code: result.code };
   }
 
   return { status: "success", application: result.application };

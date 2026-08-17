@@ -3,20 +3,29 @@
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
-import { List, LayoutGrid } from "lucide-react";
+import { List, LayoutGrid, FilePlus2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ApplicationsTable } from "@/components/applications/applications-table";
 import { ApplicationsKanban } from "@/components/applications/applications-kanban";
+import { NewApplicationDialog } from "@/components/applications/new-application-dialog";
 import { setSolicitudApplicationStatus } from "@/app/(app)/solicitudes/actions";
+import { useCapability } from "@/lib/auth/use-capability";
 import { cn } from "@/lib/utils";
-import type { ApplicationListItem, ApplicationStatus } from "@/types";
+import type { ApplicationListItem, ApplicationStatus, Client, Product } from "@/types";
 
 interface SolicitudesViewProps {
   initialApplications: ApplicationListItem[];
   documentSlotCounts: Record<string, { completed: number; total: number }>;
   loadError: boolean;
+  /** Milestone 17 — products eligible for origination, already filtered
+   * server-side by getApplicationCreatableProducts(). */
+  creatableProducts: Product[];
+  productsLoadError: boolean;
+  /** Milestone 17 — the pool the creation dialog's client search picks
+   * from. Same real Client Engine rows /clientes renders. */
+  clients: Client[];
 }
 
 /**
@@ -29,10 +38,22 @@ interface SolicitudesViewProps {
  * full page reload) — the same split already used by expedientes/[id]/
  * page.tsx -> dossier-view.tsx.
  */
-export function SolicitudesView({ initialApplications, documentSlotCounts, loadError }: SolicitudesViewProps) {
+export function SolicitudesView({
+  initialApplications,
+  documentSlotCounts,
+  loadError,
+  creatableProducts,
+  productsLoadError,
+  clients,
+}: SolicitudesViewProps) {
   const t = useTranslations();
+  // Milestone 17 — origination is its own capability, deliberately wider
+  // than application:set_status (an advisor may file a request but not
+  // decide it). Enforced server-side by createSolicitudApplication.
+  const canCreateApplication = useCapability("application:create");
   const [applications, setApplications] = useState<ApplicationListItem[]>(initialApplications);
   const [view, setView] = useState<"tabla" | "kanban">("tabla");
+  const [createOpen, setCreateOpen] = useState(false);
 
   const handleStatusChange = async (applicationId: string, status: ApplicationStatus) => {
     const result = await setSolicitudApplicationStatus({ applicationId, status });
@@ -75,28 +96,46 @@ export function SolicitudesView({ initialApplications, documentSlotCounts, loadE
         title={t("applications.title")}
         description={t("applications.description")}
         actions={
-          <div className="flex items-center gap-1 rounded-lg border border-border bg-card p-1">
-            <Button
-              variant={view === "tabla" ? "secondary" : "ghost"}
-              size="sm"
-              onClick={() => setView("tabla")}
-              className={cn(view === "tabla" && "shadow-sm")}
-            >
-              <List className="size-4" />
-              {t("applications.viewTable")}
-            </Button>
-            <Button
-              variant={view === "kanban" ? "secondary" : "ghost"}
-              size="sm"
-              onClick={() => setView("kanban")}
-              className={cn(view === "kanban" && "shadow-sm")}
-            >
-              <LayoutGrid className="size-4" />
-              {t("applications.viewKanban")}
-            </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-1 rounded-lg border border-border bg-card p-1">
+              <Button
+                variant={view === "tabla" ? "secondary" : "ghost"}
+                size="sm"
+                onClick={() => setView("tabla")}
+                className={cn(view === "tabla" && "shadow-sm")}
+              >
+                <List className="size-4" />
+                {t("applications.viewTable")}
+              </Button>
+              <Button
+                variant={view === "kanban" ? "secondary" : "ghost"}
+                size="sm"
+                onClick={() => setView("kanban")}
+                className={cn(view === "kanban" && "shadow-sm")}
+              >
+                <LayoutGrid className="size-4" />
+                {t("applications.viewKanban")}
+              </Button>
+            </div>
+            {canCreateApplication && (
+              <Button className="shrink-0" onClick={() => setCreateOpen(true)}>
+                <FilePlus2 className="size-4" />
+                {t("applications.create.trigger")}
+              </Button>
+            )}
           </div>
         }
       />
+
+      {canCreateApplication && (
+        <NewApplicationDialog
+          open={createOpen}
+          onOpenChange={setCreateOpen}
+          products={creatableProducts}
+          productsLoadError={productsLoadError}
+          clients={clients}
+        />
+      )}
 
       {loadError ? (
         <EmptyState

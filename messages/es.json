@@ -146,7 +146,6 @@
       "registerAlert": "Registrar alerta"
     },
     "toasts": {
-      "newApplicationDemo": "Nueva solicitud para {name} (demostración).",
       "clientUpdated": "Cliente actualizado correctamente.",
       "clientCreated": "Cliente registrado correctamente.",
       "duplicateIdentification": "Ya existe un cliente registrado con esa identificación.",
@@ -211,6 +210,54 @@
     "toasts": {
       "statusChanged": "Solicitud movida a \"{status}\".",
       "statusChangeError": "No se pudo cambiar el estado. Intente nuevamente."
+    },
+    "create": {
+      "trigger": "Nueva solicitud",
+      "title": "Nueva solicitud",
+      "description": "Registre una nueva solicitud de préstamo para un cliente.",
+      "steps": {
+        "client": "1. Cliente",
+        "product": "2. Producto",
+        "terms": "3. Condiciones"
+      },
+      "client": {
+        "searchLabel": "Buscar cliente",
+        "searchPlaceholder": "Buscar por nombre, identificación, correo o teléfono...",
+        "newClient": "Nuevo cliente",
+        "empty": "No se encontraron clientes",
+        "emptyHint": "Ajuste la búsqueda o registre un cliente nuevo.",
+        "moreResults": "Mostrando {shown} de {total} coincidencias. Refine la búsqueda."
+      },
+      "product": {
+        "label": "Producto financiero",
+        "placeholder": "Seleccione un producto",
+        "noneAvailable": "Ningún producto está disponible para nuevas solicitudes",
+        "noneAvailableHint": "Un producto debe estar activo y tener al menos un requisito activo configurado en Configuración.",
+        "loadError": "No se pudieron cargar los productos disponibles. Intente recargar la página."
+      },
+      "terms": {
+        "amountLabel": "Monto solicitado",
+        "amountPlaceholder": "0.00",
+        "termLabel": "Plazo (meses)",
+        "termPlaceholder": "12"
+      },
+      "validation": {
+        "clientRequired": "Seleccione un cliente para continuar.",
+        "productRequired": "Seleccione un producto financiero.",
+        "amountInvalid": "Ingrese un monto mayor que cero.",
+        "termInvalid": "Ingrese un plazo entre 1 y 360 meses."
+      },
+      "submit": "Crear solicitud",
+      "submitting": "Creando...",
+      "cancel": "Cancelar",
+      "toasts": {
+        "created": "Solicitud {number} creada.",
+        "partial": "Solicitud {number} creada, pero no se generaron sus requisitos. Revise los requisitos del producto en Configuración.",
+        "errorGeneric": "No se pudo crear la solicitud. Intente nuevamente.",
+        "errorForbidden": "No tiene permisos para crear solicitudes.",
+        "errorClientNotFound": "El cliente seleccionado ya no está disponible.",
+        "errorProductNotAvailable": "El producto seleccionado ya no está disponible para nuevas solicitudes."
+      }
     }
   },
   "dossier": {

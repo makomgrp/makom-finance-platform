@@ -146,7 +146,6 @@
       "registerAlert": "Register alert"
     },
     "toasts": {
-      "newApplicationDemo": "New application for {name} (demonstration).",
       "clientUpdated": "Client updated successfully.",
       "clientCreated": "Client registered successfully.",
       "duplicateIdentification": "A client with that identification is already registered.",
@@ -211,6 +210,54 @@
     "toasts": {
       "statusChanged": "Application moved to \"{status}\".",
       "statusChangeError": "Could not change the status. Please try again."
+    },
+    "create": {
+      "trigger": "New application",
+      "title": "New application",
+      "description": "Register a new loan application for a client.",
+      "steps": {
+        "client": "1. Client",
+        "product": "2. Product",
+        "terms": "3. Terms"
+      },
+      "client": {
+        "searchLabel": "Find client",
+        "searchPlaceholder": "Search by name, identification, email or phone...",
+        "newClient": "New client",
+        "empty": "No clients found",
+        "emptyHint": "Adjust the search or register a new client.",
+        "moreResults": "Showing {shown} of {total} matches. Refine the search."
+      },
+      "product": {
+        "label": "Financial product",
+        "placeholder": "Select a product",
+        "noneAvailable": "No product is available for new applications",
+        "noneAvailableHint": "A product must be active and have at least one active requirement configured in Settings.",
+        "loadError": "Could not load the available products. Please reload the page."
+      },
+      "terms": {
+        "amountLabel": "Requested amount",
+        "amountPlaceholder": "0.00",
+        "termLabel": "Term (months)",
+        "termPlaceholder": "12"
+      },
+      "validation": {
+        "clientRequired": "Select a client to continue.",
+        "productRequired": "Select a financial product.",
+        "amountInvalid": "Enter an amount greater than zero.",
+        "termInvalid": "Enter a term between 1 and 360 months."
+      },
+      "submit": "Create application",
+      "submitting": "Creating...",
+      "cancel": "Cancel",
+      "toasts": {
+        "created": "Application {number} created.",
+        "partial": "Application {number} was created, but its requirements were not generated. Review the product's requirements in Settings.",
+        "errorGeneric": "Could not create the application. Please try again.",
+        "errorForbidden": "You do not have permission to create applications.",
+        "errorClientNotFound": "The selected client is no longer available.",
+        "errorProductNotAvailable": "The selected product is no longer available for new applications."
+      }
     }
   },
   "dossier": {
