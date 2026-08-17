@@ -88,4 +88,22 @@ export interface ApplicationListItem extends Application {
   /** Resolved server-side (joined from clients) — never guessed
    * client-side. Always populated: clientId is NOT NULL. */
   clientFullName: string;
+  /**
+   * Milestone 19: who created this application, resolved server-side.
+   * Undefined exactly when createdByProfileId is — i.e. for every
+   * application that arrived through an automated intake channel rather
+   * than the CRM (see applications_created_by_source_check).
+   */
+  createdByFullName?: string;
+  /**
+   * Milestone 19: who performed the MOST RECENT status change, resolved
+   * server-side. Undefined exactly when statusChangedByProfileId is.
+   *
+   * NOTE THE SCOPE DELIBERATELY: this names the actor of the LATEST
+   * transition only. `applications` stores status/status_changed_at/
+   * status_changed_by_profile_id/status_changed_source as four single
+   * overwritten columns, so earlier transitions and their actors are not
+   * retained anywhere. Never present this as a transition history.
+   */
+  statusChangedByFullName?: string;
 }

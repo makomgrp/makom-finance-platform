@@ -15,9 +15,11 @@ import { PersonalDataTab } from "@/components/dossier/tabs/personal-data-tab";
 import { RequirementsTab } from "@/components/dossier/tabs/requirements-tab";
 import { NotesTab } from "@/components/dossier/tabs/notes-tab";
 import { AlertsTab } from "@/components/dossier/tabs/alerts-tab";
+import { ActivityTab } from "@/components/dossier/tabs/activity-tab";
 import { getDossierRequirements } from "@/app/(app)/expedientes/actions";
 import { setSolicitudApplicationStatus } from "@/app/(app)/solicitudes/actions";
 import type {
+  ActivityFeedItem,
   ApplicationListItem,
   ApplicationStatus,
   Client,
@@ -49,9 +51,7 @@ interface DossierViewProps {
    * (src/lib/services/clients.ts) — replaces the demo clientId lookup
    * this component used to do internally. As of Milestone 14E,
    * Applications/Notes/Alerts all key on client.id directly (a real,
-   * always-present uuid) — legacyId is used only for the demo-only
-   * Activity tab below and expedientes/[id]/page.tsx's TEMPORARY
-   * legacy-route fallback. */
+   * always-present uuid). */
   initialClient: Client;
   initialTab?: string;
   initialApplicationId?: string;
@@ -67,12 +67,21 @@ interface DossierViewProps {
   /** The real Requirement Slot + Evidence bundle for each of
    * initialApplications, keyed by real application id. */
   initialRequirementsByApplicationId: Record<string, DossierRequirementsData>;
+  /**
+   * Milestone 19: the Activity feed, built SERVER-SIDE by
+   * expedientes/[id]/page.tsx from the same persisted records already
+   * loaded above (see src/lib/activity/build-client-activity-feed.ts).
+   * Deliberately a plain prop and not local state: unlike the tab
+   * Milestone 18 removed, nothing in this component may append to it, so
+   * the feed can never drift from what the database actually holds.
+   */
+  activities: ActivityFeedItem[];
 }
 
-// "actividad" was dropped in Milestone 18 along with the tab itself. A
-// stale ?tab=actividad link now falls through to the default tab rather
-// than selecting a tab that no longer exists.
-const VALID_TABS = ["resumen", "datos", "documentos", "notas", "alertas"];
+// Milestone 19 restored "actividad" — this time backed by persisted
+// records rather than the fixture history Milestone 18 removed — so
+// ?tab=actividad selects it again.
+const VALID_TABS = ["resumen", "datos", "documentos", "notas", "alertas", "actividad"];
 
 export function DossierView({
   initialClient,
@@ -84,22 +93,13 @@ export function DossierView({
   alertsLoadError,
   initialApplications,
   initialRequirementsByApplicationId,
+  activities,
 }: DossierViewProps) {
   const t = useTranslations();
   const [client, setClient] = useState<Client>(initialClient);
   const [applications, setApplications] = useState<ApplicationListItem[]>(initialApplications);
   const [notes, setNotes] = useState<InternalNote[]>(initialNotes);
   const [alerts, setAlerts] = useState<DossierAlert[]>(initialAlerts);
-  // Milestone 18 removed the Activity tab and its local-only activity
-  // log. It seeded fabricated events from demo fixtures keyed on
-  // client.legacyId (so a real, newly-created client showed nothing at
-  // all), and every "logged" event lived in React state only — it looked
-  // like the dossier had recorded something and vanished on reload. A
-  // real activity feed IS buildable from persisted rows (application /
-  // note / alert / evidence timestamps all carry actor attribution), but
-  // that is a service of its own and belongs to the audit-trail
-  // milestone, not to this purge.
-
   const [activeApplicationId, setActiveApplicationId] = useState<string | undefined>(() => {
     if (initialApplicationId && applications.some((app) => app.id === initialApplicationId)) {
       return initialApplicationId;
@@ -218,6 +218,7 @@ export function DossierView({
           <TabsTrigger value="documentos">{t("dossier.tabs.documents")}</TabsTrigger>
           <TabsTrigger value="notas">{t("dossier.tabs.notes")}</TabsTrigger>
           <TabsTrigger value="alertas">{t("dossier.tabs.alerts")}</TabsTrigger>
+          <TabsTrigger value="actividad">{t("dossier.tabs.activity")}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="resumen" className="mt-4">
@@ -258,6 +259,10 @@ export function DossierView({
           />
         </TabsContent>
 
+
+        <TabsContent value="actividad" className="mt-4">
+          <ActivityTab activities={activities} />
+        </TabsContent>
       </Tabs>
     </div>
   );

@@ -260,7 +260,8 @@
       "personalData": "Personal data",
       "documents": "Documents",
       "notes": "Internal notes",
-      "alerts": "Alerts"
+      "alerts": "Alerts",
+      "activity": "Activity"
     },
     "summary": {
       "mainInfoTitle": "Main information",
@@ -390,6 +391,22 @@
       "toastResolveError": "Could not update the alert. Please try again.",
       "loadErrorTitle": "Alerts could not be loaded",
       "loadErrorDescription": "There was a problem connecting to the server. Try reloading the page."
+    },
+    "activity": {
+      "emptyTitle": "No recorded activity",
+      "emptyDescription": "No events have been recorded for this client yet. Activity appears here as the dossier is worked.",
+      "events": {
+        "cliente_creado": "Client registered in the CRM",
+        "solicitud_iniciada": "Application {number} created",
+        "estado_modificado": "Application {number}: current status “{status}”",
+        "requisito_actualizado": "Requirement “{label}”: current status “{status}”",
+        "nota_agregada": "Note added ({status})",
+        "alerta_registrada": "Alert raised: {status}",
+        "alerta_resuelta": "Alert resolved: {status}",
+        "documento_recibido": "Document received: {label}",
+        "documento_reemplazado": "Document replaced: {label}",
+        "documento_verificado": "Document verified: {label}"
+      }
     }
   },
   "documentsModule": {

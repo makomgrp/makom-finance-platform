@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { getLocale } from "next-intl/server";
 import { getClientById } from "@/lib/services/clients";
 import { getNotesByClientId } from "@/lib/services/notes";
 import { getAlertsByClientId } from "@/lib/services/alerts";
@@ -6,6 +7,8 @@ import { getApplications } from "@/lib/services/applications";
 import { getRequirementSlotsByApplicationId } from "@/lib/services/requirement-slots";
 import { getEvidenceByApplicationId } from "@/lib/services/document-evidence";
 import { DossierView, type DossierRequirementsData } from "@/components/dossier/dossier-view";
+import { buildClientActivityFeed } from "@/lib/activity/build-client-activity-feed";
+import type { Locale } from "@/i18n/config";
 import type { ApplicationListItem } from "@/types";
 
 /**
@@ -53,6 +56,7 @@ export default async function ExpedientePage({
 }) {
   const { id } = await params;
   const { tab, solicitud } = await searchParams;
+  const locale = (await getLocale()) as Locale;
 
   // Milestone 14F: the Dossier route is UUID-only — the canonical route
   // identity is public.clients.id. The TEMPORARY getClientByLegacyId
@@ -85,6 +89,22 @@ export default async function ExpedientePage({
   // Promise.all — a genuine data dependency, not a duplicated query.
   const requirementsByApplicationId = await resolveRequirementsByApplicationId(applications);
 
+  // Milestone 19: the Activity feed is DERIVED, not fetched. Every record it
+  // needs — client, applications, notes, alerts, requirement slots, evidence
+  // — has already been loaded above for the other tabs, so restoring
+  // Activity adds ZERO database queries to this page. buildClientActivityFeed
+  // is a pure function: it performs no I/O and emits only events that map
+  // one-to-one to a persisted row or column (see its module doc comment for
+  // what is deliberately excluded and why).
+  const activities = buildClientActivityFeed({
+    client,
+    applications,
+    notes: notesResult.status === "ok" ? notesResult.notes : [],
+    alerts: alertsResult.status === "ok" ? alertsResult.alerts : [],
+    requirementsByApplicationId,
+    locale,
+  });
+
   return (
     <DossierView
       initialClient={client}
@@ -96,6 +116,7 @@ export default async function ExpedientePage({
       alertsLoadError={alertsResult.status === "error"}
       initialApplications={applications}
       initialRequirementsByApplicationId={requirementsByApplicationId}
+      activities={activities}
     />
   );
 }

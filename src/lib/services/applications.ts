@@ -80,6 +80,8 @@ interface ApplicationListRow extends ApplicationRow {
   product: { code: string; name: Record<string, string> } | null;
   advisor: { full_name: string } | null;
   client: { full_name: string } | null;
+  created_by: { full_name: string } | null;
+  status_changed_by: { full_name: string } | null;
 }
 
 // Same !constraint embed-hint pattern already used throughout this app
@@ -96,7 +98,15 @@ const APPLICATION_LIST_SELECT =
   `${APPLICATION_SELECT}, ` +
   "product:products!applications_product_id_fkey(code, name), " +
   "advisor:profiles!applications_assigned_advisor_profile_id_fkey(full_name), " +
-  "client:clients!applications_client_id_fkey(full_name)";
+  "client:clients!applications_client_id_fkey(full_name), " +
+  // Milestone 19: two further profile embeds so the Dossier's Activity
+  // feed can name who created an application and who performed its most
+  // recent status change WITHOUT issuing a query of its own. Purely
+  // additive — same !constraint embed idiom as the three above, and both
+  // FKs are independently nullable, so both embeds resolve to null for
+  // automated (non-CRM) writes rather than failing.
+  "created_by:profiles!applications_created_by_profile_id_fkey(full_name), " +
+  "status_changed_by:profiles!applications_status_changed_by_profile_id_fkey(full_name)";
 
 function toApplicationListItem(row: ApplicationListRow): ApplicationListItem {
   return {
@@ -105,6 +115,8 @@ function toApplicationListItem(row: ApplicationListRow): ApplicationListItem {
     productName: (row.product?.name as LocalizedText | undefined) ?? ({} as LocalizedText),
     assignedAdvisorFullName: row.advisor?.full_name ?? undefined,
     clientFullName: row.client?.full_name ?? "",
+    createdByFullName: row.created_by?.full_name ?? undefined,
+    statusChangedByFullName: row.status_changed_by?.full_name ?? undefined,
   };
 }
 

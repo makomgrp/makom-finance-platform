@@ -260,7 +260,8 @@
       "personalData": "Datos personales",
       "documents": "Documentos",
       "notes": "Notas internas",
-      "alerts": "Alertas"
+      "alerts": "Alertas",
+      "activity": "Actividad"
     },
     "summary": {
       "mainInfoTitle": "Información principal",
@@ -390,6 +391,22 @@
       "toastResolveError": "No se pudo actualizar la alerta. Intente de nuevo.",
       "loadErrorTitle": "No se pudieron cargar las alertas",
       "loadErrorDescription": "Ocurrió un error al conectar con el servidor. Intente recargar la página."
+    },
+    "activity": {
+      "emptyTitle": "Sin actividad registrada",
+      "emptyDescription": "Aún no hay eventos registrados para este cliente. La actividad aparece aquí a medida que se trabaja el expediente.",
+      "events": {
+        "cliente_creado": "Cliente registrado en el CRM",
+        "solicitud_iniciada": "Solicitud {number} creada",
+        "estado_modificado": "Solicitud {number}: estado actual «{status}»",
+        "requisito_actualizado": "Requisito «{label}»: estado actual «{status}»",
+        "nota_agregada": "Nota añadida ({status})",
+        "alerta_registrada": "Alerta registrada: {status}",
+        "alerta_resuelta": "Alerta resuelta: {status}",
+        "documento_recibido": "Documento recibido: {label}",
+        "documento_reemplazado": "Documento reemplazado: {label}",
+        "documento_verificado": "Documento verificado: {label}"
+      }
     }
   },
   "documentsModule": {
