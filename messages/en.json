@@ -405,7 +405,12 @@
         "alerta_resuelta": "Alert resolved: {status}",
         "documento_recibido": "Document received: {label}",
         "documento_reemplazado": "Document replaced: {label}",
-        "documento_verificado": "Document verified: {label}"
+        "documento_verificado": "Document verified: {label}",
+        "estado_cambiado": "Application {number}: status changed from “{previousStatus}” to “{status}”",
+        "requisito_cambiado": "Requirement “{label}”: status changed from “{previousStatus}” to “{status}”",
+        "alerta_reactivada": "Alert reactivated: {status}",
+        "cliente_estado_cambiado": "Client: status changed from “{previousStatus}” to “{status}”",
+        "cliente_perfil_actualizado": "Client profile updated ({count} fields)"
       }
     }
   },

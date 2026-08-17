@@ -405,7 +405,12 @@
         "alerta_resuelta": "Alerta resuelta: {status}",
         "documento_recibido": "Documento recibido: {label}",
         "documento_reemplazado": "Documento reemplazado: {label}",
-        "documento_verificado": "Documento verificado: {label}"
+        "documento_verificado": "Documento verificado: {label}",
+        "estado_cambiado": "Solicitud {number}: estado cambiado de «{previousStatus}» a «{status}»",
+        "requisito_cambiado": "Requisito «{label}»: estado cambiado de «{previousStatus}» a «{status}»",
+        "alerta_reactivada": "Alerta reactivada: {status}",
+        "cliente_estado_cambiado": "Cliente: estado cambiado de «{previousStatus}» a «{status}»",
+        "cliente_perfil_actualizado": "Perfil del cliente actualizado ({count} campos)"
       }
     }
   },

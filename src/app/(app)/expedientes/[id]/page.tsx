@@ -6,6 +6,7 @@ import { getAlertsByClientId } from "@/lib/services/alerts";
 import { getApplications } from "@/lib/services/applications";
 import { getRequirementSlotsByApplicationId } from "@/lib/services/requirement-slots";
 import { getEvidenceByApplicationId } from "@/lib/services/document-evidence";
+import { getClientCrmEvents } from "@/lib/services/crm-events";
 import { DossierView, type DossierRequirementsData } from "@/components/dossier/dossier-view";
 import { buildClientActivityFeed } from "@/lib/activity/build-client-activity-feed";
 import type { Locale } from "@/i18n/config";
@@ -74,10 +75,16 @@ export default async function ExpedientePage({
   // FK-constrained client_id — every real Client, seeded or
   // newly-created, always has one (it is NOT NULL), so all three reads
   // below run unconditionally, keyed on client.id.
-  const [notesResult, alertsResult, applicationsResult] = await Promise.all([
+  // Milestone 20 adds getClientCrmEvents — the ONE audit-trail read, joining
+  // the existing parallel batch rather than fanning out per application. This
+  // is deliberately the first additional dossier query since Milestone 19:
+  // durable history lives in its own table, and there is no way to read it
+  // without reading it.
+  const [notesResult, alertsResult, applicationsResult, crmEventsResult] = await Promise.all([
     getNotesByClientId(client.id),
     getAlertsByClientId(client.id),
     getApplications(),
+    getClientCrmEvents(client.id),
   ]);
 
   const applications =
@@ -102,6 +109,9 @@ export default async function ExpedientePage({
     notes: notesResult.status === "ok" ? notesResult.notes : [],
     alerts: alertsResult.status === "ok" ? alertsResult.alerts : [],
     requirementsByApplicationId,
+    // A failed audit read degrades to the derived latest-state items rather
+    // than blanking the tab — the feed stays truthful, just less complete.
+    crmEvents: crmEventsResult.status === "ok" ? crmEventsResult.events : [],
     locale,
   });
 

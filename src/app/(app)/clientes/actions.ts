@@ -144,20 +144,28 @@ export async function updateClientProfileAction(
     return { status: "error", code: "INVALID_INPUT" };
   }
 
-  const result = await updateClientProfile(input.clientId, {
-    fullName: input.fullName,
-    identificationType: input.identificationType,
-    identificationNumber: input.identificationNumber,
-    phone: input.phone,
-    email: input.email,
-    address: input.address,
-    companyLegacyId: input.companyLegacyId,
-    position: input.position,
-    monthlySalary: input.monthlySalary,
-    birthDate: input.birthDate,
-    nationality: input.nationality,
-    observations: input.observations,
-  });
+  // Milestone 20: the caller's own resolved profile is now threaded through
+  // so the audit event this write produces names a real human. Authorization
+  // is untouched — auth is still the requireCapability() call above, and this
+  // action's guard, capability and result codes are unchanged.
+  const result = await updateClientProfile(
+    input.clientId,
+    {
+      fullName: input.fullName,
+      identificationType: input.identificationType,
+      identificationNumber: input.identificationNumber,
+      phone: input.phone,
+      email: input.email,
+      address: input.address,
+      companyLegacyId: input.companyLegacyId,
+      position: input.position,
+      monthlySalary: input.monthlySalary,
+      birthDate: input.birthDate,
+      nationality: input.nationality,
+      observations: input.observations,
+    },
+    auth.profile.id
+  );
 
   if (result.status !== "ok") {
     return { status: "error", code: result.code };
@@ -203,7 +211,8 @@ export async function setClientStatusAction(
     return { status: "error", code: "INVALID_INPUT" };
   }
 
-  const result = await setClientStatus(input.clientId, input.status);
+  // Milestone 20: actor threaded through for the audit event (see above).
+  const result = await setClientStatus(input.clientId, input.status, auth.profile.id);
   if (result.status !== "ok") {
     const code = result.code === "INVALID_STATUS" ? "INVALID_INPUT" : result.code;
     return { status: "error", code };

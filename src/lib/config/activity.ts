@@ -7,6 +7,8 @@ import {
   StickyNote,
   RefreshCcw,
   ListChecks,
+  UserCog,
+  PencilLine,
   ShieldAlert,
   ShieldCheck,
   BadgeCheck,
@@ -34,6 +36,15 @@ export const ACTIVITY_TYPE_ICON: Record<ActivityType, LucideIcon> = {
   documento_verificado: BadgeCheck,
   estado_modificado: RefreshCcw,
   requisito_actualizado: ListChecks,
+  // Milestone 20 — audit-trail-backed counterparts. Same icons as their
+  // latest-state siblings on purpose: the event is the same KIND of thing,
+  // only its completeness differs, and that difference is carried by the
+  // wording rather than by a second visual language.
+  estado_cambiado: RefreshCcw,
+  requisito_cambiado: ListChecks,
+  alerta_reactivada: ShieldAlert,
+  cliente_estado_cambiado: UserCog,
+  cliente_perfil_actualizado: PencilLine,
 };
 
 /**
@@ -52,4 +63,10 @@ export const ACTIVITY_CODE_NAMESPACE: Partial<Record<ActivityType, string>> = {
   nota_agregada: "statuses.noteType",
   alerta_registrada: "statuses.alertType",
   alerta_resuelta: "statuses.alertType",
+  // Milestone 20 — the audit-trail types resolve BOTH `code` and
+  // `previousCode` through the same catalogue.
+  estado_cambiado: "statuses.applicationStatus",
+  requisito_cambiado: "statuses.requirementSlotStatus",
+  alerta_reactivada: "statuses.alertType",
+  cliente_estado_cambiado: "statuses.client",
 };

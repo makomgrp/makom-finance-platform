@@ -59,6 +59,12 @@ export function ActivityTab({ activities }: ActivityTabProps) {
             // status catalogues, never re-translated here.
             const status =
               namespace && activity.code ? t(`${namespace}.${activity.code}`) : "";
+            // Milestone 20: only the audit-trail-backed types carry a
+            // previous value, because only there did the database record
+            // both sides. A derived latest-state item leaves this empty and
+            // its string never claims a transition.
+            const previousStatus =
+              namespace && activity.previousCode ? t(`${namespace}.${activity.previousCode}`) : "";
 
             return (
               <li key={activity.id} className="relative">
@@ -70,6 +76,8 @@ export function ActivityTab({ activities }: ActivityTabProps) {
                     number: activity.applicationNumber ?? "",
                     label: activity.label ?? "",
                     status,
+                    previousStatus,
+                    count: activity.count ?? 0,
                   })}
                 </p>
                 <p className="mt-0.5 text-xs text-muted-foreground">

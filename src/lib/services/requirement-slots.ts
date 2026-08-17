@@ -245,25 +245,44 @@ export async function setRequirementSlotStatus(
     return { status: "error", code: "INVALID_TRANSITION" };
   }
 
-  const { data: updated, error: updateError } = await supabase
-    .from("requirement_slots")
-    .update({
-      status: targetStatus,
-      status_changed_at: new Date().toISOString(),
-      status_changed_by_profile_id: actorProfileId,
-      status_changed_source: source,
-    })
-    .eq("id", slotId)
-    .eq("status", currentStatus)
-    .select(REQUIREMENT_SLOT_SELECT)
-    .maybeSingle<RequirementSlotRow>();
+  // MILESTONE 20: atomic mutation + audit append. The transition graph above
+  // stays canonical in src/lib/config/requirement-slot.ts; the function only
+  // reproduces the `status = currentStatus` guard, preserving this path's
+  // existing race semantics exactly.
+  const { data: changedId, error: rpcError } = await supabase.rpc(
+    "record_requirement_slot_status_change",
+    {
+      p_slot_id: slotId,
+      p_expected_status: currentStatus,
+      p_new_status: targetStatus,
+      p_source: source,
+      p_actor_profile_id: actorProfileId,
+    }
+  );
 
-  if (updateError) {
-    console.error("[requirement-slots service] Failed to update requirement slot status:", updateError.message);
+  if (rpcError) {
+    console.error("[requirement-slots service] Failed to update requirement slot status:", rpcError.message);
     return { status: "error", code: "UPDATE_FAILED" };
   }
-  if (!updated) {
+  if (!changedId) {
     return { status: "error", code: "INVALID_TRANSITION" };
+  }
+
+  // Re-read so this service keeps REQUIREMENT_SLOT_SELECT — including its
+  // status_changed_by profile embed — as the single definition of the shape
+  // it returns.
+  const { data: updated, error: readError } = await supabase
+    .from("requirement_slots")
+    .select(REQUIREMENT_SLOT_SELECT)
+    .eq("id", slotId)
+    .maybeSingle<RequirementSlotRow>();
+
+  if (readError || !updated) {
+    console.error(
+      "[requirement-slots service] Status changed but the slot could not be re-read:",
+      readError?.message ?? "no row returned"
+    );
+    return { status: "error", code: "UPDATE_FAILED" };
   }
 
   return { status: "ok", requirementSlot: toRequirementSlot(updated) };

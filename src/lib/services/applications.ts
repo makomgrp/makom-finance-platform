@@ -372,25 +372,49 @@ export async function setApplicationStatus(
     return { status: "error", code: "INVALID_TRANSITION" };
   }
 
-  const { data: updated, error: updateError } = await supabase
-    .from("applications")
-    .update({
-      status: targetStatus,
-      status_changed_at: new Date().toISOString(),
-      status_changed_by_profile_id: actorProfileId,
-      status_changed_source: source,
-    })
-    .eq("id", applicationId)
-    .eq("status", currentStatus)
-    .select(APPLICATION_SELECT)
-    .maybeSingle<ApplicationRow>();
+  // MILESTONE 20: the write goes through record_application_status_change, a
+  // SECURITY DEFINER function that performs this exact guarded UPDATE and
+  // appends the crm_events row in ONE transaction. The transition graph above
+  // stays canonical in src/lib/config/application.ts — the function never
+  // re-encodes it; it only reproduces the `status = currentStatus` guard, so
+  // a concurrent change still matches zero rows and still returns
+  // INVALID_TRANSITION rather than silently overwriting.
+  const { data: changedId, error: rpcError } = await supabase.rpc(
+    "record_application_status_change",
+    {
+      p_application_id: applicationId,
+      p_expected_status: currentStatus,
+      p_new_status: targetStatus,
+      p_source: source,
+      p_actor_profile_id: actorProfileId,
+    }
+  );
 
-  if (updateError) {
-    console.error("[applications service] Failed to update application status:", updateError.message);
+  if (rpcError) {
+    console.error("[applications service] Failed to update application status:", rpcError.message);
     return { status: "error", code: "UPDATE_FAILED" };
   }
-  if (!updated) {
+  // NULL means the guard matched nothing — same meaning the previous
+  // `.maybeSingle()` returning no row had.
+  if (!changedId) {
     return { status: "error", code: "INVALID_TRANSITION" };
+  }
+
+  // Re-read to build the return value. The function returns only the id so
+  // that this service keeps its own SELECT (and, elsewhere, its PostgREST
+  // embeds) as the single definition of the row shape it returns.
+  const { data: updated, error: readError } = await supabase
+    .from("applications")
+    .select(APPLICATION_SELECT)
+    .eq("id", applicationId)
+    .maybeSingle<ApplicationRow>();
+
+  if (readError || !updated) {
+    console.error(
+      "[applications service] Status changed but the application could not be re-read:",
+      readError?.message ?? "no row returned"
+    );
+    return { status: "error", code: "UPDATE_FAILED" };
   }
 
   return { status: "ok", application: toApplication(updated) };

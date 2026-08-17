@@ -343,39 +343,61 @@ export type UpdateClientProfileResult =
  */
 export async function updateClientProfile(
   clientId: string,
-  input: UpdateClientProfileInput
+  input: UpdateClientProfileInput,
+  actorProfileId: string | null
 ): Promise<UpdateClientProfileResult> {
   const supabase = getSupabaseServerClient();
 
-  const { data, error } = await supabase
-    .from("clients")
-    .update({
-      full_name: input.fullName,
-      identification_type: input.identificationType,
-      identification_number: input.identificationNumber,
-      phone: input.phone,
-      email: input.email,
-      address: input.address,
-      company_legacy_id: input.companyLegacyId ?? null,
-      position: input.position,
-      monthly_salary: input.monthlySalary,
-      birth_date: input.birthDate,
-      nationality: input.nationality,
-      observations: input.observations ?? null,
-    })
-    .eq("id", clientId)
-    .select(CLIENT_SELECT)
-    .maybeSingle<ClientRow>();
+  // MILESTONE 20: atomic mutation + audit append, with the changed-field diff
+  // computed inside the transaction.
+  //
+  // PRIVACY: the resulting event records WHICH fields changed and nothing
+  // else. Client PII is never written to crm_events — that table is
+  // append-only with no delete path, so a personal value copied into it could
+  // never be corrected or erased. What the values were is what `clients` is
+  // for. A save that changes nothing writes no event.
+  const { data: changedId, error: rpcError } = await supabase.rpc("record_client_profile_update", {
+    p_client_id: clientId,
+    p_full_name: input.fullName,
+    p_identification_type: input.identificationType,
+    p_identification_number: input.identificationNumber,
+    p_phone: input.phone,
+    p_email: input.email,
+    p_address: input.address,
+    p_company_legacy_id: input.companyLegacyId ?? null,
+    p_position: input.position,
+    p_monthly_salary: input.monthlySalary,
+    p_birth_date: input.birthDate,
+    p_nationality: input.nationality,
+    p_observations: input.observations ?? null,
+    p_actor_profile_id: actorProfileId,
+  });
 
-  if (error) {
-    if (error.code === "23505") {
+  if (rpcError) {
+    // clients_identification_type_identification_number_key still raises
+    // 23505 from inside the function, aborting both the update and the event.
+    if (rpcError.code === "23505") {
       return { status: "error", code: "DUPLICATE_IDENTIFICATION" };
     }
-    console.error("[clients service] Failed to update client profile:", error.message);
+    console.error("[clients service] Failed to update client profile:", rpcError.message);
     return { status: "error", code: "UPDATE_FAILED" };
   }
-  if (!data) {
+  if (!changedId) {
     return { status: "error", code: "CLIENT_NOT_FOUND" };
+  }
+
+  const { data, error } = await supabase
+    .from("clients")
+    .select(CLIENT_SELECT)
+    .eq("id", clientId)
+    .maybeSingle<ClientRow>();
+
+  if (error || !data) {
+    console.error(
+      "[clients service] Profile updated but the client could not be re-read:",
+      error?.message ?? "no row returned"
+    );
+    return { status: "error", code: "UPDATE_FAILED" };
   }
 
   return { status: "ok", client: toClient(data) };
@@ -394,26 +416,49 @@ export type SetClientStatusResult =
  * three real values this table understands, since callers may eventually
  * sit behind a Server Action taking less-trusted input.
  */
-export async function setClientStatus(clientId: string, status: ClientStatus): Promise<SetClientStatusResult> {
+export async function setClientStatus(
+  clientId: string,
+  status: ClientStatus,
+  actorProfileId: string | null
+): Promise<SetClientStatusResult> {
   if (!CLIENT_STATUS_VALUES.includes(status)) {
     return { status: "error", code: "INVALID_STATUS" };
   }
 
   const supabase = getSupabaseServerClient();
 
-  const { data, error } = await supabase
-    .from("clients")
-    .update({ status })
-    .eq("id", clientId)
-    .select(CLIENT_SELECT)
-    .maybeSingle<ClientRow>();
+  // MILESTONE 20: atomic mutation + audit append. This update used to be
+  // blind, so it never knew the value it was replacing; the read now happens
+  // inside the function under `for update`, which is the only place it can be
+  // taken safely — previous_value is genuinely the value being replaced, not
+  // one another transaction has already changed. A same-status write remains
+  // a success and writes no event.
+  const { data: changedId, error: rpcError } = await supabase.rpc("record_client_status_change", {
+    p_client_id: clientId,
+    p_new_status: status,
+    p_actor_profile_id: actorProfileId,
+  });
 
-  if (error) {
-    console.error("[clients service] Failed to update client status:", error.message);
+  if (rpcError) {
+    console.error("[clients service] Failed to update client status:", rpcError.message);
     return { status: "error", code: "UPDATE_FAILED" };
   }
-  if (!data) {
+  if (!changedId) {
     return { status: "error", code: "CLIENT_NOT_FOUND" };
+  }
+
+  const { data, error } = await supabase
+    .from("clients")
+    .select(CLIENT_SELECT)
+    .eq("id", clientId)
+    .maybeSingle<ClientRow>();
+
+  if (error || !data) {
+    console.error(
+      "[clients service] Status changed but the client could not be re-read:",
+      error?.message ?? "no row returned"
+    );
+    return { status: "error", code: "UPDATE_FAILED" };
   }
 
   return { status: "ok", client: toClient(data) };

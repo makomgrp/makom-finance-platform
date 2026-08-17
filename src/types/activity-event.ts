@@ -64,7 +64,27 @@ export type ActivityType =
    * cleared when an alert is reactivated, so this is not a permanent record
    * of every resolution.
    */
-  | "alerta_resuelta";
+  | "alerta_resuelta"
+
+  // --- TRUE HISTORY, from the crm_events audit trail (Milestone 20) --------
+  // These are the durable counterparts of the three latest-state values
+  // above. Because both sides of the transition are permanently recorded,
+  // and only because of that, their wording may say "changed FROM x TO y" —
+  // which the latest-state variants must never claim. A given entity is
+  // rendered through the derived variant OR the durable one, never both;
+  // see build-client-activity-feed.ts.
+  /** An application status transition, both sides recorded. */
+  | "estado_cambiado"
+  /** A requirement slot status transition, both sides recorded. */
+  | "requisito_cambiado"
+  /** An alert was reactivated — invisible without the audit trail, since
+   *  reactivation NULLs the columns that proved the prior resolution. */
+  | "alerta_reactivada"
+  /** A client status transition, both sides recorded. */
+  | "cliente_estado_cambiado"
+  /** A client profile edit. Records WHICH fields changed and how many —
+   *  never the values. See CrmEvent.previousValue. */
+  | "cliente_perfil_actualizado";
 
 /**
  * One item in a client's Activity feed, already resolved for display by
@@ -108,4 +128,13 @@ export interface ActivityFeedItem {
    * duplicating them.
    */
   code?: string;
+  /**
+   * The RAW value this transition moved AWAY from. Present only on the
+   * audit-trail-backed types, where the database genuinely recorded both
+   * sides. Never set for a latest-state item — there is nothing to set it
+   * from.
+   */
+  previousCode?: string;
+  /** Number of changed fields on `cliente_perfil_actualizado`. */
+  count?: number;
 }

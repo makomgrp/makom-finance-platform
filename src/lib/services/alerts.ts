@@ -291,41 +291,40 @@ export async function setAlertStatus(
 ): Promise<DossierAlert> {
   const supabase = getSupabaseServerClient();
 
-  const { data: updated, error: updateError } = await supabase
-    .from("dossier_alerts")
-    .update(
-      targetActive
-        ? { active: true, resolved_at: null, resolved_by_profile_id: null }
-        : { active: false, resolved_at: new Date().toISOString(), resolved_by_profile_id: actorProfileId }
-    )
-    .eq("id", alertId)
-    .neq("active", targetActive)
-    .select(ALERT_SELECT)
-    .maybeSingle<DossierAlertRow>();
+  // MILESTONE 20: atomic mutation + audit append. record_alert_status_change
+  // reproduces the `active <> targetActive` guard exactly, so a repeat call is
+  // still a no-op — and, critically, records the resolution BEFORE a later
+  // reactivation clears resolved_at/resolved_by. That clearing is precisely
+  // why this event has to exist: without it the database retains no evidence
+  // the alert was ever resolved.
+  const { data: changedId, error: rpcError } = await supabase.rpc("record_alert_status_change", {
+    p_alert_id: alertId,
+    p_target_active: targetActive,
+    p_actor_profile_id: actorProfileId,
+  });
 
-  if (updateError) {
-    console.error("[alerts service] Failed to update dossier alert status:", updateError.message);
+  if (rpcError) {
+    console.error("[alerts service] Failed to update dossier alert status:", rpcError.message);
     throw new Error("Failed to update the alert.");
   }
 
-  if (updated) {
-    return toDossierAlert(updated);
-  }
-
-  // Already in the requested state — read back and return it unchanged.
+  // Whether the guard matched (a real transition) or not (already in the
+  // target state), the caller gets the alert's current row — identical to the
+  // previous behaviour, which also fell back to a read on a no-op update.
   const { data: current, error: readError } = await supabase
     .from("dossier_alerts")
     .select(ALERT_SELECT)
     .eq("id", alertId)
-    .single<DossierAlertRow>();
+    .maybeSingle<DossierAlertRow>();
 
-  if (readError) {
+  if (readError || !current) {
     console.error(
-      "[alerts service] Failed to read dossier alert after no-op status update:",
-      readError.message
+      "[alerts service] Failed to read dossier alert after a status update:",
+      readError?.message ?? "no row returned"
     );
     throw new Error("Failed to update the alert.");
   }
 
+  void changedId;
   return toDossierAlert(current);
 }
