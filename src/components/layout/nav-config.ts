@@ -4,7 +4,6 @@ import {
   FileText,
   FolderOpen,
   ShieldAlert,
-  BarChart3,
   Settings,
   MessageCircle,
   type LucideIcon,
@@ -17,7 +16,6 @@ export type NavKey =
   | "documents"
   | "chat"
   | "alerts"
-  | "reports"
   | "settings";
 
 export interface NavItem {
@@ -33,7 +31,13 @@ export const NAV_ITEMS: NavItem[] = [
   { key: "documents", href: "/documentos", icon: FolderOpen },
   { key: "chat", href: "/chat", icon: MessageCircle },
   { key: "alerts", href: "/alertas", icon: ShieldAlert },
-  { key: "reports", href: "/reportes", icon: BarChart3 },
+  // Milestone 18: "reports" was removed. /reportes rendered entirely
+  // fabricated operational metrics — including invented productivity
+  // figures attributed to real ODL employees — and the database holds
+  // none of the history (rejection reasons, status transitions, advisor
+  // closure times) needed to compute them honestly. Deliberately deleted
+  // rather than left as a placeholder; a real reporting surface is a
+  // later milestone with its own schema work.
   { key: "settings", href: "/configuracion", icon: Settings },
 ];
 

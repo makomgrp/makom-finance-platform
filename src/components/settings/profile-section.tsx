@@ -1,21 +1,35 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useCurrentProfile } from "@/lib/auth/current-profile-context";
 import { getInitials } from "@/lib/format";
 
+/**
+ * Milestone 5A: real authenticated identity, resolved once server-side
+ * by src/app/(app)/layout.tsx and provided via CurrentProfileProvider —
+ * no query happens here.
+ *
+ * MILESTONE 18: READ-ONLY. This section previously rendered editable name
+ * and e-mail inputs plus a "Guardar cambios" button whose entire effect
+ * was a toast reading "(demostración)" — nothing was ever written. The
+ * values shown are and always were real; only the controls implying they
+ * could be changed were false. Profile editing needs an update path on
+ * `profiles` that does not exist yet and belongs to the user-
+ * administration milestone, so the fields are now presented as plain
+ * read-only values rather than inputs that quietly discard what you type.
+ */
 export function ProfileSection() {
-  // Milestone 5A: real authenticated identity, resolved once server-side
-  // by src/app/(app)/layout.tsx and provided via CurrentProfileProvider —
-  // no query happens here.
   const profile = useCurrentProfile();
   const t = useTranslations();
+
+  const fields = [
+    { key: "fullName", label: t("settings.profile.fullName"), value: profile.fullName },
+    { key: "email", label: t("settings.profile.email"), value: profile.email },
+    { key: "role", label: t("settings.profile.role"), value: t(`roles.${profile.role}`) },
+  ];
 
   return (
     <Card>
@@ -36,26 +50,15 @@ export function ProfileSection() {
         </div>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div className="space-y-1.5">
-            <Label htmlFor="profile-name">{t("settings.profile.fullName")}</Label>
-            <Input id="profile-name" defaultValue={profile.fullName} />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="profile-email">{t("settings.profile.email")}</Label>
-            <Input id="profile-email" defaultValue={profile.email} />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="profile-role">{t("settings.profile.role")}</Label>
-            <Input id="profile-role" defaultValue={t(`roles.${profile.role}`)} disabled />
-          </div>
+          {fields.map((field) => (
+            <div key={field.key} className="space-y-1.5">
+              <Label>{field.label}</Label>
+              <p className="text-sm text-foreground">{field.value}</p>
+            </div>
+          ))}
         </div>
 
-        <Button
-          onClick={() => toast.success(t("settings.profile.toastSaved"))}
-          className="w-fit"
-        >
-          {t("settings.profile.save")}
-        </Button>
+        <p className="text-xs text-muted-foreground">{t("settings.profile.readOnlyNotice")}</p>
       </CardContent>
     </Card>
   );

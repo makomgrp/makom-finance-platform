@@ -1,8 +1,6 @@
 {
   "common": {
     "search": "Search",
-    "globalSearchPlaceholder": "Search clients, applications...",
-    "notifications": "Notifications",
     "loading": "Loading ODL LoanFlow CRM…",
     "back": "Back",
     "cancel": "Cancel",
@@ -14,7 +12,6 @@
     "all": "All",
     "yes": "Yes",
     "no": "No",
-    "days": "days",
     "minutes": "minutes",
     "unassigned": "Unassigned",
     "pagination": {
@@ -50,7 +47,6 @@
     "documents": "Documents",
     "chat": "Chat",
     "alerts": "Alerts",
-    "reports": "Reports",
     "settings": "Settings",
     "signOut": "Sign out",
     "collapseMenu": "Collapse menu",
@@ -110,15 +106,7 @@
       "approvedApplications": "Approved applications",
       "notEligibleApplications": "Not eligible applications"
     },
-    "recentActivity": "Recent activity",
-    "statusDistribution": "Applications by status",
-    "pendingTasks": {
-      "title": "Pending tasks",
-      "task1": "Review three completed dossiers",
-      "task2": "Contact two clients",
-      "task3": "Validate four documents",
-      "task4": "Follow up on one application"
-    }
+    "statusDistribution": "Applications by status"
   },
   "clients": {
     "title": "Clients",
@@ -272,8 +260,7 @@
       "personalData": "Personal data",
       "documents": "Documents",
       "notes": "Internal notes",
-      "alerts": "Alerts",
-      "activity": "Activity"
+      "alerts": "Alerts"
     },
     "summary": {
       "mainInfoTitle": "Main information",
@@ -403,10 +390,6 @@
       "toastResolveError": "Could not update the alert. Please try again.",
       "loadErrorTitle": "Alerts could not be loaded",
       "loadErrorDescription": "There was a problem connecting to the server. Try reloading the page."
-    },
-    "activity": {
-      "emptyTitle": "No activity recorded",
-      "emptyDescription": "There are no events recorded for this client yet."
     }
   },
   "documentsModule": {
@@ -472,59 +455,25 @@
       "error": "Could not update the alert. Please try again."
     }
   },
-  "reports": {
-    "title": "Reports",
-    "description": "Operational indicators of ODL LoanFlow CRM. Demonstration data.",
-    "kpis": {
-      "applicationsReceived": "Applications received",
-      "documentationRate": "Complete documentation rate",
-      "documentationRateHint": "Over the total of active applications",
-      "approvedApplications": "Approved applications",
-      "notEligibleApplications": "Not eligible applications",
-      "ofTotal": "{percent}% of total"
-    },
-    "frequentReasonsTitle": "Frequent reasons for ineligibility",
-    "frequentReasons": {
-      "incompleteDocumentation": "Incomplete documentation",
-      "companyNotEligible": "Company is not eligible for payroll deduction",
-      "previousDefault": "History of previous default",
-      "insufficientIncome": "Insufficient income",
-      "inconsistentInformation": "Inconsistent information"
-    },
-    "avgTimeTitle": "Average time between statuses",
-    "advisorProductivityTitle": "Advisor productivity",
-    "columns": {
-      "advisor": "Advisor",
-      "managedApplications": "Managed applications",
-      "approved": "Approved",
-      "avgClosingTime": "Avg. closing time"
-    }
-  },
   "settings": {
     "title": "Settings",
-    "description": "General system settings. Demonstration screens for this phase.",
+    "description": "System configuration: profile, users, products and reference catalogues.",
     "tabs": {
       "profile": "Profile",
       "users": "Users and roles",
       "products": "Products",
       "applicationStatuses": "Application statuses",
-      "documentTypes": "Document types",
-      "companies": "Companies",
-      "notifications": "Notifications",
-      "security": "Security"
+      "documentTypes": "Document types"
     },
     "profile": {
       "title": "User profile",
       "fullName": "Full name",
       "email": "Email address",
       "role": "Role",
-      "save": "Save changes",
-      "toastSaved": "Profile updated (demonstration)."
+      "readOnlyNotice": "These details are managed by the ODL team. Profile editing is not available."
     },
     "users": {
       "title": "Users and roles",
-      "invite": "Invite user",
-      "toastInvite": "Inviting users will be available in a later phase.",
       "columns": {
         "name": "Name",
         "email": "Email address",
@@ -650,40 +599,6 @@
     "documentTypes": {
       "title": "Document types",
       "description": "Official document requirements requested from clients."
-    },
-    "companies": {
-      "title": "Payroll deduction companies",
-      "description": "Companies whose employees can apply for payroll deduction loans.",
-      "toastToggleOn": "{name}: payroll deduction enabled (demonstration).",
-      "toastToggleOff": "{name}: payroll deduction disabled (demonstration)."
-    },
-    "notifications": {
-      "title": "Notifications",
-      "description": "Choose which events you want to receive by email within the system.",
-      "newApplication": "New applications",
-      "newApplicationDescription": "When a new loan application is registered.",
-      "documents": "Pending documents",
-      "documentsDescription": "Reminders for documents pending receipt or review.",
-      "alerts": "Alerts and restrictions",
-      "alertsDescription": "When an internal alert is registered for a client.",
-      "statusChanges": "Status changes",
-      "statusChangesDescription": "When an application changes status.",
-      "weeklySummary": "Weekly summary",
-      "weeklySummaryDescription": "Weekly summary of activity and operational reports."
-    },
-    "security": {
-      "title": "Account security",
-      "twoFactor": "Two-factor authentication",
-      "twoFactorDescription": "Requires an additional code when signing in.",
-      "sessionTimeout": "Automatic sign-out",
-      "sessionTimeoutDescription": "Idle time before signing out automatically.",
-      "minutes15": "15 minutes",
-      "minutes30": "30 minutes",
-      "minutes60": "60 minutes",
-      "password": "Password",
-      "passwordLastUpdate": "Last updated: 3 months ago.",
-      "changePassword": "Change password",
-      "toastPasswordDisabled": "Password change is not available in this demonstration phase."
     }
   },
   "chat": {
@@ -816,69 +731,6 @@
     "analista": "Analyst",
     "asesor": "Advisor",
     "consulta": "Read Only"
-  },
-  "notificationsDropdown": {
-    "recent": "Recent notifications",
-    "n1Title": "Document received",
-    "n2Title": "Application under review",
-    "n3Title": "Alert registered"
-  },
-  "activityLog": {
-    "act001": "Client created in the system.",
-    "act002": "Application {number} started.",
-    "act003": "{name} sent their employment letter.",
-    "act004": "Client created in the system.",
-    "act005": "Application {number} started.",
-    "act006": "Full documentation for {name} was verified.",
-    "act007": "{name} was moved to under review.",
-    "act008": "Client created in the system.",
-    "act009": "Application {number} started.",
-    "act010": "{name} has pending documents.",
-    "act011": "Client created in the system.",
-    "act012": "Application {number} started.",
-    "act013": "Documentation for {name} was fully verified.",
-    "act014": "{name} was approved.",
-    "act015": "Client created in the system.",
-    "act016": "Application {number} started.",
-    "act017": "{name} received an internal alert.",
-    "act018": "{name}'s application was marked as Not Eligible.",
-    "act019": "Client created in the system.",
-    "act020": "Application {number} started.",
-    "act021": "{name} completed submission of their documents.",
-    "act022": "Application moved to Documents Complete.",
-    "act023": "Client created in the system.",
-    "act024": "Application {number} started.",
-    "act025": "5 of 6 documents for {name} were verified.",
-    "act026": "Client created in the system.",
-    "act027": "Application {number} started.",
-    "act028": "{name}'s application was approved.",
-    "act029": "Client created in the system.",
-    "act030": "Application {number} started.",
-    "act031": "{name}'s business loan application was approved.",
-    "act032": "Client created in the system.",
-    "act033": "Client marked as Inactive due to lack of response.",
-    "act034": "Client created in the system.",
-    "act035": "New application registered for {name}.",
-    "act036": "Client created in the system.",
-    "act037": "Application {number} started.",
-    "act038": "{name} sent their latest pay slip.",
-    "act039": "Client created in the system.",
-    "act040": "An internal restriction was registered for {name}.",
-    "act041": "Application {number} started.",
-    "act042": "{name}'s application was cancelled.",
-    "act043": "Client created in the system.",
-    "act044": "Application {number} started.",
-    "act045": "{name}'s business loan application was approved.",
-    "act046": "Client created in the system.",
-    "act047": "Application {number} started.",
-    "act048": "An updated utility bill was requested from {name}.",
-    "act049": "Client created in the system.",
-    "act050": "Client registered in the active portfolio for commercial follow-up.",
-    "statusChanged": "Application status changed to \"{status}\".",
-    "documentStatusChanged": "{document} marked as \"{status}\".",
-    "documentReplaced": "Document replaced: {document}.",
-    "noteAdded": "A new internal note was added.",
-    "alertRegistered": "An alert was registered: {type}."
   },
   "validation": {
     "fieldRequired": "This field is required."

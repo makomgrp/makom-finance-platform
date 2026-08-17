@@ -1,10 +1,8 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { toast } from "sonner";
-import { UserPlus, AlertTriangle } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import {
   Table,
   TableBody,
@@ -18,6 +16,15 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { LANGUAGE_CONFIG } from "@/lib/config/language";
 import type { User } from "@/types";
 
+/**
+ * MILESTONE 18: the directory itself is real and unchanged — getProfiles()
+ * reads `profiles` from Supabase and this component surfaces an explicit
+ * error state rather than falling back to any other source. Only the
+ * "Invitar usuario" button was removed: it did nothing but raise a toast
+ * saying the feature would arrive later. Issuing invitations needs an
+ * insert path on `profiles` plus Supabase Auth user creation, neither of
+ * which exists yet; that is the user-administration milestone's job.
+ */
 interface UsersSectionProps {
   users: User[];
   /** True when the Supabase read failed — shows an explicit error state
@@ -30,16 +37,8 @@ export function UsersSection({ users, hasError }: UsersSectionProps) {
 
   return (
     <Card>
-      <CardHeader className="flex-row items-center justify-between space-y-0">
+      <CardHeader>
         <CardTitle>{t("settings.users.title")}</CardTitle>
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => toast.info(t("settings.users.toastInvite"))}
-        >
-          <UserPlus className="size-4" />
-          {t("settings.users.invite")}
-        </Button>
       </CardHeader>
       <CardContent>
         {hasError ? (

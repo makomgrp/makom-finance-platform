@@ -28,14 +28,28 @@ import { CurrentProfileProvider } from "@/lib/auth/current-profile-context";
  * Nothing downstream queries profiles or calls getCurrentProfile() again.
  *
  * Milestone 7B: the same pattern now applies to the Topbar's active-alert
- * badge — getActiveAlertsCount() is resolved here, server-side, using the
- * Admin Client (never exposed to the browser), and passed down as a plain
- * prop through AppShell to Topbar. This is the "cleanest pattern" call:
- * a Context would be overkill for a value only Topbar reads (unlike the
- * profile, which Topbar/Sidebar/MobileNav/Settings all need), so a prop is
- * simpler and sufficient. Like the profile, this count is resolved once
- * per server render, not live-updated — consistent with no Realtime being
+ * badge — resolved here, server-side, using the Admin Client (never
+ * exposed to the browser), and passed down as a plain prop through
+ * AppShell to Topbar. This is the "cleanest pattern" call: a Context
+ * would be overkill for a value only Topbar reads (unlike the profile,
+ * which Topbar/Sidebar/MobileNav/Settings all need), so a prop is simpler
+ * and sufficient. Like the profile, this is resolved once per server
+ * render, not live-updated — consistent with no Realtime being
  * introduced for alerts.
+ *
+ * MILESTONE 18: the Topbar's bell dropdown used to list three hardcoded
+ * notifications about demo clients while the badge beside them showed a
+ * REAL count — the worst possible combination, since the true number lent
+ * credibility to invented content. The dropdown is gone entirely and the
+ * bell is now a link to /alertas carrying only the count.
+ *
+ * The count STAYS on getActiveAlertsCount(), the existing single-purpose
+ * service — deliberately not getAllAlerts(). Nothing in the app shell
+ * needs individual alert rows any more, so fetching them would be both
+ * wasteful and, more importantly, a temptation to render them: the
+ * currently persisted alerts are seeded fixtures, and an aggregate count
+ * over them is honest where a per-record narrative would not be. One
+ * query, one number, no per-record data leaving the alerts module.
  */
 export default async function AuthenticatedLayout({ children }: { children: ReactNode }) {
   const profile = await getCurrentProfile();
@@ -44,6 +58,8 @@ export default async function AuthenticatedLayout({ children }: { children: Reac
     redirect("/login");
   }
 
+  // Returns null (never a fabricated 0) when the read fails, in which
+  // case Topbar simply renders no badge.
   const activeAlertsCount = await getActiveAlertsCount();
 
   return (

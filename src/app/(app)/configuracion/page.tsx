@@ -4,14 +4,36 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ProfileSection } from "@/components/settings/profile-section";
 import { UsersSection } from "@/components/settings/users-section";
 import { CatalogSection } from "@/components/settings/catalog-section";
-import { CompaniesSection } from "@/components/settings/companies-section";
-import { NotificationsSection } from "@/components/settings/notifications-section";
-import { SecuritySection } from "@/components/settings/security-section";
 import { ProductsSection } from "@/components/settings/products-section";
 import { APPLICATION_STATUS_BADGE_CLASS, APPLICATION_STATUS_ORDER } from "@/lib/config/application";
 import { DOCUMENT_TYPE_ORDER } from "@/lib/config/document";
 import { getProfiles } from "@/lib/services/profiles";
 import { getAllProducts } from "@/lib/services/products";
+
+/**
+ * MILESTONE 18 (Demo Data Purge): three tabs were removed because every
+ * control on them was local React state presented as a system setting.
+ *
+ *   Seguridad — advertised two-factor authentication, an automatic
+ *     session-timeout policy and a password age ("last updated 3 months
+ *     ago"). None of the three exists. This was the only screen in the
+ *     app claiming a SECURITY capability the product does not have, which
+ *     is why it was deleted outright rather than trimmed. The real
+ *     password-reset flow (/forgot-password -> /reset-password,
+ *     requestPasswordResetAction) is untouched and still reachable from
+ *     the login screen.
+ *   Notificaciones — five e-mail preference switches with no preference
+ *     table and no delivery mechanism behind them.
+ *   Empresas — payroll-deduction toggles over the static COMPANIES array
+ *     whose own toast said "(demostración)". NOTE: only the SCREEN was
+ *     removed. COMPANIES and getCompanyById() remain, because every
+ *     existing client persists a company_legacy_id that those resolve to
+ *     an employer name in the clients table and both dossier tabs.
+ *
+ * What remains is either genuinely persistent (Perfil read-only, Usuarios,
+ * Productos, Requisitos) or an accurate read-only reference to this app's
+ * own configured vocabulary (Estados, Tipos de documento).
+ */
 
 export default async function ConfiguracionPage() {
   const t = await getTranslations();
@@ -29,9 +51,6 @@ export default async function ConfiguracionPage() {
           <TabsTrigger value="productos">{t("settings.tabs.products")}</TabsTrigger>
           <TabsTrigger value="estados">{t("settings.tabs.applicationStatuses")}</TabsTrigger>
           <TabsTrigger value="documentos">{t("settings.tabs.documentTypes")}</TabsTrigger>
-          <TabsTrigger value="empresas">{t("settings.tabs.companies")}</TabsTrigger>
-          <TabsTrigger value="notificaciones">{t("settings.tabs.notifications")}</TabsTrigger>
-          <TabsTrigger value="seguridad">{t("settings.tabs.security")}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="perfil" className="mt-4">
@@ -74,17 +93,6 @@ export default async function ConfiguracionPage() {
           />
         </TabsContent>
 
-        <TabsContent value="empresas" className="mt-4">
-          <CompaniesSection />
-        </TabsContent>
-
-        <TabsContent value="notificaciones" className="mt-4">
-          <NotificationsSection />
-        </TabsContent>
-
-        <TabsContent value="seguridad" className="mt-4">
-          <SecuritySection />
-        </TabsContent>
       </Tabs>
     </div>
   );

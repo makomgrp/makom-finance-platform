@@ -1,8 +1,6 @@
 {
   "common": {
     "search": "Buscar",
-    "globalSearchPlaceholder": "Buscar clientes, solicitudes...",
-    "notifications": "Notificaciones",
     "loading": "Cargando ODL LoanFlow CRM…",
     "back": "Volver",
     "cancel": "Cancelar",
@@ -14,7 +12,6 @@
     "all": "Todos",
     "yes": "Sí",
     "no": "No",
-    "days": "días",
     "minutes": "minutos",
     "unassigned": "Sin asignar",
     "pagination": {
@@ -50,7 +47,6 @@
     "documents": "Documentos",
     "chat": "Chat",
     "alerts": "Alertas",
-    "reports": "Reportes",
     "settings": "Configuración",
     "signOut": "Cerrar sesión",
     "collapseMenu": "Contraer menú",
@@ -110,15 +106,7 @@
       "approvedApplications": "Solicitudes aprobadas",
       "notEligibleApplications": "Solicitudes que no aplican"
     },
-    "recentActivity": "Actividad reciente",
-    "statusDistribution": "Solicitudes por estado",
-    "pendingTasks": {
-      "title": "Tareas pendientes",
-      "task1": "Revisar tres expedientes completos",
-      "task2": "Contactar dos clientes",
-      "task3": "Validar cuatro documentos",
-      "task4": "Dar seguimiento a una solicitud"
-    }
+    "statusDistribution": "Solicitudes por estado"
   },
   "clients": {
     "title": "Clientes",
@@ -272,8 +260,7 @@
       "personalData": "Datos personales",
       "documents": "Documentos",
       "notes": "Notas internas",
-      "alerts": "Alertas",
-      "activity": "Actividad"
+      "alerts": "Alertas"
     },
     "summary": {
       "mainInfoTitle": "Información principal",
@@ -403,10 +390,6 @@
       "toastResolveError": "No se pudo actualizar la alerta. Intente de nuevo.",
       "loadErrorTitle": "No se pudieron cargar las alertas",
       "loadErrorDescription": "Ocurrió un error al conectar con el servidor. Intente recargar la página."
-    },
-    "activity": {
-      "emptyTitle": "Sin actividad registrada",
-      "emptyDescription": "Aún no hay eventos registrados para este cliente."
     }
   },
   "documentsModule": {
@@ -472,59 +455,25 @@
       "error": "No se pudo actualizar la alerta. Intente de nuevo."
     }
   },
-  "reports": {
-    "title": "Reportes",
-    "description": "Indicadores operativos de ODL LoanFlow CRM. Datos de demostración.",
-    "kpis": {
-      "applicationsReceived": "Solicitudes recibidas",
-      "documentationRate": "Tasa de documentación completa",
-      "documentationRateHint": "Sobre el total de solicitudes activas",
-      "approvedApplications": "Solicitudes aprobadas",
-      "notEligibleApplications": "Solicitudes que no aplican",
-      "ofTotal": "{percent}% del total"
-    },
-    "frequentReasonsTitle": "Motivos frecuentes de no aplicación",
-    "frequentReasons": {
-      "incompleteDocumentation": "Documentación incompleta",
-      "companyNotEligible": "La empresa no aplica a descuento directo",
-      "previousDefault": "Historial de incumplimiento previo",
-      "insufficientIncome": "Ingresos insuficientes",
-      "inconsistentInformation": "Información inconsistente"
-    },
-    "avgTimeTitle": "Tiempo promedio entre estados",
-    "advisorProductivityTitle": "Productividad por asesor",
-    "columns": {
-      "advisor": "Asesor",
-      "managedApplications": "Solicitudes gestionadas",
-      "approved": "Aprobadas",
-      "avgClosingTime": "Tiempo promedio de cierre"
-    }
-  },
   "settings": {
     "title": "Configuración",
-    "description": "Ajustes generales del sistema. Pantallas de demostración para esta fase.",
+    "description": "Configuración del sistema: perfil, usuarios, productos y catálogos de referencia.",
     "tabs": {
       "profile": "Perfil",
       "users": "Usuarios y roles",
       "products": "Productos",
       "applicationStatuses": "Estados de solicitudes",
-      "documentTypes": "Tipos de documentos",
-      "companies": "Empresas",
-      "notifications": "Notificaciones",
-      "security": "Seguridad"
+      "documentTypes": "Tipos de documentos"
     },
     "profile": {
       "title": "Perfil del usuario",
       "fullName": "Nombre completo",
       "email": "Correo electrónico",
       "role": "Rol",
-      "save": "Guardar cambios",
-      "toastSaved": "Perfil actualizado (demostración)."
+      "readOnlyNotice": "Estos datos son administrados por el equipo de ODL. La edición de perfil no está disponible."
     },
     "users": {
       "title": "Usuarios y roles",
-      "invite": "Invitar usuario",
-      "toastInvite": "Invitar usuarios estará disponible en una fase posterior.",
       "columns": {
         "name": "Nombre",
         "email": "Correo electrónico",
@@ -650,40 +599,6 @@
     "documentTypes": {
       "title": "Tipos de documentos",
       "description": "Requisitos documentales oficiales solicitados a los clientes."
-    },
-    "companies": {
-      "title": "Empresas con descuento directo",
-      "description": "Empresas cuyos empleados pueden solicitar préstamos con descuento directo de planilla.",
-      "toastToggleOn": "{name}: descuento directo activado (demostración).",
-      "toastToggleOff": "{name}: descuento directo desactivado (demostración)."
-    },
-    "notifications": {
-      "title": "Notificaciones",
-      "description": "Elija qué eventos desea recibir por correo electrónico dentro del sistema.",
-      "newApplication": "Nuevas solicitudes",
-      "newApplicationDescription": "Cuando se registra una nueva solicitud de préstamo.",
-      "documents": "Documentos pendientes",
-      "documentsDescription": "Recordatorios de documentos pendientes por recibir o revisar.",
-      "alerts": "Alertas y restricciones",
-      "alertsDescription": "Cuando se registra una alerta interna sobre un cliente.",
-      "statusChanges": "Cambios de estado",
-      "statusChangesDescription": "Cuando una solicitud cambia de estado.",
-      "weeklySummary": "Resumen semanal",
-      "weeklySummaryDescription": "Resumen semanal de actividad y reportes operativos."
-    },
-    "security": {
-      "title": "Seguridad de la cuenta",
-      "twoFactor": "Autenticación de dos factores",
-      "twoFactorDescription": "Requiere un código adicional al iniciar sesión.",
-      "sessionTimeout": "Cierre de sesión automático",
-      "sessionTimeoutDescription": "Tiempo de inactividad antes de cerrar sesión.",
-      "minutes15": "15 minutos",
-      "minutes30": "30 minutos",
-      "minutes60": "60 minutos",
-      "password": "Contraseña",
-      "passwordLastUpdate": "Última actualización: hace 3 meses.",
-      "changePassword": "Cambiar contraseña",
-      "toastPasswordDisabled": "Cambio de contraseña no disponible en esta fase de demostración."
     }
   },
   "chat": {
@@ -816,69 +731,6 @@
     "analista": "Analista",
     "asesor": "Asesor",
     "consulta": "Consulta"
-  },
-  "notificationsDropdown": {
-    "recent": "Notificaciones recientes",
-    "n1Title": "Documento recibido",
-    "n2Title": "Solicitud en evaluación",
-    "n3Title": "Alerta registrada"
-  },
-  "activityLog": {
-    "act001": "Cliente creado en el sistema.",
-    "act002": "Solicitud {number} iniciada.",
-    "act003": "{name} envió su carta de trabajo.",
-    "act004": "Cliente creado en el sistema.",
-    "act005": "Solicitud {number} iniciada.",
-    "act006": "Se verificó la documentación completa de {name}.",
-    "act007": "{name} fue movida a evaluación.",
-    "act008": "Cliente creado en el sistema.",
-    "act009": "Solicitud {number} iniciada.",
-    "act010": "{name} tiene documentos pendientes.",
-    "act011": "Cliente creado en el sistema.",
-    "act012": "Solicitud {number} iniciada.",
-    "act013": "Documentación de {name} verificada en su totalidad.",
-    "act014": "{name} fue aprobada.",
-    "act015": "Cliente creado en el sistema.",
-    "act016": "Solicitud {number} iniciada.",
-    "act017": "{name} recibió una alerta interna.",
-    "act018": "Solicitud de {name} marcada como No aplica.",
-    "act019": "Cliente creado en el sistema.",
-    "act020": "Solicitud {number} iniciada.",
-    "act021": "{name} completó el envío de sus documentos.",
-    "act022": "Solicitud movida a Documentación completa.",
-    "act023": "Cliente creado en el sistema.",
-    "act024": "Solicitud {number} iniciada.",
-    "act025": "Se verificaron 5 de 6 documentos de {name}.",
-    "act026": "Cliente creado en el sistema.",
-    "act027": "Solicitud {number} iniciada.",
-    "act028": "Solicitud de {name} fue aprobada.",
-    "act029": "Cliente creado en el sistema.",
-    "act030": "Solicitud {number} iniciada.",
-    "act031": "Solicitud empresarial de {name} fue aprobada.",
-    "act032": "Cliente creado en el sistema.",
-    "act033": "Cliente marcado como Inactivo por falta de respuesta.",
-    "act034": "Cliente creado en el sistema.",
-    "act035": "Nueva solicitud registrada para {name}.",
-    "act036": "Cliente creado en el sistema.",
-    "act037": "Solicitud {number} iniciada.",
-    "act038": "{name} envió su último comprobante de pago.",
-    "act039": "Cliente creado en el sistema.",
-    "act040": "Se registró una restricción interna para {name}.",
-    "act041": "Solicitud {number} iniciada.",
-    "act042": "Solicitud de {name} fue cancelada.",
-    "act043": "Cliente creado en el sistema.",
-    "act044": "Solicitud {number} iniciada.",
-    "act045": "Solicitud empresarial de {name} fue aprobada.",
-    "act046": "Cliente creado en el sistema.",
-    "act047": "Solicitud {number} iniciada.",
-    "act048": "Se solicitó actualización del recibo de servicios a {name}.",
-    "act049": "Cliente creado en el sistema.",
-    "act050": "Cliente registrado en cartera activa para seguimiento comercial.",
-    "statusChanged": "Estado de la solicitud cambiado a \"{status}\".",
-    "documentStatusChanged": "{document} marcado como \"{status}\".",
-    "documentReplaced": "Se reemplazó el documento: {document}.",
-    "noteAdded": "Se agregó una nueva nota interna.",
-    "alertRegistered": "Se registró una alerta: {type}."
   },
   "validation": {
     "fieldRequired": "Este campo es obligatorio."

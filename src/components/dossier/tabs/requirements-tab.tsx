@@ -39,7 +39,6 @@ import { useCapability } from "@/lib/auth/use-capability";
 import { formatDate } from "@/lib/format";
 import type { Locale } from "@/i18n/config";
 import type {
-  ActivityEvent,
   ApplicationListItem,
   DocumentEvidence,
   RequirementSlot,
@@ -72,11 +71,6 @@ interface RequirementsTabProps {
    * throwing or showing a blank screen if it's ever actually hit. */
   requirementsData: DossierRequirementsData | null;
   onRefetch: () => Promise<void>;
-  onActivity: (
-    descriptionKey: string,
-    params: Record<string, string> | undefined,
-    type: ActivityEvent["type"]
-  ) => void;
 }
 
 interface PendingUpload {
@@ -90,7 +84,7 @@ interface ViewDialogState {
   mimeType: string;
 }
 
-export function RequirementsTab({ application, requirementsData, onRefetch, onActivity }: RequirementsTabProps) {
+export function RequirementsTab({ application, requirementsData, onRefetch }: RequirementsTabProps) {
   const locale = useLocale() as Locale;
   const t = useTranslations();
   // Milestone 16 — the document workflow splits across three capabilities
@@ -208,11 +202,6 @@ export function RequirementsTab({ application, requirementsData, onRefetch, onAc
       return;
     }
 
-    onActivity(
-      target.replacesEvidenceId ? "documentReplaced" : "documentStatusChanged",
-      { document: label },
-      "documento_recibido"
-    );
     toast.success(t("dossier.documents.toasts.evidenceUploaded", { requirement: label }));
   };
 
@@ -265,11 +254,6 @@ export function RequirementsTab({ application, requirementsData, onRefetch, onAc
     await onRefetch();
     const label = slot.name[locale] ?? slot.code;
     const statusLabel = t(`statuses.requirementSlotStatus.${status}`);
-    onActivity(
-      "documentStatusChanged",
-      { document: label, status: statusLabel },
-      "estado_modificado"
-    );
     toast.success(
       t("dossier.documents.toasts.requirementStatusUpdated", { requirement: label, status: statusLabel })
     );

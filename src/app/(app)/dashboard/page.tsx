@@ -2,9 +2,7 @@ import { getTranslations } from "next-intl/server";
 import { Users, FilePlus2, FileClock, Scale, CheckCircle2, XCircle } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { KpiCard } from "@/components/dashboard/kpi-card";
-import { RecentActivityCard } from "@/components/dashboard/recent-activity-card";
 import { StatusDistributionCard } from "@/components/dashboard/status-distribution-card";
-import { PendingTasksCard } from "@/components/dashboard/pending-tasks-card";
 import { getClients } from "@/lib/services/clients";
 import { getApplications } from "@/lib/services/applications";
 import { getDocumentSlotsAwaitingReviewCount } from "@/lib/services/requirement-slots";
@@ -26,6 +24,18 @@ import type { ApplicationListItem } from "@/types";
  * data-source swap, not a redesign). documentsAwaitingReview (Requirement
  * Slot Engine, migrated in 12E1b) is untouched — it derives from neither
  * demo Applications nor demo Clients.
+ *
+ * MILESTONE 18: every panel remaining on this page reads real Supabase
+ * data. RecentActivityCard (fabricated events about demo clients) and
+ * PendingTasksCard (four invented tasks with checkboxes that persisted
+ * nothing — there is no tasks table in this schema) were removed rather
+ * than re-sourced. Neither was replaced: a real activity feed is a later
+ * milestone, and inventing "tasks" out of alerts or documents would have
+ * been the same fabrication in a new costume. /documentos and /alertas
+ * are already the real operational queues and are one click away.
+ *
+ * Error states stay honest: a failed read renders "—" plus an
+ * explanatory hint, never a fabricated 0.
  */
 export default async function DashboardPage() {
   const t = await getTranslations("dashboard");
@@ -92,17 +102,8 @@ export default async function DashboardPage() {
         ))}
       </div>
 
-      <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <div className="lg:col-span-2">
-          <RecentActivityCard />
-        </div>
-        <div className="space-y-4">
-          <StatusDistributionCard applications={applications} />
-        </div>
-      </div>
-
-      <div className="mt-4">
-        <PendingTasksCard />
+      <div className="mt-6">
+        <StatusDistributionCard applications={applications} />
       </div>
     </div>
   );

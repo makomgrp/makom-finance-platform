@@ -1,9 +1,8 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { useLocale, useTranslations } from "next-intl";
-import { Bell, Search, LogOut, Settings, UserRound } from "lucide-react";
-import { Input } from "@/components/ui/input";
+import { useTranslations } from "next-intl";
+import { Bell, LogOut, Settings, UserRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -21,33 +20,30 @@ import { useCurrentProfile } from "@/lib/auth/current-profile-context";
 import { signOutAction } from "@/lib/auth/actions";
 import { getSectionTitleKey } from "./nav-config";
 import { MobileNav } from "./mobile-nav";
-import { formatRelativeTime, getInitials } from "@/lib/format";
-import type { Locale } from "@/i18n/config";
+import { getInitials } from "@/lib/format";
 
-const DEMO_NOTIFICATIONS = [
-  {
-    id: "n-1",
-    titleKey: "notificationsDropdown.n1Title",
-    descriptionKey: "activityLog.act003",
-    params: { name: "Juan Pérez" },
-    date: "2026-08-02T14:20:00-05:00",
-  },
-  {
-    id: "n-2",
-    titleKey: "notificationsDropdown.n2Title",
-    descriptionKey: "activityLog.act007",
-    params: { name: "Ana Gómez" },
-    date: "2026-08-03T09:10:00-05:00",
-  },
-  {
-    id: "n-3",
-    titleKey: "notificationsDropdown.n3Title",
-    descriptionKey: "activityLog.act017",
-    params: { name: "Pedro González" },
-    date: "2026-07-20T10:35:00-05:00",
-  },
-];
-
+/**
+ * MILESTONE 18: the bell used to open a dropdown listing three hardcoded
+ * "notifications" about demo clients, directly beneath a badge showing a
+ * REAL active-alert count — the true number made the invented entries
+ * read as real.
+ *
+ * The fix is a COUNT ONLY, and deliberately not a list of real alerts
+ * either. Every alert currently persisted is seeded fixture content: it
+ * is real PERSISTENCE, but it is not real ODL business history. An
+ * aggregate count over those rows is a true statement about the system's
+ * state ("there are N unresolved alerts"); rendering them individually in
+ * the app shell — client name, alert type, timestamp — would narrate
+ * fixture data as though it were operational history, which is precisely
+ * what this milestone exists to remove. The alerts module itself is the
+ * right place to inspect individual records, with its own context.
+ *
+ * So the bell is now a plain link to /alertas carrying the real count.
+ * No dropdown, no per-record narrative, and no notification
+ * infrastructure: there is no notifications table, no read/unread state,
+ * no preference model and no delivery channel, and Milestone 18
+ * introduced none of them.
+ */
 interface TopbarProps {
   /** Resolved server-side by src/app/(app)/layout.tsx via
    * getActiveAlertsCount() — null means the count failed to load. The
@@ -59,7 +55,6 @@ interface TopbarProps {
 export function Topbar({ activeAlertsCount }: TopbarProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const locale = useLocale() as Locale;
   // Milestone 5A: real authenticated identity, resolved once server-side
   // by src/app/(app)/layout.tsx and provided via CurrentProfileProvider —
   // no query happens here.
@@ -94,47 +89,22 @@ export function Topbar({ activeAlertsCount }: TopbarProps) {
       </h1>
 
       <div className="ml-auto flex items-center gap-2 md:gap-3">
-        <div className="relative hidden sm:block">
-          <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            type="search"
-            placeholder={t("common.globalSearchPlaceholder")}
-            className="w-48 pl-8 md:w-64"
-          />
-        </div>
-
         <LocaleSwitcher />
 
-        <DropdownMenu>
-          <DropdownMenuTrigger
-            render={
-              <Button variant="ghost" size="icon" className="relative">
-                <Bell className="size-[18px]" />
-                {activeAlertsCount !== null && activeAlertsCount > 0 && (
-                  <Badge className="absolute -right-1 -top-1 size-4 justify-center rounded-full bg-destructive p-0 text-[10px] text-white">
-                    {activeAlertsCount}
-                  </Badge>
-                )}
-                <span className="sr-only">{t("common.notifications")}</span>
-              </Button>
-            }
-          />
-          <DropdownMenuContent align="end" className="w-80">
-            <DropdownMenuLabel>{t("notificationsDropdown.recent")}</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            {DEMO_NOTIFICATIONS.map((notification) => (
-              <DropdownMenuItem key={notification.id} className="flex-col items-start gap-0.5">
-                <span className="text-sm font-medium">{t(notification.titleKey)}</span>
-                <span className="text-xs text-muted-foreground">
-                  {t(notification.descriptionKey, notification.params)}
-                </span>
-                <span className="text-[11px] text-muted-foreground/70">
-                  {formatRelativeTime(notification.date, locale, t)}
-                </span>
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="relative"
+          onClick={() => router.push("/alertas")}
+        >
+          <Bell className="size-[18px]" />
+          {activeAlertsCount !== null && activeAlertsCount > 0 && (
+            <Badge className="absolute -right-1 -top-1 size-4 justify-center rounded-full bg-destructive p-0 text-[10px] text-white">
+              {activeAlertsCount}
+            </Badge>
+          )}
+          <span className="sr-only">{t("navigation.alerts")}</span>
+        </Button>
 
         <DropdownMenu>
           <DropdownMenuTrigger

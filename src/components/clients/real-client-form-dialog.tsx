@@ -55,7 +55,16 @@ const EMPTY_FORM = {
   identificationNumber: "",
   phone: "",
   email: "",
-  companyLegacyId: COMPANIES[0]?.id ?? "",
+  // MILESTONE 18: deliberately EMPTY, not COMPANIES[0]. This field used
+  // to default to the first entry in the static company list, so every
+  // client created through the CRM was silently persisted as an employee
+  // of Grupo Kativo unless the operator noticed and changed it — the CRM
+  // was writing fabricated employer data, not merely displaying it.
+  // Employer is optional at both the schema level (clients.company_legacy_id
+  // is nullable) and the service level (CreateClientInput.companyLegacyId
+  // is optional, mapped `?? null`), so an untouched field now persists
+  // NULL, which is the honest value for "we did not ask".
+  companyLegacyId: "",
   position: "",
   monthlySalary: "",
   birthDate: "",

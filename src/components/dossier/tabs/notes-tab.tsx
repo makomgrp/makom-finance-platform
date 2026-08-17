@@ -31,7 +31,7 @@ import { createDossierNote } from "@/app/(app)/expedientes/actions";
 import { useCapability } from "@/lib/auth/use-capability";
 import { formatDateTime } from "@/lib/format";
 import type { Locale } from "@/i18n/config";
-import type { ActivityEvent, InternalNote, NotePriority, NoteType } from "@/types";
+import type { InternalNote, NotePriority, NoteType } from "@/types";
 
 interface NotesTabProps {
   /** The real Client this note belongs to (Client.id) — Milestone
@@ -40,18 +40,13 @@ interface NotesTabProps {
   clientId: string;
   notes: InternalNote[];
   onNotesChange: (notes: InternalNote[]) => void;
-  onActivity: (
-    descriptionKey: string,
-    params: Record<string, string> | undefined,
-    type: ActivityEvent["type"]
-  ) => void;
   /** True when the initial server-side load of this client's notes failed.
    * Never silently falls back to an empty/demo state — see the Milestone 6
    * architecture review's failure-state design. */
   loadError: boolean;
 }
 
-export function NotesTab({ clientId, notes, onNotesChange, onActivity, loadError }: NotesTabProps) {
+export function NotesTab({ clientId, notes, onNotesChange, loadError }: NotesTabProps) {
   const locale = useLocale() as Locale;
   const t = useTranslations();
   // Milestone 16 — authoring a note is ordinary operational work, granted
@@ -76,7 +71,6 @@ export function NotesTab({ clientId, notes, onNotesChange, onActivity, loadError
     }
 
     onNotesChange([result.note, ...notes]);
-    onActivity("noteAdded", undefined, "nota_agregada");
     toast.success(t("dossier.notes.toastAdded"));
     setText("");
     setType("general");

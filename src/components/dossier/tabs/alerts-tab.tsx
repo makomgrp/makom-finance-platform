@@ -32,7 +32,7 @@ import { createDossierAlert, setDossierAlertStatus } from "@/app/(app)/expedient
 import { useCapability } from "@/lib/auth/use-capability";
 import { formatDate } from "@/lib/format";
 import type { Locale } from "@/i18n/config";
-import type { ActivityEvent, AlertLevel, AlertType, DossierAlert } from "@/types";
+import type { AlertLevel, AlertType, DossierAlert } from "@/types";
 
 interface AlertsTabProps {
   /** The real Client this alert belongs to (Client.id) — Milestone
@@ -41,18 +41,13 @@ interface AlertsTabProps {
   clientId: string;
   alerts: DossierAlert[];
   onAlertsChange: (alerts: DossierAlert[]) => void;
-  onActivity: (
-    descriptionKey: string,
-    params: Record<string, string> | undefined,
-    type: ActivityEvent["type"]
-  ) => void;
   /** True when the initial server-side load of this client's alerts
    * failed. Never silently falls back to an empty/demo state — see the
    * Milestone 7 architecture review's failure-state design. */
   loadError: boolean;
 }
 
-export function AlertsTab({ clientId, alerts, onAlertsChange, onActivity, loadError }: AlertsTabProps) {
+export function AlertsTab({ clientId, alerts, onAlertsChange, loadError }: AlertsTabProps) {
   const locale = useLocale() as Locale;
   const t = useTranslations();
   // Milestone 16 — two DIFFERENT capabilities on the same tab: raising an
@@ -81,7 +76,6 @@ export function AlertsTab({ clientId, alerts, onAlertsChange, onActivity, loadEr
     }
 
     onAlertsChange([result.alert, ...alerts]);
-    onActivity("alertRegistered", { type: t(`statuses.alertType.${type}`) }, "alerta_registrada");
     toast.success(t("dossier.alerts.toastAdded"));
     setType("revision_especial");
     setLevel("bajo");
