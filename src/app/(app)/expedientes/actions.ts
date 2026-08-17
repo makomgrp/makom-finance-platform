@@ -9,7 +9,7 @@ import {
 } from "@/lib/services/document-evidence";
 import { ingestDocument } from "@/lib/services/document-intake";
 import { setRequirementSlotStatus, getRequirementSlotsByApplicationId } from "@/lib/services/requirement-slots";
-import { getCurrentProfile } from "@/lib/auth/get-current-profile";
+import { requireCapability } from "@/lib/auth/authorize";
 import { getClientById } from "@/lib/services/clients";
 import { NOTE_PRIORITY_VALUES, NOTE_TYPE_VALUES } from "@/lib/config/note";
 import { ALERT_LEVEL_VALUES, ALERT_TYPE_VALUES } from "@/lib/config/alert";
@@ -35,6 +35,19 @@ import type {
  * Never accepts a client-supplied author identity — the caller is always
  * derived from getCurrentProfile(), same rule as every other Server
  * Action in this app since Milestone 5.
+ *
+ * MILESTONE 16 — this file spans three different permission boundaries and
+ * they must not be collapsed into one:
+ *   - Authoring (note:create, alert:create) — every operational role.
+ *   - Supervision (alert:set_status) — administrador/gerente only;
+ *     resolving someone else's alert is a management act.
+ *   - Analysis judgment (evidence:review, requirement_slot:set_status) —
+ *     administrador/gerente/analista. Deliberately NOT the advisor's, per
+ *     the Milestone 16 role definitions.
+ *   - Intake (evidence:upload) — administrador/gerente/asesor. The advisor
+ *     collects the document; the analyst rules on it.
+ * The two reads (getRequirementEvidenceViewUrl, getDossierRequirements) are
+ * open to every role including `consulta`.
  */
 
 const MAX_NOTE_LENGTH = 4000;
@@ -73,12 +86,21 @@ export type CreateDossierNoteResult =
   | { status: "success"; note: InternalNote }
   | {
       status: "error";
-      code: "INVALID_INPUT" | "UNAUTHENTICATED" | "CLIENT_NOT_FOUND" | "CREATE_FAILED";
+      code: "INVALID_INPUT" | "UNAUTHENTICATED" | "FORBIDDEN" | "CLIENT_NOT_FOUND" | "CREATE_FAILED";
     };
 
 export async function createDossierNote(
   input: CreateDossierNoteInput
 ): Promise<CreateDossierNoteResult> {
+  // Authorize before ANY input validation or database read. This action
+  // previously ran a getClientById() existence check ahead of resolving the
+  // caller, which let an unauthorized caller tell CLIENT_NOT_FOUND from
+  // INVALID_INPUT and probe for client records they may not touch.
+  const auth = await requireCapability("note:create");
+  if (auth.status === "denied") {
+    return { status: "error", code: auth.code };
+  }
+
   if (!isNonEmptyString(input.clientId) || !UUID_PATTERN.test(input.clientId)) {
     return { status: "error", code: "INVALID_INPUT" };
   }
@@ -98,16 +120,10 @@ export async function createDossierNote(
     return { status: "error", code: "CLIENT_NOT_FOUND" };
   }
 
-  const profile = await getCurrentProfile();
-  if (!profile) {
-    console.error("[expedientes actions] createDossierNote rejected: no authenticated profile.");
-    return { status: "error", code: "UNAUTHENTICATED" };
-  }
-
   try {
     const note = await createNote({
       clientId: input.clientId,
-      authorProfileId: profile.id,
+      authorProfileId: auth.profile.id,
       text,
       type: input.type,
       priority: input.priority,
@@ -138,12 +154,18 @@ export type CreateDossierAlertResult =
   | { status: "success"; alert: DossierAlert }
   | {
       status: "error";
-      code: "INVALID_INPUT" | "UNAUTHENTICATED" | "CLIENT_NOT_FOUND" | "CREATE_FAILED";
+      code: "INVALID_INPUT" | "UNAUTHENTICATED" | "FORBIDDEN" | "CLIENT_NOT_FOUND" | "CREATE_FAILED";
     };
 
 export async function createDossierAlert(
   input: CreateDossierAlertInput
 ): Promise<CreateDossierAlertResult> {
+  // Authorize first — same existence-probe reasoning as createDossierNote.
+  const auth = await requireCapability("alert:create");
+  if (auth.status === "denied") {
+    return { status: "error", code: auth.code };
+  }
+
   if (!isNonEmptyString(input.clientId) || !UUID_PATTERN.test(input.clientId)) {
     return { status: "error", code: "INVALID_INPUT" };
   }
@@ -167,16 +189,10 @@ export async function createDossierAlert(
     return { status: "error", code: "CLIENT_NOT_FOUND" };
   }
 
-  const profile = await getCurrentProfile();
-  if (!profile) {
-    console.error("[expedientes actions] createDossierAlert rejected: no authenticated profile.");
-    return { status: "error", code: "UNAUTHENTICATED" };
-  }
-
   try {
     const alert = await createAlert({
       clientId: input.clientId,
-      createdByProfileId: profile.id,
+      createdByProfileId: auth.profile.id,
       type: input.type,
       level: input.level,
       reason,
@@ -203,17 +219,28 @@ export interface SetDossierAlertStatusInput {
 
 export type SetDossierAlertStatusResult =
   | { status: "success"; alert: DossierAlert }
-  | { status: "error"; code: "INVALID_INPUT" | "UNAUTHENTICATED" | "UPDATE_FAILED" };
+  | { status: "error"; code: "INVALID_INPUT" | "UNAUTHENTICATED" | "FORBIDDEN" | "UPDATE_FAILED" };
 
 /**
  * Never accepts resolvedByProfileId from the client — only alertId and the
  * intended target state (true = reactivate, false = resolve). The actor
  * is always the caller's own getCurrentProfile(), applied server-side by
  * src/lib/services/alerts.ts's setAlertStatus.
+ *
+ * Milestone 16 — capability `alert:set_status`, deliberately distinct from
+ * `alert:create` and held only by administrador and gerente. Raising a
+ * concern is ordinary operational work; clearing one — including one
+ * somebody else raised — is a supervisory act, and an alert that any
+ * advisor could silently resolve would not be much of a control.
  */
 export async function setDossierAlertStatus(
   input: SetDossierAlertStatusInput
 ): Promise<SetDossierAlertStatusResult> {
+  const auth = await requireCapability("alert:set_status");
+  if (auth.status === "denied") {
+    return { status: "error", code: auth.code };
+  }
+
   if (!isNonEmptyString(input.alertId) || !UUID_PATTERN.test(input.alertId)) {
     return { status: "error", code: "INVALID_INPUT" };
   }
@@ -221,14 +248,8 @@ export async function setDossierAlertStatus(
     return { status: "error", code: "INVALID_INPUT" };
   }
 
-  const profile = await getCurrentProfile();
-  if (!profile) {
-    console.error("[expedientes actions] setDossierAlertStatus rejected: no authenticated profile.");
-    return { status: "error", code: "UNAUTHENTICATED" };
-  }
-
   try {
-    const alert = await setAlertStatus(input.alertId, input.targetActive, profile.id);
+    const alert = await setAlertStatus(input.alertId, input.targetActive, auth.profile.id);
     return { status: "success", alert };
   } catch (error) {
     console.error(
@@ -257,6 +278,7 @@ export type UploadRequirementEvidenceResult =
       code:
         | "INVALID_INPUT"
         | "UNAUTHENTICATED"
+        | "FORBIDDEN"
         | "INVALID_ACTOR"
         | "INVALID_MIME"
         | "INVALID_FILE_SIZE"
@@ -303,6 +325,14 @@ export type UploadRequirementEvidenceResult =
  * action already returned for "slot not found" prior to this milestone).
  */
 export async function uploadRequirementEvidence(formData: FormData): Promise<UploadRequirementEvidenceResult> {
+  // Authorize before touching the FormData at all — nothing about the
+  // submitted file or its target slot should be parsed, let alone written
+  // to storage, on behalf of a caller who may not upload.
+  const auth = await requireCapability("evidence:upload");
+  if (auth.status === "denied") {
+    return { status: "error", code: auth.code };
+  }
+
   const applicationId = formData.get("applicationId");
   const requirementSlotId = formData.get("requirementSlotId");
   const file = formData.get("file");
@@ -324,17 +354,11 @@ export async function uploadRequirementEvidence(formData: FormData): Promise<Upl
     return { status: "error", code: "INVALID_INPUT" };
   }
 
-  const profile = await getCurrentProfile();
-  if (!profile) {
-    console.error("[expedientes actions] uploadRequirementEvidence rejected: no authenticated profile.");
-    return { status: "error", code: "UNAUTHENTICATED" };
-  }
-
   const result = await ingestDocument({
     applicationId,
     requirementSlotId,
     file,
-    actorProfileId: profile.id,
+    actorProfileId: auth.profile.id,
     source: "crm_manual",
     replacesEvidenceId: typeof replacesEvidenceIdRaw === "string" ? replacesEvidenceIdRaw : undefined,
   });
@@ -376,7 +400,13 @@ export type ReviewRequirementEvidenceResult =
   | { status: "success"; evidence: DocumentEvidence }
   | {
       status: "error";
-      code: "INVALID_INPUT" | "UNAUTHENTICATED" | "NOT_FOUND" | "ALREADY_REVIEWED" | "UPDATE_FAILED";
+      code:
+        | "INVALID_INPUT"
+        | "UNAUTHENTICATED"
+        | "FORBIDDEN"
+        | "NOT_FOUND"
+        | "ALREADY_REVIEWED"
+        | "UPDATE_FAILED";
     };
 
 /**
@@ -387,19 +417,26 @@ export type ReviewRequirementEvidenceResult =
  * deliberately separate action (src/lib/services/document-evidence.ts#
  * reviewDocumentEvidence's own doc comment: "Slot decision remains a
  * separate action" — never infer one from the other).
+ *
+ * Milestone 16 — capability `evidence:review`, an ANALYSIS act: held by
+ * administrador, gerente and analista, and deliberately NOT by asesor. An
+ * advisor supplies the document (`evidence:upload`); attesting that it is
+ * acceptable is somebody else's signature. Note that this capability and
+ * `requirement_slot:set_status` are granted to the same roles today but
+ * remain separate capabilities, mirroring the two actions' deliberate
+ * independence.
  */
 export async function reviewRequirementEvidence(evidenceId: string): Promise<ReviewRequirementEvidenceResult> {
+  const auth = await requireCapability("evidence:review");
+  if (auth.status === "denied") {
+    return { status: "error", code: auth.code };
+  }
+
   if (!isNonEmptyString(evidenceId) || !UUID_PATTERN.test(evidenceId)) {
     return { status: "error", code: "INVALID_INPUT" };
   }
 
-  const profile = await getCurrentProfile();
-  if (!profile) {
-    console.error("[expedientes actions] reviewRequirementEvidence rejected: no authenticated profile.");
-    return { status: "error", code: "UNAUTHENTICATED" };
-  }
-
-  const result = await reviewDocumentEvidence(evidenceId, profile.id);
+  const result = await reviewDocumentEvidence(evidenceId, auth.profile.id);
   if (result.status !== "ok") {
     return { status: "error", code: result.code };
   }
@@ -413,21 +450,28 @@ export async function reviewRequirementEvidence(evidenceId: string): Promise<Rev
 
 export type GetRequirementEvidenceViewUrlResult =
   | { status: "success"; url: string }
-  | { status: "error"; code: "INVALID_INPUT" | "UNAUTHENTICATED" | "NOT_FOUND" | "SIGN_FAILED" };
+  | {
+      status: "error";
+      code: "INVALID_INPUT" | "UNAUTHENTICATED" | "FORBIDDEN" | "NOT_FOUND" | "SIGN_FAILED";
+    };
 
 /** Mints a short-lived (90s) signed URL for one Evidence item — never a
- * permanent or public one. */
+ * permanent or public one.
+ *
+ * Milestone 16 — a READ (`evidence:read`), granted to every role including
+ * `consulta`: viewing a document that is already visible in the dossier is
+ * exactly what a read-only role is for, and the URL it returns expires in
+ * 90 seconds. */
 export async function getRequirementEvidenceViewUrl(
   evidenceId: string
 ): Promise<GetRequirementEvidenceViewUrlResult> {
-  if (!isNonEmptyString(evidenceId) || !UUID_PATTERN.test(evidenceId)) {
-    return { status: "error", code: "INVALID_INPUT" };
+  const auth = await requireCapability("evidence:read");
+  if (auth.status === "denied") {
+    return { status: "error", code: auth.code };
   }
 
-  const profile = await getCurrentProfile();
-  if (!profile) {
-    console.error("[expedientes actions] getRequirementEvidenceViewUrl rejected: no authenticated profile.");
-    return { status: "error", code: "UNAUTHENTICATED" };
+  if (!isNonEmptyString(evidenceId) || !UUID_PATTERN.test(evidenceId)) {
+    return { status: "error", code: "INVALID_INPUT" };
   }
 
   const result = await createSignedEvidenceUrl(evidenceId);
@@ -451,7 +495,14 @@ export type SetDossierRequirementSlotStatusResult =
   | { status: "success"; requirementSlot: RequirementSlot }
   | {
       status: "error";
-      code: "INVALID_INPUT" | "UNAUTHENTICATED" | "INVALID_ACTOR" | "NOT_FOUND" | "INVALID_TRANSITION" | "UPDATE_FAILED";
+      code:
+        | "INVALID_INPUT"
+        | "UNAUTHENTICATED"
+        | "FORBIDDEN"
+        | "INVALID_ACTOR"
+        | "NOT_FOUND"
+        | "INVALID_TRANSITION"
+        | "UPDATE_FAILED";
     };
 
 /**
@@ -468,10 +519,22 @@ export type SetDossierRequirementSlotStatusResult =
  * statusChangedByProfileId from the client; always the caller's own
  * getCurrentProfile(), and source is hardcoded to 'crm_manual' — this
  * action is reachable only from an authenticated CRM session.
+ *
+ * Milestone 16 — capability `requirement_slot:set_status`, an ANALYSIS
+ * judgment: held by administrador, gerente and analista, NOT by asesor.
+ * Its legal targets include `satisfied`, `rejected` and `waived` (see
+ * REQUIREMENT_SLOT_STATUS_TRANSITIONABLE), i.e. declaring a requirement
+ * met or excused — the determination an advisor collects evidence FOR,
+ * not one they make.
  */
 export async function setDossierRequirementSlotStatus(
   input: SetDossierRequirementSlotStatusInput
 ): Promise<SetDossierRequirementSlotStatusResult> {
+  const auth = await requireCapability("requirement_slot:set_status");
+  if (auth.status === "denied") {
+    return { status: "error", code: auth.code };
+  }
+
   if (!isNonEmptyString(input.slotId) || !UUID_PATTERN.test(input.slotId)) {
     return { status: "error", code: "INVALID_INPUT" };
   }
@@ -479,13 +542,12 @@ export async function setDossierRequirementSlotStatus(
     return { status: "error", code: "INVALID_INPUT" };
   }
 
-  const profile = await getCurrentProfile();
-  if (!profile) {
-    console.error("[expedientes actions] setDossierRequirementSlotStatus rejected: no authenticated profile.");
-    return { status: "error", code: "UNAUTHENTICATED" };
-  }
-
-  const result = await setRequirementSlotStatus(input.slotId, input.status, "crm_manual", profile.id);
+  const result = await setRequirementSlotStatus(
+    input.slotId,
+    input.status,
+    "crm_manual",
+    auth.profile.id
+  );
   if (result.status !== "ok") {
     return { status: "error", code: result.code };
   }
@@ -499,7 +561,7 @@ export async function setDossierRequirementSlotStatus(
 
 export type GetDossierRequirementsResult =
   | { status: "success"; requirementSlots: RequirementSlot[]; evidence: DocumentEvidence[] }
-  | { status: "error"; code: "INVALID_INPUT" | "UNAUTHENTICATED" | "QUERY_FAILED" };
+  | { status: "error"; code: "INVALID_INPUT" | "UNAUTHENTICATED" | "FORBIDDEN" | "QUERY_FAILED" };
 
 /**
  * Read-only refetch of both Requirement Slots and Evidence for one real
@@ -514,14 +576,13 @@ export type GetDossierRequirementsResult =
  * would miss any Slot-status side effect that mutation also caused.
  */
 export async function getDossierRequirements(applicationId: string): Promise<GetDossierRequirementsResult> {
-  if (!isNonEmptyString(applicationId) || !UUID_PATTERN.test(applicationId)) {
-    return { status: "error", code: "INVALID_INPUT" };
+  const auth = await requireCapability("requirement:read");
+  if (auth.status === "denied") {
+    return { status: "error", code: auth.code };
   }
 
-  const profile = await getCurrentProfile();
-  if (!profile) {
-    console.error("[expedientes actions] getDossierRequirements rejected: no authenticated profile.");
-    return { status: "error", code: "UNAUTHENTICATED" };
+  if (!isNonEmptyString(applicationId) || !UUID_PATTERN.test(applicationId)) {
+    return { status: "error", code: "INVALID_INPUT" };
   }
 
   const [slotsResult, evidenceResult] = await Promise.all([

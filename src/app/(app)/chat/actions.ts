@@ -1,7 +1,7 @@
 "use server";
 
 import { sendMessage, markConversationRead, ensureMessageTranslation } from "@/lib/services/chat";
-import { getCurrentProfile } from "@/lib/auth/get-current-profile";
+import { requireCapability } from "@/lib/auth/authorize";
 import { SUPPORTED_LANGUAGE_VALUES } from "@/lib/config/language";
 import type { ChatMessage, SupportedLanguage } from "@/types";
 
@@ -22,6 +22,16 @@ import type { ChatMessage, SupportedLanguage } from "@/types";
  * behind it — these do that independently now, per the
  * "Server Actions never receive client-supplied identity" rule in the Auth
  * migration plan.
+ *
+ * MILESTONE 16: identity resolution is unchanged — it now arrives through
+ * requireCapability(), which proves permission as well as identity. Note
+ * the deliberate split between the three actions here: sending a message
+ * and retrying a translation both write shared state and are therefore
+ * denied to `consulta`, while markChatConversationRead advances only the
+ * CALLER'S OWN read cursor and is granted to every role (see the
+ * "chat:mark_read" note in src/lib/auth/capabilities.ts). A strictly
+ * read-only user can still read chat and clear their own unread badges;
+ * they cannot put anything in front of anyone else.
  */
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -51,9 +61,14 @@ export interface SendChatMessageInput {
 
 export type SendChatMessageResult =
   | { status: "success"; message: ChatMessage; conversationRealId: string }
-  | { status: "error"; code: "INVALID_INPUT" | "UNAUTHENTICATED" | "SEND_FAILED" };
+  | { status: "error"; code: "INVALID_INPUT" | "UNAUTHENTICATED" | "FORBIDDEN" | "SEND_FAILED" };
 
 export async function sendChatMessage(input: SendChatMessageInput): Promise<SendChatMessageResult> {
+  const auth = await requireCapability("chat:send");
+  if (auth.status === "denied") {
+    return { status: "error", code: auth.code };
+  }
+
   if (!isNonEmptyString(input.id) || !UUID_PATTERN.test(input.id)) {
     return { status: "error", code: "INVALID_INPUT" };
   }
@@ -68,16 +83,10 @@ export async function sendChatMessage(input: SendChatMessageInput): Promise<Send
     return { status: "error", code: "INVALID_INPUT" };
   }
 
-  const profile = await getCurrentProfile();
-  if (!profile) {
-    console.error("[chat actions] sendChatMessage rejected: no authenticated profile.");
-    return { status: "error", code: "UNAUTHENTICATED" };
-  }
-
   try {
     const { message, conversationRealId } = await sendMessage({
       id: input.id,
-      senderProfileId: profile.id,
+      senderProfileId: auth.profile.id,
       recipientLegacyId: input.recipientLegacyId,
       text,
       originalLanguage: input.originalLanguage,
@@ -105,23 +114,22 @@ export interface MarkChatConversationReadInput {
 
 export type MarkChatConversationReadResult =
   | { status: "success" }
-  | { status: "error"; code: "INVALID_INPUT" | "UNAUTHENTICATED" | "MARK_READ_FAILED" };
+  | { status: "error"; code: "INVALID_INPUT" | "UNAUTHENTICATED" | "FORBIDDEN" | "MARK_READ_FAILED" };
 
 export async function markChatConversationRead(
   input: MarkChatConversationReadInput
 ): Promise<MarkChatConversationReadResult> {
+  const auth = await requireCapability("chat:mark_read");
+  if (auth.status === "denied") {
+    return { status: "error", code: auth.code };
+  }
+
   if (!isNonEmptyString(input.colleagueLegacyId)) {
     return { status: "error", code: "INVALID_INPUT" };
   }
 
-  const profile = await getCurrentProfile();
-  if (!profile) {
-    console.error("[chat actions] markChatConversationRead rejected: no authenticated profile.");
-    return { status: "error", code: "UNAUTHENTICATED" };
-  }
-
   try {
-    await markConversationRead(profile.id, input.colleagueLegacyId);
+    await markConversationRead(auth.profile.id, input.colleagueLegacyId);
     return { status: "success" };
   } catch (error) {
     console.error(
@@ -143,26 +151,25 @@ export interface RetryChatMessageTranslationInput {
 
 export type RetryChatMessageTranslationResult =
   | { status: "success"; text: string }
-  | { status: "error"; code: "INVALID_INPUT" | "UNAUTHENTICATED" | "TRANSLATION_FAILED" };
+  | { status: "error"; code: "INVALID_INPUT" | "UNAUTHENTICATED" | "FORBIDDEN" | "TRANSLATION_FAILED" };
 
 export async function retryChatMessageTranslation(
   input: RetryChatMessageTranslationInput
 ): Promise<RetryChatMessageTranslationResult> {
+  // Milestone 16: this action never took an actor-identity parameter and
+  // never attributes a write to anyone, but it does persist a new cached
+  // translation row for a message every participant then sees — shared
+  // state, not the caller's own. Guarded as a mutation accordingly.
+  const auth = await requireCapability("chat:retry_translation");
+  if (auth.status === "denied") {
+    return { status: "error", code: auth.code };
+  }
+
   if (!isNonEmptyString(input.messageId) || !UUID_PATTERN.test(input.messageId)) {
     return { status: "error", code: "INVALID_INPUT" };
   }
   if (!isSupportedLanguage(input.targetLanguage)) {
     return { status: "error", code: "INVALID_INPUT" };
-  }
-
-  // This action never took an actor-identity parameter to begin with, but
-  // per Milestone 5B it must not rely on route protection alone either —
-  // independently confirm a real session is behind this call before
-  // touching translation state at all.
-  const profile = await getCurrentProfile();
-  if (!profile) {
-    console.error("[chat actions] retryChatMessageTranslation rejected: no authenticated profile.");
-    return { status: "error", code: "UNAUTHENTICATED" };
   }
 
   try {

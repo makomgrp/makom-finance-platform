@@ -8,6 +8,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ApplicationStatusMenu } from "@/components/applications/application-status-menu";
 import { APPLICATION_STATUS_ORDER, APPLICATION_STATUS_TRANSITIONS } from "@/lib/config/application";
 import { formatRelativeTime, getInitials } from "@/lib/format";
+import { useCapability } from "@/lib/auth/use-capability";
 import type { Locale } from "@/i18n/config";
 import type { ApplicationListItem, ApplicationStatus } from "@/types";
 
@@ -20,6 +21,9 @@ interface ApplicationsKanbanProps {
 }
 
 export function ApplicationsKanban({ applications, documentSlotCounts, onStatusChange }: ApplicationsKanbanProps) {
+  // Milestone 16 — same capability and reasoning as ApplicationsTable; the
+  // kanban is just the other view of the same list.
+  const canSetApplicationStatus = useCapability("application:set_status");
   const router = useRouter();
   const locale = useLocale() as Locale;
   const t = useTranslations();
@@ -85,16 +89,18 @@ export function ApplicationsKanban({ applications, documentSlotCounts, onStatusC
                         </span>
                       </div>
 
-                      <ApplicationStatusMenu
-                        options={legalTargets.map((target) => ({
-                          value: target,
-                          label: t(`statuses.applicationStatus.${target}`),
-                        }))}
-                        triggerDisabled={legalTargets.length === 0}
-                        onChange={(newStatus) => onStatusChange(app.id, newStatus as ApplicationStatus)}
-                        triggerLabel={t("applications.statusMenu.move")}
-                        className="w-full"
-                      />
+                      {canSetApplicationStatus && (
+                        <ApplicationStatusMenu
+                          options={legalTargets.map((target) => ({
+                            value: target,
+                            label: t(`statuses.applicationStatus.${target}`),
+                          }))}
+                          triggerDisabled={legalTargets.length === 0}
+                          onChange={(newStatus) => onStatusChange(app.id, newStatus as ApplicationStatus)}
+                          triggerLabel={t("applications.statusMenu.move")}
+                          className="w-full"
+                        />
+                      )}
                     </CardContent>
                   </Card>
                 );

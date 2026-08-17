@@ -12,7 +12,7 @@ import {
   setRequirementTemplateStatus as setRequirementTemplateStatusService,
   moveRequirementTemplate as moveRequirementTemplateService,
 } from "@/lib/services/requirement-templates";
-import { getCurrentProfile } from "@/lib/auth/get-current-profile";
+import { requireCapability } from "@/lib/auth/authorize";
 import { PRODUCT_STATUS_ORDER } from "@/lib/config/product";
 import { REQUIREMENT_KIND_ORDER, REQUIREMENT_STATUS_ORDER } from "@/lib/config/requirement";
 import type {
@@ -33,6 +33,16 @@ import type {
  * Never accepts a client-supplied actor identity — the caller is always
  * derived from getCurrentProfile(), same rule as every other Server Action
  * in this app since Milestone 5.
+ *
+ * MILESTONE 16 — EVERY action in this file is ADMINISTRADOR-ONLY. These are
+ * the CRM's system-configuration mutations: they define the Products the
+ * business offers and the Requirement Templates every future Application
+ * inherits, so a change here silently reshapes work across every other
+ * module rather than affecting one record. `gerente` deliberately does NOT
+ * hold these despite holding every operational capability — the Milestone 16
+ * boundary is operations vs. configuration, not seniority. The two
+ * capabilities below (`product:manage`, `requirement_template:manage`) are
+ * the only ones in the canonical matrix granted to exactly one role.
  */
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -74,9 +84,14 @@ export interface CreateProductInput {
 
 export type CreateProductActionResult =
   | { status: "success"; product: Product }
-  | { status: "error"; code: "INVALID_INPUT" | "UNAUTHENTICATED" | "DUPLICATE_CODE" | "CREATE_FAILED" };
+  | { status: "error"; code: "INVALID_INPUT" | "UNAUTHENTICATED" | "FORBIDDEN" | "DUPLICATE_CODE" | "CREATE_FAILED" };
 
 export async function createProduct(input: CreateProductInput): Promise<CreateProductActionResult> {
+  const auth = await requireCapability("product:manage");
+  if (auth.status === "denied") {
+    return { status: "error", code: auth.code };
+  }
+
   if (!isNonEmptyString(input.code) || !CODE_PATTERN.test(input.code.trim())) {
     return { status: "error", code: "INVALID_INPUT" };
   }
@@ -88,12 +103,6 @@ export async function createProduct(input: CreateProductInput): Promise<CreatePr
     !isValidLocalizedText(input.shortDescription, MAX_DESCRIPTION_LENGTH)
   ) {
     return { status: "error", code: "INVALID_INPUT" };
-  }
-
-  const profile = await getCurrentProfile();
-  if (!profile) {
-    console.error("[configuracion actions] createProduct rejected: no authenticated profile.");
-    return { status: "error", code: "UNAUTHENTICATED" };
   }
 
   const result = await createProductService({
@@ -121,11 +130,16 @@ export interface UpdateProductDetailsInput {
 
 export type UpdateProductDetailsActionResult =
   | { status: "success"; product: Product }
-  | { status: "error"; code: "INVALID_INPUT" | "UNAUTHENTICATED" | "PRODUCT_NOT_FOUND" | "UPDATE_FAILED" };
+  | { status: "error"; code: "INVALID_INPUT" | "UNAUTHENTICATED" | "FORBIDDEN" | "PRODUCT_NOT_FOUND" | "UPDATE_FAILED" };
 
 export async function updateProductDetails(
   input: UpdateProductDetailsInput
 ): Promise<UpdateProductDetailsActionResult> {
+  const auth = await requireCapability("product:manage");
+  if (auth.status === "denied") {
+    return { status: "error", code: auth.code };
+  }
+
   if (!isNonEmptyString(input.productId) || !UUID_PATTERN.test(input.productId)) {
     return { status: "error", code: "INVALID_INPUT" };
   }
@@ -137,12 +151,6 @@ export async function updateProductDetails(
     !isValidLocalizedText(input.shortDescription, MAX_DESCRIPTION_LENGTH)
   ) {
     return { status: "error", code: "INVALID_INPUT" };
-  }
-
-  const profile = await getCurrentProfile();
-  if (!profile) {
-    console.error("[configuracion actions] updateProductDetails rejected: no authenticated profile.");
-    return { status: "error", code: "UNAUTHENTICATED" };
   }
 
   const result = await updateProductDetailsService(input.productId, {
@@ -170,7 +178,7 @@ export type SetProductStatusActionResult =
   | { status: "success"; product: Product }
   | {
       status: "error";
-      code: "INVALID_INPUT" | "UNAUTHENTICATED" | "PRODUCT_NOT_FOUND" | "INVALID_TRANSITION" | "UPDATE_FAILED";
+      code: "INVALID_INPUT" | "UNAUTHENTICATED" | "FORBIDDEN" | "PRODUCT_NOT_FOUND" | "INVALID_TRANSITION" | "UPDATE_FAILED";
     };
 
 /** Never accepts statusChangedByProfileId from the client — only productId
@@ -178,6 +186,11 @@ export type SetProductStatusActionResult =
  * active->inactive, inactive->active only) is re-validated server-side by
  * the service, not trusted from whatever the UI happened to offer. */
 export async function setProductStatus(input: SetProductStatusInput): Promise<SetProductStatusActionResult> {
+  const auth = await requireCapability("product:manage");
+  if (auth.status === "denied") {
+    return { status: "error", code: auth.code };
+  }
+
   if (!isNonEmptyString(input.productId) || !UUID_PATTERN.test(input.productId)) {
     return { status: "error", code: "INVALID_INPUT" };
   }
@@ -185,13 +198,7 @@ export async function setProductStatus(input: SetProductStatusInput): Promise<Se
     return { status: "error", code: "INVALID_INPUT" };
   }
 
-  const profile = await getCurrentProfile();
-  if (!profile) {
-    console.error("[configuracion actions] setProductStatus rejected: no authenticated profile.");
-    return { status: "error", code: "UNAUTHENTICATED" };
-  }
-
-  const result = await setProductStatusService(input.productId, input.status, profile.id);
+  const result = await setProductStatusService(input.productId, input.status, auth.profile.id);
   if (result.status !== "ok") {
     return { status: "error", code: result.code };
   }
@@ -212,21 +219,20 @@ export type MoveProductActionResult =
   | { status: "success"; products: Product[] }
   | {
       status: "error";
-      code: "INVALID_INPUT" | "UNAUTHENTICATED" | "PRODUCT_NOT_FOUND" | "ALREADY_AT_EDGE" | "UPDATE_FAILED";
+      code: "INVALID_INPUT" | "UNAUTHENTICATED" | "FORBIDDEN" | "PRODUCT_NOT_FOUND" | "ALREADY_AT_EDGE" | "UPDATE_FAILED";
     };
 
 export async function moveProduct(input: MoveProductInput): Promise<MoveProductActionResult> {
+  const auth = await requireCapability("product:manage");
+  if (auth.status === "denied") {
+    return { status: "error", code: auth.code };
+  }
+
   if (!isNonEmptyString(input.productId) || !UUID_PATTERN.test(input.productId)) {
     return { status: "error", code: "INVALID_INPUT" };
   }
   if (input.direction !== "up" && input.direction !== "down") {
     return { status: "error", code: "INVALID_INPUT" };
-  }
-
-  const profile = await getCurrentProfile();
-  if (!profile) {
-    console.error("[configuracion actions] moveProduct rejected: no authenticated profile.");
-    return { status: "error", code: "UNAUTHENTICATED" };
   }
 
   const result = await moveProductService(input.productId, input.direction);
@@ -252,11 +258,16 @@ export interface CreateRequirementTemplateInput {
 
 export type CreateRequirementTemplateActionResult =
   | { status: "success"; requirementTemplate: RequirementTemplate }
-  | { status: "error"; code: "INVALID_INPUT" | "UNAUTHENTICATED" | "DUPLICATE_CODE" | "CREATE_FAILED" };
+  | { status: "error"; code: "INVALID_INPUT" | "UNAUTHENTICATED" | "FORBIDDEN" | "DUPLICATE_CODE" | "CREATE_FAILED" };
 
 export async function createRequirementTemplate(
   input: CreateRequirementTemplateInput
 ): Promise<CreateRequirementTemplateActionResult> {
+  const auth = await requireCapability("requirement_template:manage");
+  if (auth.status === "denied") {
+    return { status: "error", code: auth.code };
+  }
+
   if (!isNonEmptyString(input.productId) || !UUID_PATTERN.test(input.productId)) {
     return { status: "error", code: "INVALID_INPUT" };
   }
@@ -274,12 +285,6 @@ export async function createRequirementTemplate(
   }
   if (typeof input.required !== "boolean") {
     return { status: "error", code: "INVALID_INPUT" };
-  }
-
-  const profile = await getCurrentProfile();
-  if (!profile) {
-    console.error("[configuracion actions] createRequirementTemplate rejected: no authenticated profile.");
-    return { status: "error", code: "UNAUTHENTICATED" };
   }
 
   const result = await createRequirementTemplateService({
@@ -311,7 +316,7 @@ export interface UpdateRequirementTemplateInput {
 
 export type UpdateRequirementTemplateActionResult =
   | { status: "success"; requirementTemplate: RequirementTemplate }
-  | { status: "error"; code: "INVALID_INPUT" | "UNAUTHENTICATED" | "NOT_FOUND" | "UPDATE_FAILED" };
+  | { status: "error"; code: "INVALID_INPUT" | "UNAUTHENTICATED" | "FORBIDDEN" | "NOT_FOUND" | "UPDATE_FAILED" };
 
 /** Deliberately cannot change `code`, `productId`, or `requirementKind`
  * here — both are treated as locked identity/classification facts, same
@@ -320,6 +325,11 @@ export type UpdateRequirementTemplateActionResult =
 export async function updateRequirementTemplate(
   input: UpdateRequirementTemplateInput
 ): Promise<UpdateRequirementTemplateActionResult> {
+  const auth = await requireCapability("requirement_template:manage");
+  if (auth.status === "denied") {
+    return { status: "error", code: auth.code };
+  }
+
   if (!isNonEmptyString(input.requirementTemplateId) || !UUID_PATTERN.test(input.requirementTemplateId)) {
     return { status: "error", code: "INVALID_INPUT" };
   }
@@ -331,12 +341,6 @@ export async function updateRequirementTemplate(
   }
   if (typeof input.required !== "boolean") {
     return { status: "error", code: "INVALID_INPUT" };
-  }
-
-  const profile = await getCurrentProfile();
-  if (!profile) {
-    console.error("[configuracion actions] updateRequirementTemplate rejected: no authenticated profile.");
-    return { status: "error", code: "UNAUTHENTICATED" };
   }
 
   const result = await updateRequirementTemplateService(input.requirementTemplateId, {
@@ -365,7 +369,7 @@ export type SetRequirementTemplateStatusActionResult =
   | { status: "success"; requirementTemplate: RequirementTemplate }
   | {
       status: "error";
-      code: "INVALID_INPUT" | "UNAUTHENTICATED" | "NOT_FOUND" | "INVALID_TRANSITION" | "UPDATE_FAILED";
+      code: "INVALID_INPUT" | "UNAUTHENTICATED" | "FORBIDDEN" | "NOT_FOUND" | "INVALID_TRANSITION" | "UPDATE_FAILED";
     };
 
 /** Never accepts statusChangedByProfileId from the client — only
@@ -375,6 +379,11 @@ export type SetRequirementTemplateStatusActionResult =
 export async function setRequirementTemplateStatus(
   input: SetRequirementTemplateStatusInput
 ): Promise<SetRequirementTemplateStatusActionResult> {
+  const auth = await requireCapability("requirement_template:manage");
+  if (auth.status === "denied") {
+    return { status: "error", code: auth.code };
+  }
+
   if (!isNonEmptyString(input.requirementTemplateId) || !UUID_PATTERN.test(input.requirementTemplateId)) {
     return { status: "error", code: "INVALID_INPUT" };
   }
@@ -382,13 +391,11 @@ export async function setRequirementTemplateStatus(
     return { status: "error", code: "INVALID_INPUT" };
   }
 
-  const profile = await getCurrentProfile();
-  if (!profile) {
-    console.error("[configuracion actions] setRequirementTemplateStatus rejected: no authenticated profile.");
-    return { status: "error", code: "UNAUTHENTICATED" };
-  }
-
-  const result = await setRequirementTemplateStatusService(input.requirementTemplateId, input.status, profile.id);
+  const result = await setRequirementTemplateStatusService(
+    input.requirementTemplateId,
+    input.status,
+    auth.profile.id
+  );
   if (result.status !== "ok") {
     return { status: "error", code: result.code };
   }
@@ -409,23 +416,22 @@ export type MoveRequirementTemplateActionResult =
   | { status: "success"; requirementTemplates: RequirementTemplate[] }
   | {
       status: "error";
-      code: "INVALID_INPUT" | "UNAUTHENTICATED" | "NOT_FOUND" | "ALREADY_AT_EDGE" | "UPDATE_FAILED";
+      code: "INVALID_INPUT" | "UNAUTHENTICATED" | "FORBIDDEN" | "NOT_FOUND" | "ALREADY_AT_EDGE" | "UPDATE_FAILED";
     };
 
 export async function moveRequirementTemplate(
   input: MoveRequirementTemplateInput
 ): Promise<MoveRequirementTemplateActionResult> {
+  const auth = await requireCapability("requirement_template:manage");
+  if (auth.status === "denied") {
+    return { status: "error", code: auth.code };
+  }
+
   if (!isNonEmptyString(input.requirementTemplateId) || !UUID_PATTERN.test(input.requirementTemplateId)) {
     return { status: "error", code: "INVALID_INPUT" };
   }
   if (input.direction !== "up" && input.direction !== "down") {
     return { status: "error", code: "INVALID_INPUT" };
-  }
-
-  const profile = await getCurrentProfile();
-  if (!profile) {
-    console.error("[configuracion actions] moveRequirementTemplate rejected: no authenticated profile.");
-    return { status: "error", code: "UNAUTHENTICATED" };
   }
 
   const result = await moveRequirementTemplateService(input.requirementTemplateId, input.direction);

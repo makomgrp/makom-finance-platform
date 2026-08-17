@@ -47,6 +47,7 @@ import {
   setRequirementTemplateStatus,
   moveRequirementTemplate,
 } from "@/app/(app)/configuracion/actions";
+import { useCapability } from "@/lib/auth/use-capability";
 import type { Locale } from "@/i18n/config";
 import type { LocalizedText, RequirementKind, RequirementTemplate } from "@/types";
 
@@ -91,6 +92,10 @@ function requirementToForm(requirement: RequirementTemplate): FormState {
 export function RequirementsSection({ productId, requirementTemplates: initial, hasError }: RequirementsSectionProps) {
   const locale = useLocale() as Locale;
   const t = useTranslations();
+  // Milestone 16 — administrador-only, same boundary as ProductsSection:
+  // the requirement CATALOGUE stays readable by every role, but editing the
+  // templates every future Application inherits is configuration.
+  const canManageRequirements = useCapability("requirement_template:manage");
   const [requirements, setRequirements] = useState<RequirementTemplate[]>(initial);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingRequirement, setEditingRequirement] = useState<RequirementTemplate | null>(null);
@@ -236,6 +241,7 @@ export function RequirementsSection({ productId, requirementTemplates: initial, 
           <CardTitle>{t("settings.productDetail.requirements.title")}</CardTitle>
           <p className="mt-1 text-sm text-muted-foreground">{t("settings.productDetail.requirements.description")}</p>
         </div>
+        {canManageRequirements && (
         <Dialog
           open={dialogOpen}
           onOpenChange={(open) => {
@@ -371,6 +377,7 @@ export function RequirementsSection({ productId, requirementTemplates: initial, 
             </form>
           </DialogContent>
         </Dialog>
+        )}
       </CardHeader>
       <CardContent>
         {hasError ? (
@@ -425,63 +432,67 @@ export function RequirementsSection({ productId, requirementTemplates: initial, 
                         />
                       </TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            disabled={isBusy || index === 0}
-                            onClick={() => handleMove(requirement, "up")}
-                          >
-                            <ArrowUp className="size-3.5" />
-                            <span className="sr-only">{t("settings.productDetail.requirements.moveUp")}</span>
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            disabled={isBusy || index === requirements.length - 1}
-                            onClick={() => handleMove(requirement, "down")}
-                          >
-                            <ArrowDown className="size-3.5" />
-                            <span className="sr-only">{t("settings.productDetail.requirements.moveDown")}</span>
-                          </Button>
-                        </div>
+                        {canManageRequirements && (
+                          <div className="flex items-center gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              disabled={isBusy || index === 0}
+                              onClick={() => handleMove(requirement, "up")}
+                            >
+                              <ArrowUp className="size-3.5" />
+                              <span className="sr-only">{t("settings.productDetail.requirements.moveUp")}</span>
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              disabled={isBusy || index === requirements.length - 1}
+                              onClick={() => handleMove(requirement, "down")}
+                            >
+                              <ArrowDown className="size-3.5" />
+                              <span className="sr-only">{t("settings.productDetail.requirements.moveDown")}</span>
+                            </Button>
+                          </div>
+                        )}
                       </TableCell>
                       <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            disabled={isBusy}
-                            onClick={() => openEditDialog(requirement)}
-                          >
-                            <Pencil className="size-3.5" />
-                            {t("settings.productDetail.requirements.edit")}
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            disabled={isBusy}
-                            onClick={() => handleStatusChange(requirement, nextStatus)}
-                          >
-                            {nextStatus === "active" ? (
-                              <>
-                                {requirement.status === "inactive" ? (
-                                  <RotateCcw className="size-3.5" />
-                                ) : (
+                        {canManageRequirements && (
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              disabled={isBusy}
+                              onClick={() => openEditDialog(requirement)}
+                            >
+                              <Pencil className="size-3.5" />
+                              {t("settings.productDetail.requirements.edit")}
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              disabled={isBusy}
+                              onClick={() => handleStatusChange(requirement, nextStatus)}
+                            >
+                              {nextStatus === "active" ? (
+                                <>
+                                  {requirement.status === "inactive" ? (
+                                    <RotateCcw className="size-3.5" />
+                                  ) : (
+                                    <Power className="size-3.5" />
+                                  )}
+                                  {requirement.status === "inactive"
+                                    ? t("settings.productDetail.requirements.reactivate")
+                                    : t("settings.productDetail.requirements.activate")}
+                                </>
+                              ) : (
+                                <>
                                   <Power className="size-3.5" />
-                                )}
-                                {requirement.status === "inactive"
-                                  ? t("settings.productDetail.requirements.reactivate")
-                                  : t("settings.productDetail.requirements.activate")}
-                              </>
-                            ) : (
-                              <>
-                                <Power className="size-3.5" />
-                                {t("settings.productDetail.requirements.deactivate")}
-                              </>
-                            )}
-                          </Button>
-                        </div>
+                                  {t("settings.productDetail.requirements.deactivate")}
+                                </>
+                              )}
+                            </Button>
+                          </div>
+                        )}
                       </TableCell>
                     </TableRow>
                   );

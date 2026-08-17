@@ -11,6 +11,7 @@ import { RealClientFormDialog } from "@/components/clients/real-client-form-dial
 import { CLIENT_STATUS_BADGE_CLASS } from "@/lib/config/client-status";
 import { APPLICATION_STATUS_BADGE_CLASS, APPLICATION_STATUS_TRANSITIONS } from "@/lib/config/application";
 import { formatDate, getInitials } from "@/lib/format";
+import { useCapability } from "@/lib/auth/use-capability";
 import type { Locale } from "@/i18n/config";
 import type { ApplicationListItem, ApplicationStatus, Client } from "@/types";
 
@@ -34,6 +35,12 @@ export function DossierHeader({
   const router = useRouter();
   const locale = useLocale() as Locale;
   const t = useTranslations();
+  // Milestone 16 — two independent capabilities on this header: moving the
+  // application through its lifecycle (administrador/gerente) and editing
+  // the client record (administrador/gerente/asesor). The dossier header
+  // itself renders for every role.
+  const canSetApplicationStatus = useCapability("application:set_status");
+  const canUpdateClient = useCapability("client:update");
   // Advisor is only ever rendered in the activeApplication branch below
   // (matching the pre-13E behavior exactly — client.assignedAdvisorId was
   // never actually displayed in the no-application branch either), and
@@ -116,26 +123,32 @@ export function DossierHeader({
                 label={t(`statuses.applicationStatus.${activeApplication.status}`)}
                 className={APPLICATION_STATUS_BADGE_CLASS[activeApplication.status]}
               />
-              <ApplicationStatusMenu
-                options={legalStatusTargets.map((status) => ({
-                  value: status,
-                  label: t(`statuses.applicationStatus.${status}`),
-                }))}
-                triggerDisabled={legalStatusTargets.length === 0}
-                onChange={(status) => onApplicationStatusChange(activeApplication.id, status as ApplicationStatus)}
-              />
+              {canSetApplicationStatus && (
+                <ApplicationStatusMenu
+                  options={legalStatusTargets.map((status) => ({
+                    value: status,
+                    label: t(`statuses.applicationStatus.${status}`),
+                  }))}
+                  triggerDisabled={legalStatusTargets.length === 0}
+                  onChange={(status) =>
+                    onApplicationStatusChange(activeApplication.id, status as ApplicationStatus)
+                  }
+                />
+              )}
             </>
           )}
-          <RealClientFormDialog
-            initialClient={client}
-            onSaved={onClientUpdate}
-            trigger={
-              <Button variant="outline" size="sm">
-                <Pencil className="size-3.5" />
-                {t("dossier.editClient")}
-              </Button>
-            }
-          />
+          {canUpdateClient && (
+            <RealClientFormDialog
+              initialClient={client}
+              onSaved={onClientUpdate}
+              trigger={
+                <Button variant="outline" size="sm">
+                  <Pencil className="size-3.5" />
+                  {t("dossier.editClient")}
+                </Button>
+              }
+            />
+          )}
         </div>
       </div>
     </div>

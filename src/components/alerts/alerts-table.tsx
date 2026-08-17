@@ -33,6 +33,7 @@ import { StatusBadge } from "@/components/shared/status-badge";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ALERT_LEVEL_BADGE_CLASS, ALERT_LEVEL_VALUES, ALERT_TYPE_VALUES } from "@/lib/config/alert";
 import { setDossierAlertStatus } from "@/app/(app)/expedientes/actions";
+import { useCapability } from "@/lib/auth/use-capability";
 import { formatDate } from "@/lib/format";
 import type { Locale } from "@/i18n/config";
 import type { AlertLevel, AlertType, DossierAlertListItem } from "@/types";
@@ -58,6 +59,11 @@ export function AlertsTable({ initialAlerts, loadError }: AlertsTableProps) {
   const router = useRouter();
   const locale = useLocale() as Locale;
   const t = useTranslations();
+  // Milestone 16 — resolving/reactivating an alert is supervisory
+  // (administrador/gerente). The alerts LIST, its filters and the link into
+  // each dossier stay open to every role: seeing a raised concern is not
+  // the same as being able to clear it.
+  const canSetAlertStatus = useCapability("alert:set_status");
   const [alerts, setAlerts] = useState<DossierAlertListItem[]>(initialAlerts);
   const [search, setSearch] = useState("");
   const [levelFilter, setLevelFilter] = useState<AlertLevel | "todos">("todos");
@@ -278,19 +284,21 @@ export function AlertsTable({ initialAlerts, loadError }: AlertsTableProps) {
                             <FolderOpen className="size-4" />
                             {t("alertsModule.viewDossier")}
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => toggleResolved(alert)}>
-                            {alert.active ? (
-                              <>
-                                <CheckCircle2 className="size-4" />
-                                {t("alertsModule.markResolved")}
-                              </>
-                            ) : (
-                              <>
-                                <RotateCcw className="size-4" />
-                                {t("alertsModule.reactivate")}
-                              </>
-                            )}
-                          </DropdownMenuItem>
+                          {canSetAlertStatus && (
+                            <DropdownMenuItem onClick={() => toggleResolved(alert)}>
+                              {alert.active ? (
+                                <>
+                                  <CheckCircle2 className="size-4" />
+                                  {t("alertsModule.markResolved")}
+                                </>
+                              ) : (
+                                <>
+                                  <RotateCcw className="size-4" />
+                                  {t("alertsModule.reactivate")}
+                                </>
+                              )}
+                            </DropdownMenuItem>
+                          )}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>

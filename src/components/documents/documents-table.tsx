@@ -59,6 +59,7 @@ import {
   setDossierRequirementSlotStatus,
 } from "@/app/(app)/expedientes/actions";
 import { getDocumentEvidenceWorkspaceAction } from "@/app/(app)/documentos/actions";
+import { useCapability } from "@/lib/auth/use-capability";
 import { formatDate } from "@/lib/format";
 import type { Locale } from "@/i18n/config";
 import type {
@@ -108,6 +109,13 @@ export function DocumentsTable({ initialRows, loadError: initialLoadError }: Doc
   const router = useRouter();
   const locale = useLocale() as Locale;
   const t = useTranslations();
+  // Milestone 16 — this module reuses the Dossier's Requirement/Evidence
+  // actions as-is, so it must gate on the same three capabilities. The
+  // workspace table, its filters and evidence viewing stay open to every
+  // role including `consulta` (`document_workspace:read`/`evidence:read`).
+  const canUploadEvidence = useCapability("evidence:upload");
+  const canReviewEvidence = useCapability("evidence:review");
+  const canSetSlotStatus = useCapability("requirement_slot:set_status");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pendingUploadRef = useRef<PendingUpload | null>(null);
 
@@ -487,17 +495,19 @@ export function DocumentsTable({ initialRows, loadError: initialLoadError }: Doc
                                     <Eye className="size-3.5" />
                                     <span className="sr-only">{t("dossier.documents.view")}</span>
                                   </Button>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="size-6"
-                                    disabled={isBusy}
-                                    onClick={() => triggerFileSelect(slotId, item.id)}
-                                  >
-                                    <RefreshCw className="size-3.5" />
-                                    <span className="sr-only">{t("dossier.documents.replace")}</span>
-                                  </Button>
-                                  {!item.reviewedAt && (
+                                  {canUploadEvidence && (
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="size-6"
+                                      disabled={isBusy}
+                                      onClick={() => triggerFileSelect(slotId, item.id)}
+                                    >
+                                      <RefreshCw className="size-3.5" />
+                                      <span className="sr-only">{t("dossier.documents.replace")}</span>
+                                    </Button>
+                                  )}
+                                  {canReviewEvidence && !item.reviewedAt && (
                                     <Button
                                       variant="ghost"
                                       size="icon"
@@ -530,15 +540,17 @@ export function DocumentsTable({ initialRows, loadError: initialLoadError }: Doc
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-1">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              disabled={isBusy || isTerminal}
-                              onClick={() => triggerFileSelect(slotId)}
-                            >
-                              <Upload className="size-4" />
-                              <span className="sr-only">{t("dossier.documents.addEvidence")}</span>
-                            </Button>
+                            {canUploadEvidence && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                disabled={isBusy || isTerminal}
+                                onClick={() => triggerFileSelect(slotId)}
+                              >
+                                <Upload className="size-4" />
+                                <span className="sr-only">{t("dossier.documents.addEvidence")}</span>
+                              </Button>
+                            )}
                             <DropdownMenu>
                               <DropdownMenuTrigger
                                 render={
@@ -549,20 +561,30 @@ export function DocumentsTable({ initialRows, loadError: initialLoadError }: Doc
                                 }
                               />
                               <DropdownMenuContent align="end">
-                                <DropdownMenuGroup>
-                                  <DropdownMenuLabel>{t("dossier.documents.newStatus")}</DropdownMenuLabel>
-                                </DropdownMenuGroup>
-                                <DropdownMenuSeparator />
-                                {REQUIREMENT_SLOT_STATUS_TRANSITIONABLE.map((status) => (
-                                  <DropdownMenuItem
-                                    key={status}
-                                    disabled={status === row.requirementSlot.status}
-                                    onClick={() => handleSlotStatusChange(row.requirementSlot, status)}
-                                  >
-                                    {t(`statuses.requirementSlotStatus.${status}`)}
-                                  </DropdownMenuItem>
-                                ))}
-                                <DropdownMenuSeparator />
+                                {/* Milestone 16: the status items are gated,
+                                    the "view dossier" navigation below is
+                                    not — every role may still open the
+                                    dossier this row belongs to. */}
+                                {canSetSlotStatus && (
+                                  <>
+                                    <DropdownMenuGroup>
+                                      <DropdownMenuLabel>
+                                        {t("dossier.documents.newStatus")}
+                                      </DropdownMenuLabel>
+                                    </DropdownMenuGroup>
+                                    <DropdownMenuSeparator />
+                                    {REQUIREMENT_SLOT_STATUS_TRANSITIONABLE.map((status) => (
+                                      <DropdownMenuItem
+                                        key={status}
+                                        disabled={status === row.requirementSlot.status}
+                                        onClick={() => handleSlotStatusChange(row.requirementSlot, status)}
+                                      >
+                                        {t(`statuses.requirementSlotStatus.${status}`)}
+                                      </DropdownMenuItem>
+                                    ))}
+                                    <DropdownMenuSeparator />
+                                  </>
+                                )}
                                 <DropdownMenuItem
                                   onClick={() =>
                                     router.push(`/expedientes/${row.application.clientId}?tab=documentos`)
@@ -599,7 +621,7 @@ export function DocumentsTable({ initialRows, loadError: initialLoadError }: Doc
                                     <Eye className="size-3.5" />
                                     <span className="sr-only">{t("dossier.documents.view")}</span>
                                   </Button>
-                                  {!item.reviewedAt && (
+                                  {canReviewEvidence && !item.reviewedAt && (
                                     <Button
                                       variant="ghost"
                                       size="icon"

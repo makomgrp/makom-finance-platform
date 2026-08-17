@@ -31,6 +31,7 @@ import {
   APPLICATION_STATUS_TRANSITIONS,
 } from "@/lib/config/application";
 import { formatDate, formatRelativeTime } from "@/lib/format";
+import { useCapability } from "@/lib/auth/use-capability";
 import type { Locale } from "@/i18n/config";
 import type { ApplicationListItem, ApplicationStatus } from "@/types";
 
@@ -48,6 +49,11 @@ interface ApplicationsTableProps {
 const PAGE_SIZE = 8;
 
 export function ApplicationsTable({ applications, documentSlotCounts, onStatusChange }: ApplicationsTableProps) {
+  // Milestone 16 — `application:set_status` (administrador/gerente). The
+  // application list itself stays readable by every role; only the
+  // status-change affordance is gated. See the capability's note in
+  // src/lib/auth/capabilities.ts for why it sits this high today.
+  const canSetApplicationStatus = useCapability("application:set_status");
   const router = useRouter();
   const locale = useLocale() as Locale;
   const t = useTranslations();
@@ -184,14 +190,16 @@ export function ApplicationsTable({ applications, documentSlotCounts, onStatusCh
                       {formatRelativeTime(app.statusChangedAt ?? app.createdAt, locale, t)}
                     </TableCell>
                     <TableCell className="text-right">
-                      <ApplicationStatusMenu
-                        options={legalTargets.map((status) => ({
-                          value: status,
-                          label: t(`statuses.applicationStatus.${status}`),
-                        }))}
-                        triggerDisabled={legalTargets.length === 0}
-                        onChange={(status) => onStatusChange(app.id, status as ApplicationStatus)}
-                      />
+                      {canSetApplicationStatus && (
+                        <ApplicationStatusMenu
+                          options={legalTargets.map((status) => ({
+                            value: status,
+                            label: t(`statuses.applicationStatus.${status}`),
+                          }))}
+                          triggerDisabled={legalTargets.length === 0}
+                          onChange={(status) => onStatusChange(app.id, status as ApplicationStatus)}
+                        />
+                      )}
                     </TableCell>
                   </TableRow>
                 );

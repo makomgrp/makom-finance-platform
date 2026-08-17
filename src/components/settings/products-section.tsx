@@ -31,6 +31,7 @@ import { StatusBadge } from "@/components/shared/status-badge";
 import { EmptyState } from "@/components/shared/empty-state";
 import { PRODUCT_STATUS_BADGE_CLASS, PRODUCT_STATUS_TRANSITIONS } from "@/lib/config/product";
 import { createProduct, updateProductDetails, setProductStatus, moveProduct } from "@/app/(app)/configuracion/actions";
+import { useCapability } from "@/lib/auth/use-capability";
 import type { Locale } from "@/i18n/config";
 import type { LocalizedText, Product } from "@/types";
 
@@ -62,6 +63,12 @@ function productToForm(product: Product): FormState {
 export function ProductsSection({ products: initialProducts, hasError }: ProductsSectionProps) {
   const locale = useLocale() as Locale;
   const t = useTranslations();
+  // Milestone 16 — administrador-only. Every mutation below is additionally
+  // enforced server-side by requireCapability("product:manage"); this only
+  // avoids showing controls that would come back FORBIDDEN. The product
+  // LIST itself, and the link into each product's requirements, stay
+  // visible to every role — reading the catalogue is not configuring it.
+  const canManageProducts = useCapability("product:manage");
   const [products, setProducts] = useState<Product[]>(initialProducts);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -193,6 +200,7 @@ export function ProductsSection({ products: initialProducts, hasError }: Product
           <CardTitle>{t("settings.products.title")}</CardTitle>
           <p className="mt-1 text-sm text-muted-foreground">{t("settings.products.description")}</p>
         </div>
+        {canManageProducts && (
         <Dialog
           open={dialogOpen}
           onOpenChange={(open) => {
@@ -284,6 +292,7 @@ export function ProductsSection({ products: initialProducts, hasError }: Product
             </form>
           </DialogContent>
         </Dialog>
+        )}
       </CardHeader>
       <CardContent>
         {hasError ? (
@@ -326,26 +335,28 @@ export function ProductsSection({ products: initialProducts, hasError }: Product
                         />
                       </TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            disabled={isBusy || index === 0}
-                            onClick={() => handleMove(product, "up")}
-                          >
-                            <ArrowUp className="size-3.5" />
-                            <span className="sr-only">{t("settings.products.moveUp")}</span>
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            disabled={isBusy || index === products.length - 1}
-                            onClick={() => handleMove(product, "down")}
-                          >
-                            <ArrowDown className="size-3.5" />
-                            <span className="sr-only">{t("settings.products.moveDown")}</span>
-                          </Button>
-                        </div>
+                        {canManageProducts && (
+                          <div className="flex items-center gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              disabled={isBusy || index === 0}
+                              onClick={() => handleMove(product, "up")}
+                            >
+                              <ArrowUp className="size-3.5" />
+                              <span className="sr-only">{t("settings.products.moveUp")}</span>
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              disabled={isBusy || index === products.length - 1}
+                              onClick={() => handleMove(product, "down")}
+                            >
+                              <ArrowDown className="size-3.5" />
+                              <span className="sr-only">{t("settings.products.moveDown")}</span>
+                            </Button>
+                          </div>
+                        )}
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
@@ -358,34 +369,43 @@ export function ProductsSection({ products: initialProducts, hasError }: Product
                             <ListChecks className="size-3.5" />
                             {t("settings.products.viewRequirements")}
                           </Button>
-                          <Button variant="outline" size="sm" disabled={isBusy} onClick={() => openEditDialog(product)}>
-                            <Pencil className="size-3.5" />
-                            {t("settings.products.edit")}
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            disabled={isBusy}
-                            onClick={() => handleStatusChange(product, nextStatus)}
-                          >
-                            {nextStatus === "active" ? (
-                              <>
-                                {product.status === "inactive" ? (
-                                  <RotateCcw className="size-3.5" />
+                          {canManageProducts && (
+                            <>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                disabled={isBusy}
+                                onClick={() => openEditDialog(product)}
+                              >
+                                <Pencil className="size-3.5" />
+                                {t("settings.products.edit")}
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                disabled={isBusy}
+                                onClick={() => handleStatusChange(product, nextStatus)}
+                              >
+                                {nextStatus === "active" ? (
+                                  <>
+                                    {product.status === "inactive" ? (
+                                      <RotateCcw className="size-3.5" />
+                                    ) : (
+                                      <Power className="size-3.5" />
+                                    )}
+                                    {product.status === "inactive"
+                                      ? t("settings.products.reactivate")
+                                      : t("settings.products.activate")}
+                                  </>
                                 ) : (
-                                  <Power className="size-3.5" />
+                                  <>
+                                    <Power className="size-3.5" />
+                                    {t("settings.products.deactivate")}
+                                  </>
                                 )}
-                                {product.status === "inactive"
-                                  ? t("settings.products.reactivate")
-                                  : t("settings.products.activate")}
-                              </>
-                            ) : (
-                              <>
-                                <Power className="size-3.5" />
-                                {t("settings.products.deactivate")}
-                              </>
-                            )}
-                          </Button>
+                              </Button>
+                            </>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>

@@ -1,7 +1,7 @@
 "use server";
 
 import { getDocumentEvidenceWorkspace } from "@/lib/services/document-workspace";
-import { getCurrentProfile } from "@/lib/auth/get-current-profile";
+import { requireCapability } from "@/lib/auth/authorize";
 import type { DocumentWorkspaceRow } from "@/types";
 
 /**
@@ -23,13 +23,17 @@ import type { DocumentWorkspaceRow } from "@/types";
  */
 export type GetDocumentEvidenceWorkspaceActionResult =
   | { status: "success"; rows: DocumentWorkspaceRow[] }
-  | { status: "error"; code: "UNAUTHENTICATED" | "QUERY_FAILED" };
+  | { status: "error"; code: "UNAUTHENTICATED" | "FORBIDDEN" | "QUERY_FAILED" };
 
+/** Read-only, and granted to every role including `consulta` — read access
+ * is exactly what that role exists for. It still passes through
+ * requireCapability() rather than a bare identity check so that restricting
+ * this view later is a one-line change to the canonical matrix rather than a
+ * new mechanism (Milestone 16). */
 export async function getDocumentEvidenceWorkspaceAction(): Promise<GetDocumentEvidenceWorkspaceActionResult> {
-  const profile = await getCurrentProfile();
-  if (!profile) {
-    console.error("[documentos actions] getDocumentEvidenceWorkspaceAction rejected: no authenticated profile.");
-    return { status: "error", code: "UNAUTHENTICATED" };
+  const auth = await requireCapability("document_workspace:read");
+  if (auth.status === "denied") {
+    return { status: "error", code: auth.code };
   }
 
   const result = await getDocumentEvidenceWorkspace();

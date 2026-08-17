@@ -35,6 +35,7 @@ import {
   getRequirementEvidenceViewUrl,
   setDossierRequirementSlotStatus,
 } from "@/app/(app)/expedientes/actions";
+import { useCapability } from "@/lib/auth/use-capability";
 import { formatDate } from "@/lib/format";
 import type { Locale } from "@/i18n/config";
 import type {
@@ -92,6 +93,14 @@ interface ViewDialogState {
 export function RequirementsTab({ application, requirementsData, onRefetch, onActivity }: RequirementsTabProps) {
   const locale = useLocale() as Locale;
   const t = useTranslations();
+  // Milestone 16 — the document workflow splits across three capabilities
+  // held by deliberately different role sets: an advisor uploads
+  // (`evidence:upload`), an analyst reviews the file (`evidence:review`)
+  // and rules on the slot (`requirement_slot:set_status`). Viewing evidence
+  // needs none of them and stays open to every role.
+  const canUploadEvidence = useCapability("evidence:upload");
+  const canReviewEvidence = useCapability("evidence:review");
+  const canSetSlotStatus = useCapability("requirement_slot:set_status");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pendingUploadRef = useRef<PendingUpload | null>(null);
   const [busySlotId, setBusySlotId] = useState<string | null>(null);
@@ -339,7 +348,7 @@ export function RequirementsTab({ application, requirementsData, onRefetch, onAc
                   </div>
 
                   <div className="flex shrink-0 items-center gap-2">
-                    {isDocumentKind && (
+                    {isDocumentKind && canUploadEvidence && (
                       <Button
                         variant="outline"
                         size="sm"
@@ -350,30 +359,32 @@ export function RequirementsTab({ application, requirementsData, onRefetch, onAc
                         {t("dossier.documents.addEvidence")}
                       </Button>
                     )}
-                    <DropdownMenu>
-                      <DropdownMenuTrigger
-                        render={
-                          <Button variant="outline" size="sm" disabled={isBusy}>
-                            {t("dossier.documents.changeStatus")}
-                          </Button>
-                        }
-                      />
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuGroup>
-                          <DropdownMenuLabel>{t("dossier.documents.newStatus")}</DropdownMenuLabel>
-                        </DropdownMenuGroup>
-                        <DropdownMenuSeparator />
-                        {REQUIREMENT_SLOT_STATUS_TRANSITIONABLE.map((status) => (
-                          <DropdownMenuItem
-                            key={status}
-                            disabled={status === slot.status}
-                            onClick={() => handleSlotStatusChange(slot, status)}
-                          >
-                            {t(`statuses.requirementSlotStatus.${status}`)}
-                          </DropdownMenuItem>
-                        ))}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                    {canSetSlotStatus && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger
+                          render={
+                            <Button variant="outline" size="sm" disabled={isBusy}>
+                              {t("dossier.documents.changeStatus")}
+                            </Button>
+                          }
+                        />
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuGroup>
+                            <DropdownMenuLabel>{t("dossier.documents.newStatus")}</DropdownMenuLabel>
+                          </DropdownMenuGroup>
+                          <DropdownMenuSeparator />
+                          {REQUIREMENT_SLOT_STATUS_TRANSITIONABLE.map((status) => (
+                            <DropdownMenuItem
+                              key={status}
+                              disabled={status === slot.status}
+                              onClick={() => handleSlotStatusChange(slot, status)}
+                            >
+                              {t(`statuses.requirementSlotStatus.${status}`)}
+                            </DropdownMenuItem>
+                          ))}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )}
                   </div>
                 </div>
 
@@ -388,8 +399,11 @@ export function RequirementsTab({ application, requirementsData, onRefetch, onAc
                         locale={locale}
                         disabled={isBusy}
                         onView={() => handleView(item)}
-                        onReplace={() => triggerFileSelect(slot.id, item.id)}
+                        onReplace={
+                          canUploadEvidence ? () => triggerFileSelect(slot.id, item.id) : undefined
+                        }
                         onReview={() => handleReview(item)}
+                        canReview={canReviewEvidence}
                       />
                     ))}
                   </div>
@@ -416,6 +430,7 @@ export function RequirementsTab({ application, requirementsData, onRefetch, onAc
                             superseded
                             onView={() => handleView(item)}
                             onReview={() => handleReview(item)}
+                            canReview={canReviewEvidence}
                           />
                         ))}
                       </div>
@@ -480,13 +495,25 @@ interface EvidenceRowProps {
   onView: () => void;
   onReplace?: () => void;
   onReview: () => void;
+  /** Milestone 16 — `evidence:review`. Viewing stays available to every
+   * role; attesting that a document is acceptable does not. */
+  canReview: boolean;
 }
 
 /** One Evidence item within a Requirement Slot card — filename, uploaded
  * date, reviewed date + reviewer (when reviewed), a superseded badge when
  * historical, and its own view/replace/review actions. Review is always
  * per-item, never per-Slot (architecture review item 23). */
-function EvidenceRow({ evidence, locale, disabled, superseded, onView, onReplace, onReview }: EvidenceRowProps) {
+function EvidenceRow({
+  evidence,
+  locale,
+  disabled,
+  superseded,
+  onView,
+  onReplace,
+  onReview,
+  canReview,
+}: EvidenceRowProps) {
   const t = useTranslations();
 
   return (
@@ -526,7 +553,7 @@ function EvidenceRow({ evidence, locale, disabled, superseded, onView, onReplace
             {t("dossier.documents.replace")}
           </Button>
         )}
-        {!evidence.reviewedAt && (
+        {canReview && !evidence.reviewedAt && (
           <Button variant="outline" size="sm" disabled={disabled} onClick={onReview}>
             <CheckCircle2 className="size-3.5" />
             {t("dossier.documents.review")}

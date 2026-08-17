@@ -49,6 +49,7 @@ import {
 } from "@/lib/config/client-status";
 import { getCompanyById } from "@/lib/demo-data";
 import { setClientStatusAction } from "@/app/(app)/clientes/actions";
+import { useCapability } from "@/lib/auth/use-capability";
 import { formatDate, getInitials } from "@/lib/format";
 import type { ApplicationListItem, Client, ClientStatus } from "@/types";
 import type { Locale } from "@/i18n/config";
@@ -73,6 +74,14 @@ export function ClientsTable({ initialClients, applications }: ClientsTableProps
   const router = useRouter();
   const locale = useLocale() as Locale;
   const t = useTranslations();
+  // Milestone 16. Three separate capabilities, not one "can edit clients"
+  // flag: creating, editing and status-changing a client are granted to
+  // different sets of roles (an advisor may do the first two but not the
+  // third). Search, filtering, the table itself and every navigation item
+  // stay available to every role, `consulta` included.
+  const canCreateClient = useCapability("client:create");
+  const canUpdateClient = useCapability("client:update");
+  const canSetClientStatus = useCapability("client:set_status");
   const [clients, setClients] = useState<Client[]>(initialClients);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<ClientStatus | "todos">("todos");
@@ -159,15 +168,17 @@ export function ClientsTable({ initialClients, applications }: ClientsTableProps
           </Select>
         </div>
 
-        <RealClientFormDialog
-          onSaved={handleCreated}
-          trigger={
-            <Button className="shrink-0">
-              <UserPlus className="size-4" />
-              {t("clients.newClient")}
-            </Button>
-          }
-        />
+        {canCreateClient && (
+          <RealClientFormDialog
+            onSaved={handleCreated}
+            trigger={
+              <Button className="shrink-0">
+                <UserPlus className="size-4" />
+                {t("clients.newClient")}
+              </Button>
+            }
+          />
+        )}
       </div>
 
       {paginated.length === 0 ? (
@@ -236,15 +247,17 @@ export function ClientsTable({ initialClients, applications }: ClientsTableProps
                           label={t(`statuses.client.${client.status}`)}
                           className={CLIENT_STATUS_BADGE_CLASS[client.status]}
                         />
-                        <ApplicationStatusMenu
-                          options={CLIENT_STATUS_VALUES.filter((status) => status !== client.status).map(
-                            (status) => ({
-                              value: status,
-                              label: t(`statuses.client.${status}`),
-                            })
-                          )}
-                          onChange={(status) => handleStatusChange(client.id, status as ClientStatus)}
-                        />
+                        {canSetClientStatus && (
+                          <ApplicationStatusMenu
+                            options={CLIENT_STATUS_VALUES.filter((status) => status !== client.status).map(
+                              (status) => ({
+                                value: status,
+                                label: t(`statuses.client.${status}`),
+                              })
+                            )}
+                            onChange={(status) => handleStatusChange(client.id, status as ClientStatus)}
+                          />
+                        )}
                       </div>
                     </TableCell>
                     <TableCell className="text-muted-foreground">
@@ -265,10 +278,12 @@ export function ClientsTable({ initialClients, applications }: ClientsTableProps
                             <FolderOpen className="size-4" />
                             {t("clients.rowActions.viewDossier")}
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => setEditingClient(client)}>
-                            <Pencil className="size-4" />
-                            {t("clients.rowActions.edit")}
-                          </DropdownMenuItem>
+                          {canUpdateClient && (
+                            <DropdownMenuItem onClick={() => setEditingClient(client)}>
+                              <Pencil className="size-4" />
+                              {t("clients.rowActions.edit")}
+                            </DropdownMenuItem>
+                          )}
                           <DropdownMenuItem
                             onClick={() => {
                               toast.info(

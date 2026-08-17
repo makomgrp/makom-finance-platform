@@ -1,7 +1,7 @@
 "use server";
 
 import { setApplicationStatus } from "@/lib/services/applications";
-import { getCurrentProfile } from "@/lib/auth/get-current-profile";
+import { requireCapability } from "@/lib/auth/authorize";
 import { APPLICATION_STATUS_TRANSITIONABLE } from "@/lib/config/application";
 import type { Application, ApplicationStatus } from "@/types";
 
@@ -39,6 +39,7 @@ export type SetSolicitudApplicationStatusResult =
       code:
         | "INVALID_INPUT"
         | "UNAUTHENTICATED"
+        | "FORBIDDEN"
         | "INVALID_ACTOR"
         | "NOT_FOUND"
         | "INVALID_TRANSITION"
@@ -62,10 +63,24 @@ export type SetSolicitudApplicationStatusResult =
  * request that's illegal only from the application's CURRENT state (e.g.
  * a stale client trying to move an already-approved application) reaches
  * the service and comes back as INVALID_TRANSITION instead.
+ *
+ * Milestone 16 — capability `application:set_status`, held only by
+ * administrador and gerente. This action's legal targets
+ * (APPLICATION_STATUS_TRANSITIONABLE) include `approved` and
+ * `not_eligible`, i.e. the lending determination itself, and there is no
+ * per-target granularity to grant a lesser role only the harmless moves.
+ * Until this action is split by target status, the whole capability is
+ * therefore held at the level the most consequential target demands. See
+ * the Milestone 16 report's ambiguity notes.
  */
 export async function setSolicitudApplicationStatus(
   input: SetSolicitudApplicationStatusInput
 ): Promise<SetSolicitudApplicationStatusResult> {
+  const auth = await requireCapability("application:set_status");
+  if (auth.status === "denied") {
+    return { status: "error", code: auth.code };
+  }
+
   if (!isNonEmptyString(input.applicationId) || !UUID_PATTERN.test(input.applicationId)) {
     return { status: "error", code: "INVALID_INPUT" };
   }
@@ -73,13 +88,12 @@ export async function setSolicitudApplicationStatus(
     return { status: "error", code: "INVALID_INPUT" };
   }
 
-  const profile = await getCurrentProfile();
-  if (!profile) {
-    console.error("[solicitudes actions] setSolicitudApplicationStatus rejected: no authenticated profile.");
-    return { status: "error", code: "UNAUTHENTICATED" };
-  }
-
-  const result = await setApplicationStatus(input.applicationId, input.status, "crm_manual", profile.id);
+  const result = await setApplicationStatus(
+    input.applicationId,
+    input.status,
+    "crm_manual",
+    auth.profile.id
+  );
   if (result.status !== "ok") {
     return { status: "error", code: result.code };
   }

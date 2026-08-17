@@ -28,6 +28,7 @@ import { StatusBadge } from "@/components/shared/status-badge";
 import { EmptyState } from "@/components/shared/empty-state";
 import { NOTE_PRIORITY_BADGE_CLASS, NOTE_PRIORITY_VALUES, NOTE_TYPE_VALUES } from "@/lib/config/note";
 import { createDossierNote } from "@/app/(app)/expedientes/actions";
+import { useCapability } from "@/lib/auth/use-capability";
 import { formatDateTime } from "@/lib/format";
 import type { Locale } from "@/i18n/config";
 import type { ActivityEvent, InternalNote, NotePriority, NoteType } from "@/types";
@@ -53,6 +54,10 @@ interface NotesTabProps {
 export function NotesTab({ clientId, notes, onNotesChange, onActivity, loadError }: NotesTabProps) {
   const locale = useLocale() as Locale;
   const t = useTranslations();
+  // Milestone 16 — authoring a note is ordinary operational work, granted
+  // to every role except `consulta`. The note history itself stays readable
+  // by everyone.
+  const canCreateNote = useCapability("note:create");
   const [open, setOpen] = useState(false);
   const [text, setText] = useState("");
   const [type, setType] = useState<NoteType>("general");
@@ -82,6 +87,7 @@ export function NotesTab({ clientId, notes, onNotesChange, onActivity, loadError
   return (
     <div className="space-y-4">
       <div className="flex justify-end">
+        {canCreateNote && (
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger
             render={
@@ -157,6 +163,7 @@ export function NotesTab({ clientId, notes, onNotesChange, onActivity, loadError
             </form>
           </DialogContent>
         </Dialog>
+        )}
       </div>
 
       {loadError ? (

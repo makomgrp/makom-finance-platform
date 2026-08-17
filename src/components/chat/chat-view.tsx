@@ -17,6 +17,7 @@ import {
 } from "@/app/(app)/chat/actions";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { useCurrentProfile } from "@/lib/auth/current-profile-context";
+import { useCapability } from "@/lib/auth/use-capability";
 import type { ChatConversation, ChatMessage, SupportedLanguage, User } from "@/types";
 
 /**
@@ -117,6 +118,9 @@ export function ChatView({ initialMessages, initialConversations, hasLoadError }
   // once server-side (src/app/(app)/layout.tsx) and provided via context.
   // See the module doc comment above.
   const profile = useCurrentProfile();
+  // Milestone 16 — reading chat needs no capability; contributing to it
+  // does. Enforced server-side by sendChatMessage's own guard.
+  const canSendChat = useCapability("chat:send");
   const colleagues = useMemo(() => computeColleagues(profile.email), [profile.email]);
 
   const [selectedUserId, setSelectedUserId] = useState<string | null>(() =>
@@ -580,7 +584,10 @@ export function ChatView({ initialMessages, initialConversations, hasLoadError }
               </div>
             </ScrollArea>
 
-            <MessageComposer value={draft} onChange={setDraft} onSend={handleSend} />
+            {/* Milestone 16 — `chat:send`. A `consulta` user keeps full read
+                access to the conversation (and still marks it read, via the
+                self-scoped `chat:mark_read`); only the composer goes away. */}
+            {canSendChat && <MessageComposer value={draft} onChange={setDraft} onSend={handleSend} />}
           </>
         ) : (
           <div className="flex flex-1 items-center justify-center p-6">

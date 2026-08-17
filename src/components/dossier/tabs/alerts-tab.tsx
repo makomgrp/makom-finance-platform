@@ -29,6 +29,7 @@ import { StatusBadge } from "@/components/shared/status-badge";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ALERT_LEVEL_BADGE_CLASS, ALERT_LEVEL_VALUES, ALERT_TYPE_VALUES } from "@/lib/config/alert";
 import { createDossierAlert, setDossierAlertStatus } from "@/app/(app)/expedientes/actions";
+import { useCapability } from "@/lib/auth/use-capability";
 import { formatDate } from "@/lib/format";
 import type { Locale } from "@/i18n/config";
 import type { ActivityEvent, AlertLevel, AlertType, DossierAlert } from "@/types";
@@ -54,6 +55,12 @@ interface AlertsTabProps {
 export function AlertsTab({ clientId, alerts, onAlertsChange, onActivity, loadError }: AlertsTabProps) {
   const locale = useLocale() as Locale;
   const t = useTranslations();
+  // Milestone 16 — two DIFFERENT capabilities on the same tab: raising an
+  // alert is operational (everyone but `consulta`), clearing one is
+  // supervisory (administrador/gerente). An advisor can therefore flag a
+  // concern here but not make it go away.
+  const canCreateAlert = useCapability("alert:create");
+  const canSetAlertStatus = useCapability("alert:set_status");
   const [open, setOpen] = useState(false);
   const [type, setType] = useState<AlertType>("revision_especial");
   const [level, setLevel] = useState<AlertLevel>("bajo");
@@ -104,6 +111,7 @@ export function AlertsTab({ clientId, alerts, onAlertsChange, onActivity, loadEr
           <h3 className="text-sm font-semibold text-foreground">{t("dossier.alerts.title")}</h3>
           <p className="text-xs text-muted-foreground">{t("dossier.alerts.subtitle")}</p>
         </div>
+        {canCreateAlert && (
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger
             render={
@@ -184,6 +192,7 @@ export function AlertsTab({ clientId, alerts, onAlertsChange, onActivity, loadEr
             </form>
           </DialogContent>
         </Dialog>
+        )}
       </div>
 
       {loadError ? (
@@ -230,25 +239,27 @@ export function AlertsTab({ clientId, alerts, onAlertsChange, onActivity, loadEr
                     {alert.createdByFullName}
                   </p>
                 </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="shrink-0"
-                  disabled={resolvingId === alert.id}
-                  onClick={() => toggleResolved(alert)}
-                >
-                  {alert.active ? (
-                    <>
-                      <CheckCircle2 className="size-3.5" />
-                      {t("dossier.alerts.markResolved")}
-                    </>
-                  ) : (
-                    <>
-                      <RotateCcw className="size-3.5" />
-                      {t("dossier.alerts.reactivate")}
-                    </>
-                  )}
-                </Button>
+                {canSetAlertStatus && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="shrink-0"
+                    disabled={resolvingId === alert.id}
+                    onClick={() => toggleResolved(alert)}
+                  >
+                    {alert.active ? (
+                      <>
+                        <CheckCircle2 className="size-3.5" />
+                        {t("dossier.alerts.markResolved")}
+                      </>
+                    ) : (
+                      <>
+                        <RotateCcw className="size-3.5" />
+                        {t("dossier.alerts.reactivate")}
+                      </>
+                    )}
+                  </Button>
+                )}
               </CardContent>
             </Card>
           ))}
