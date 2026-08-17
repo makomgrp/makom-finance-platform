@@ -124,6 +124,27 @@ export type Capability =
   | "chat:send"
   | "chat:retry_translation"
 
+  // --- Staff administration ----------------------------------------------
+  /**
+   * Invite a staff member, change their role, and deactivate/reactivate
+   * them (Milestone 21). ADMINISTRADOR-ONLY, and deliberately a single
+   * capability rather than three: invite / role / active would all be
+   * granted to exactly the same one role, so splitting them would be three
+   * names for one grant. Mirrors `product:manage` and
+   * `requirement_template:manage`, the existing single-role configuration
+   * capabilities.
+   *
+   * `gerente` does NOT hold it despite holding every operational
+   * capability — the Milestone 16 boundary is operations vs. configuration,
+   * and administering who may act at all is further from operations than
+   * either product or template management. It is also the one capability
+   * whose holder can grant itself anything else.
+   *
+   * There is deliberately no user:delete. Milestone 21's approved policy is
+   * deactivate-only; see the migration header.
+   */
+  | "user:manage"
+
   // --- System configuration ----------------------------------------------
   /** Create/edit/reorder//status Products. Administrator-only in Milestone 16. */
   | "product:manage"
@@ -160,8 +181,8 @@ const CHAT: Capability[] = ["chat:send", "chat:retry_translation"];
  */
 export const ROLE_CAPABILITIES = {
   /**
-   * Full CRM access — the only role holding system configuration, and the
-   * only role that will hold user administration when Milestone 21 adds it.
+   * Full CRM access — the only role holding system configuration, and (as
+   * of Milestone 21) the only role holding staff administration.
    */
   administrador: [
     ...BASELINE,
@@ -179,6 +200,7 @@ export const ROLE_CAPABILITIES = {
     "requirement_slot:set_status",
     "product:manage",
     "requirement_template:manage",
+    "user:manage",
   ],
 
   /**

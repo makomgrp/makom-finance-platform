@@ -9,7 +9,7 @@ import { ConversationList } from "@/components/chat/conversation-list";
 import { ChatHeader } from "@/components/chat/chat-header";
 import { MessageBubble } from "@/components/chat/message-bubble";
 import { MessageComposer } from "@/components/chat/message-composer";
-import { USERS, getConversationId, getMessagesForConversation } from "@/lib/demo-data";
+import { getConversationId, getMessagesForConversation } from "@/lib/demo-data";
 import {
   sendChatMessage,
   markChatConversationRead,
@@ -18,30 +18,31 @@ import {
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { useCurrentProfile } from "@/lib/auth/current-profile-context";
 import { useCapability } from "@/lib/auth/use-capability";
-import type { ChatConversation, ChatMessage, SupportedLanguage, User } from "@/types";
+import type { ChatColleague, ChatConversation, ChatMessage, SupportedLanguage } from "@/types";
 
 /**
- * MILESTONE 5B IDENTITY MODEL — read before touching this file.
+ * IDENTITY MODEL (Milestone 21) — read before touching this file.
  *
- * The acting/authenticated user (whoever is really signed in, via
- * useCurrentProfile()) is always represented by their real `profiles.id`
- * UUID throughout this component's state — never a legacy id, never
- * CURRENT_USER. The colleague side of any conversation stays legacy-id-
- * space (drawn from the static USERS list in src/lib/demo-data), since
- * colleague selection isn't migrated yet — see src/lib/services/chat.ts's
- * module doc comment for the full reasoning. Every `*.id`/`senderId`/
- * `recipientId` comparison below is against `profile.id` (real UUID), not
- * any legacy constant.
+ * ONE identity space: every id in this component — the signed-in user's,
+ * every colleague's, every `senderId` and `recipientId` — is a real
+ * `profiles.id` UUID. The acting user comes from useCurrentProfile(); the
+ * colleagues arrive as a prop, resolved server-side by getChatColleagues()
+ * from real `profiles` rows.
+ *
+ * Milestone 21 removed the previous mixed space, in which "myself" was a
+ * UUID but "the colleague" was a demo "u-00N" legacy id drawn from a static
+ * list and matched by e-mail. That list is deleted; nothing here matches on
+ * e-mail any more. See src/lib/services/chat.ts's module doc comment for why
+ * retiring it needed no data migration.
  */
 
-/** Colleagues are "everyone active except the real signed-in user,"
- * matched by email since Profile carries no legacy_id (display/targeting
- * only — see the module doc comment above). */
-function computeColleagues(currentUserEmail: string): User[] {
-  return USERS.filter((user) => user.active && user.email !== currentUserEmail);
-}
-
-function mostRecentColleagueId(messages: ChatMessage[], currentUserId: string, colleagues: User[]): string | null {
+/** Which conversation to open first: the colleague of the most recent
+ * message, falling back to the first colleague in the directory. */
+function mostRecentColleagueId(
+  messages: ChatMessage[],
+  currentUserId: string,
+  colleagues: ChatColleague[]
+): string | null {
   let latest: { userId: string; at: number } | null = null;
   for (const colleague of colleagues) {
     const conversationId = getConversationId(currentUserId, colleague.id);
@@ -66,7 +67,7 @@ function resolveNeededLanguage(
   message: ChatMessage,
   currentUserId: string,
   currentUserLanguage: SupportedLanguage,
-  colleagues: User[]
+  colleagues: ChatColleague[]
 ): SupportedLanguage | undefined {
   const isOwnMessage = message.senderId === currentUserId;
   return isOwnMessage
@@ -99,6 +100,14 @@ function markConversationRead(
 }
 
 interface ChatViewProps {
+  /**
+   * MILESTONE 21: the selectable contact list, resolved SERVER-SIDE by
+   * getChatColleagues() from real `profiles` rows — replacing the static
+   * USERS list this component used to filter by e-mail. Ids are
+   * `profiles.id` UUIDs, the same identity the database already stores in
+   * conversation_members and messages.
+   */
+  colleagues: ChatColleague[];
   /** Real Supabase messages for this session's user, already shaped to
    * match the demo ChatMessage type (see src/lib/services/chat.ts). Empty
    * when the read failed — see hasLoadError. */
@@ -112,7 +121,12 @@ interface ChatViewProps {
   hasLoadError: boolean;
 }
 
-export function ChatView({ initialMessages, initialConversations, hasLoadError }: ChatViewProps) {
+export function ChatView({
+  initialMessages,
+  initialConversations,
+  colleagues,
+  hasLoadError,
+}: ChatViewProps) {
   const t = useTranslations();
   // The one and only source of "who am I" in this component — resolved
   // once server-side (src/app/(app)/layout.tsx) and provided via context.
@@ -121,7 +135,6 @@ export function ChatView({ initialMessages, initialConversations, hasLoadError }
   // Milestone 16 — reading chat needs no capability; contributing to it
   // does. Enforced server-side by sendChatMessage's own guard.
   const canSendChat = useCapability("chat:send");
-  const colleagues = useMemo(() => computeColleagues(profile.email), [profile.email]);
 
   const [selectedUserId, setSelectedUserId] = useState<string | null>(() =>
     mostRecentColleagueId(initialMessages, profile.id, colleagues)
@@ -303,8 +316,8 @@ export function ChatView({ initialMessages, initialConversations, hasLoadError }
   // whichever colleague is passed. Never blocks the UI — the optimistic
   // local unread-clearing already happened synchronously wherever this is
   // called from. A failure here shouldn't interrupt chat, just get logged.
-  const persistMarkRead = (colleagueLegacyId: string) => {
-    markChatConversationRead({ colleagueLegacyId })
+  const persistMarkRead = (colleagueProfileId: string) => {
+    markChatConversationRead({ colleagueProfileId })
       .then((result) => {
         if (result.status === "error") {
           console.error("[chat-view] markChatConversationRead failed:", result.code);
@@ -427,7 +440,7 @@ export function ChatView({ initialMessages, initialConversations, hasLoadError }
 
     sendChatMessage({
       id: message.id,
-      recipientLegacyId: message.recipientId,
+      recipientProfileId: message.recipientId,
       text: message.originalText,
       originalLanguage: message.originalLanguage,
     })

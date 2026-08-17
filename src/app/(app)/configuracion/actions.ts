@@ -12,12 +12,25 @@ import {
   setRequirementTemplateStatus as setRequirementTemplateStatusService,
   moveRequirementTemplate as moveRequirementTemplateService,
 } from "@/lib/services/requirement-templates";
+import { headers } from "next/headers";
 import { requireCapability } from "@/lib/auth/authorize";
+import { getProfiles } from "@/lib/services/profiles";
+import {
+  createStaffProfile,
+  linkStaffProfileAuth,
+  setStaffActiveStatus,
+  updateStaffRole,
+} from "@/lib/services/staff-admin";
+import { inviteStaffAuthUser } from "@/lib/services/auth-admin";
+import { USER_ROLE_VALUES } from "@/lib/config/user-role";
+import { SUPPORTED_LANGUAGE_VALUES } from "@/lib/config/language";
 import { PRODUCT_STATUS_ORDER } from "@/lib/config/product";
 import { REQUIREMENT_KIND_ORDER, REQUIREMENT_STATUS_ORDER } from "@/lib/config/requirement";
 import type {
   LocalizedText,
   Product,
+  SupportedLanguage,
+  UserRole,
   ProductStatus,
   RequirementKind,
   RequirementStatus,
@@ -440,4 +453,286 @@ export async function moveRequirementTemplate(
   }
 
   return { status: "success", requirementTemplates: result.requirementTemplates };
+}
+
+// ============================================================================
+// MILESTONE 21 — STAFF ADMINISTRATION
+// ============================================================================
+//
+// Four actions, all `user:manage` (administrador only). Same Milestone 16
+// ordering rule as every action above: requireCapability() FIRST, before any
+// validation or lookup, so an unauthorized caller cannot distinguish
+// DUPLICATE_EMAIL from PROFILE_NOT_FOUND and probe the staff directory.
+//
+// The actor is always the caller's own resolved profile — never client input.
+// ============================================================================
+
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+export interface InviteStaffUserInput {
+  email: string;
+  fullName: string;
+  role: UserRole;
+  preferredLanguage: SupportedLanguage;
+}
+
+export type InviteStaffUserResult =
+  | { status: "success"; profileId: string }
+  /**
+   * The profile EXISTS and is valid, but the Supabase Auth invitation did
+   * not complete. Surfaced distinctly and never as success — the
+   * administrator must know to resend. See the orchestration note below.
+   */
+  | { status: "pending_invitation"; profileId: string; code: "INVITE_FAILED" | "LINK_FAILED" }
+  | {
+      status: "error";
+      code:
+        | "INVALID_INPUT"
+        | "UNAUTHENTICATED"
+        | "FORBIDDEN"
+        | "DUPLICATE_EMAIL"
+        | "ALREADY_REGISTERED"
+        | "CREATE_FAILED";
+    };
+
+/**
+ * Invites a staff member.
+ *
+ * ----------------------------------------------------------------------------
+ * THREE STAGES, AND WHY THE ORDER MATTERS
+ * ----------------------------------------------------------------------------
+ *   1. create_staff_profile RPC  -> profile row, auth_user_id NULL   [atomic + audited]
+ *   2. inviteUserByEmail          -> Supabase Auth account            [EXTERNAL]
+ *   3. link_staff_profile_auth    -> attach the returned auth UUID    [atomic]
+ *
+ * THIS IS NOT ATOMIC, AND CANNOT BE. Supabase Auth lives outside `public`
+ * and outside any transaction a database function can join. Rather than
+ * pretend otherwise, the order is chosen so every failure lands somewhere
+ * valid and recoverable:
+ *
+ *   Stage 1 fails -> nothing exists. profiles_email_key blocks duplicates.
+ *   Stage 2 fails -> the profile survives with auth_user_id NULL. That is a
+ *                    PENDING INVITATION — a documented, legitimate state that
+ *                    five live profiles already occupy — NOT an orphan. The
+ *                    profile is deliberately NOT deleted: no compensating
+ *                    destructive cleanup runs here, ever. Recovery is
+ *                    resendStaffInvitation.
+ *   Stage 3 fails -> auth account and profile both exist, unlinked. Same
+ *                    recovery. Nothing is deleted.
+ *
+ * Because the profile is created FIRST, this ordering can never produce an
+ * auth account with no profile behind it — the failure mode that would
+ * actually require a destructive fix.
+ *
+ * LINKING NEVER USES E-MAIL. Live inspection proved a profile's address and
+ * its auth account's address routinely differ in this project, so the UUID
+ * returned by stage 2 is the only authoritative key.
+ */
+export async function inviteStaffUser(input: InviteStaffUserInput): Promise<InviteStaffUserResult> {
+  const auth = await requireCapability("user:manage");
+  if (auth.status === "denied") {
+    return { status: "error", code: auth.code };
+  }
+
+  const email = isNonEmptyString(input.email) ? input.email.trim().toLowerCase() : "";
+  const fullName = isNonEmptyString(input.fullName) ? input.fullName.trim() : "";
+
+  if (!EMAIL_PATTERN.test(email)) {
+    return { status: "error", code: "INVALID_INPUT" };
+  }
+  if (!fullName || fullName.length > MAX_NAME_LENGTH) {
+    return { status: "error", code: "INVALID_INPUT" };
+  }
+  if (!(USER_ROLE_VALUES as readonly string[]).includes(input.role)) {
+    return { status: "error", code: "INVALID_INPUT" };
+  }
+  if (!(SUPPORTED_LANGUAGE_VALUES as readonly string[]).includes(input.preferredLanguage)) {
+    return { status: "error", code: "INVALID_INPUT" };
+  }
+
+  // --- Stage 1 -------------------------------------------------------------
+  const created = await createStaffProfile({
+    email,
+    fullName,
+    role: input.role,
+    preferredLanguage: input.preferredLanguage,
+    actorProfileId: auth.profile.id,
+  });
+  if (created.status === "error") {
+    return { status: "error", code: created.code };
+  }
+
+  // --- Stage 2 (external, non-atomic) --------------------------------------
+  const origin = (await headers()).get("origin");
+  if (!origin) {
+    console.error("[configuracion actions] inviteStaffUser: no origin header; invitation not sent.");
+    return { status: "pending_invitation", profileId: created.profileId, code: "INVITE_FAILED" };
+  }
+
+  const invited = await inviteStaffAuthUser(email, origin);
+  if (invited.status === "error") {
+    // Profile intentionally retained. See this function's doc comment.
+    return { status: "pending_invitation", profileId: created.profileId, code: "INVITE_FAILED" };
+  }
+
+  // --- Stage 3 -------------------------------------------------------------
+  const linked = await linkStaffProfileAuth(created.profileId, invited.authUserId, auth.profile.id);
+  if (linked.status === "error") {
+    return { status: "pending_invitation", profileId: created.profileId, code: "LINK_FAILED" };
+  }
+
+  return { status: "success", profileId: created.profileId };
+}
+
+export type ResendStaffInvitationResult =
+  | { status: "success" }
+  | {
+      status: "error";
+      code:
+        | "INVALID_INPUT"
+        | "UNAUTHENTICATED"
+        | "FORBIDDEN"
+        | "PROFILE_NOT_FOUND"
+        | "ALREADY_LINKED"
+        | "INVITE_FAILED";
+    };
+
+/**
+ * Recovery for a pending invitation: re-runs stages 2 and 3 for a profile
+ * that already exists but has no linked auth account.
+ *
+ * Deliberately re-reads the profile's e-mail SERVER-SIDE rather than taking
+ * it from the client — the address to invite is a stored fact, not caller
+ * input. `link_staff_profile_auth` is idempotent for the same auth user, so
+ * repeated attempts converge rather than conflict.
+ */
+export async function resendStaffInvitation(profileId: string): Promise<ResendStaffInvitationResult> {
+  const auth = await requireCapability("user:manage");
+  if (auth.status === "denied") {
+    return { status: "error", code: auth.code };
+  }
+
+  if (!isNonEmptyString(profileId) || !UUID_PATTERN.test(profileId)) {
+    return { status: "error", code: "INVALID_INPUT" };
+  }
+
+  const profilesResult = await getProfiles();
+  if (profilesResult.status === "error") {
+    return { status: "error", code: "INVITE_FAILED" };
+  }
+  const target = profilesResult.users.find((user) => user.id === profileId);
+  if (!target) {
+    return { status: "error", code: "PROFILE_NOT_FOUND" };
+  }
+  // Already linked: there is nothing to resend, and re-inviting would create
+  // a second auth account for the same person.
+  if (target.authLinked) {
+    return { status: "error", code: "ALREADY_LINKED" };
+  }
+
+  const origin = (await headers()).get("origin");
+  if (!origin) {
+    return { status: "error", code: "INVITE_FAILED" };
+  }
+
+  const invited = await inviteStaffAuthUser(target.email, origin);
+  if (invited.status === "error") {
+    return { status: "error", code: "INVITE_FAILED" };
+  }
+
+  const linked = await linkStaffProfileAuth(profileId, invited.authUserId, auth.profile.id);
+  if (linked.status === "error") {
+    return {
+      status: "error",
+      code: linked.code === "ALREADY_LINKED" ? "ALREADY_LINKED" : "INVITE_FAILED",
+    };
+  }
+
+  return { status: "success" };
+}
+
+export interface SetStaffUserRoleInput {
+  profileId: string;
+  role: UserRole;
+}
+
+export type SetStaffUserRoleResult =
+  | { status: "success" }
+  | {
+      status: "error";
+      code: "INVALID_INPUT" | "UNAUTHENTICATED" | "FORBIDDEN" | "PROFILE_NOT_FOUND" | "UPDATE_FAILED";
+    };
+
+/** Changes a staff member's role. The role drives the entire Milestone 16
+ * capability matrix, so the change is audited (`user_role_changed`) with both
+ * the previous and new value, recorded atomically with the update. */
+export async function setStaffUserRole(input: SetStaffUserRoleInput): Promise<SetStaffUserRoleResult> {
+  const auth = await requireCapability("user:manage");
+  if (auth.status === "denied") {
+    return { status: "error", code: auth.code };
+  }
+
+  if (!isNonEmptyString(input.profileId) || !UUID_PATTERN.test(input.profileId)) {
+    return { status: "error", code: "INVALID_INPUT" };
+  }
+  if (!(USER_ROLE_VALUES as readonly string[]).includes(input.role)) {
+    return { status: "error", code: "INVALID_INPUT" };
+  }
+
+  const result = await updateStaffRole(input.profileId, input.role, auth.profile.id);
+  if (result.status === "error") {
+    const code = result.code === "INVALID_INPUT" ? "INVALID_INPUT" : result.code;
+    return { status: "error", code };
+  }
+
+  return { status: "success" };
+}
+
+export interface SetStaffUserActiveInput {
+  profileId: string;
+  active: boolean;
+}
+
+export type SetStaffUserActiveResult =
+  | { status: "success" }
+  | {
+      status: "error";
+      code:
+        | "INVALID_INPUT"
+        | "UNAUTHENTICATED"
+        | "FORBIDDEN"
+        | "PROFILE_NOT_FOUND"
+        | "CANNOT_DEACTIVATE_SELF"
+        | "UPDATE_FAILED";
+    };
+
+/**
+ * Deactivates or reactivates a staff member — the ONLY offboarding path in
+ * this product. There is no deletion action, by approved policy.
+ *
+ * `active = false` blocks CRM access completely (getCurrentProfile() returns
+ * null), removes the person from the Chat directory, and leaves every
+ * historical record they authored intact and attributed.
+ */
+export async function setStaffUserActive(
+  input: SetStaffUserActiveInput
+): Promise<SetStaffUserActiveResult> {
+  const auth = await requireCapability("user:manage");
+  if (auth.status === "denied") {
+    return { status: "error", code: auth.code };
+  }
+
+  if (!isNonEmptyString(input.profileId) || !UUID_PATTERN.test(input.profileId)) {
+    return { status: "error", code: "INVALID_INPUT" };
+  }
+  if (typeof input.active !== "boolean") {
+    return { status: "error", code: "INVALID_INPUT" };
+  }
+
+  const result = await setStaffActiveStatus(input.profileId, input.active, auth.profile.id);
+  if (result.status === "error") {
+    return { status: "error", code: result.code };
+  }
+
+  return { status: "success" };
 }

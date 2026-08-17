@@ -506,7 +506,48 @@
       "active": "Activo",
       "inactive": "Inactivo",
       "loadErrorTitle": "No se pudo cargar el directorio de usuarios",
-      "loadErrorDescription": "No fue posible conectar con la base de datos. Intenta recargar la página; si el problema persiste, contacta al equipo técnico."
+      "loadErrorDescription": "No fue posible conectar con la base de datos. Intenta recargar la página; si el problema persiste, contacta al equipo técnico.",
+      "pendingInvitation": "Invitación pendiente",
+      "pendingInvitationHint": "Una invitación pendiente significa que la persona aún no tiene acceso: no puede iniciar sesión ni aparecer en el chat hasta que complete la invitación.",
+      "resend": "Reenviar",
+      "deactivate": "Desactivar",
+      "reactivate": "Reactivar",
+      "invite": {
+        "trigger": "Invitar usuario",
+        "title": "Invitar usuario",
+        "description": "Se creará el perfil y se enviará una invitación por correo. La persona elegirá su propia contraseña.",
+        "fullName": "Nombre completo",
+        "email": "Correo electrónico",
+        "role": "Rol",
+        "language": "Idioma preferido",
+        "note": "Nunca se crea ni se envía una contraseña temporal: la invitación permite a la persona establecer la suya.",
+        "cancel": "Cancelar",
+        "submit": "Enviar invitación",
+        "submitting": "Enviando...",
+        "validation": {
+          "email": "Ingrese un correo electrónico válido.",
+          "fullName": "Ingrese el nombre completo."
+        },
+        "toasts": {
+          "invited": "Invitación enviada a {email}.",
+          "pending": "El perfil se creó, pero no se pudo enviar la invitación. Use «Reenviar» para intentarlo de nuevo.",
+          "duplicateEmail": "Ya existe un usuario con ese correo electrónico.",
+          "alreadyRegistered": "Ese correo ya tiene una cuenta de acceso registrada.",
+          "forbidden": "No tiene permisos para administrar usuarios.",
+          "invalidInput": "Revise los datos ingresados.",
+          "error": "No se pudo invitar al usuario. Intente nuevamente."
+        }
+      },
+      "toasts": {
+        "roleChanged": "Rol de {name} actualizado a «{role}».",
+        "roleError": "No se pudo cambiar el rol. Intente nuevamente.",
+        "deactivated": "{name} fue desactivado.",
+        "reactivated": "{name} fue reactivado.",
+        "activeError": "No se pudo cambiar el estado. Intente nuevamente.",
+        "cannotDeactivateSelf": "No puede desactivar su propio perfil.",
+        "resent": "Invitación reenviada a {email}.",
+        "resendError": "No se pudo reenviar la invitación. Intente nuevamente."
+      }
     },
     "products": {
       "title": "Productos",

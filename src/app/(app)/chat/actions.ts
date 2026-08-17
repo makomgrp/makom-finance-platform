@@ -54,7 +54,7 @@ export interface SendChatMessageInput {
   /** The colleague being messaged — still legacy-id-space (see
    * src/lib/services/chat.ts's module doc comment). Never the acting
    * user's identity. */
-  recipientLegacyId: string;
+  recipientProfileId: string;
   text: string;
   originalLanguage: SupportedLanguage;
 }
@@ -72,7 +72,7 @@ export async function sendChatMessage(input: SendChatMessageInput): Promise<Send
   if (!isNonEmptyString(input.id) || !UUID_PATTERN.test(input.id)) {
     return { status: "error", code: "INVALID_INPUT" };
   }
-  if (!isNonEmptyString(input.recipientLegacyId)) {
+  if (!isNonEmptyString(input.recipientProfileId)) {
     return { status: "error", code: "INVALID_INPUT" };
   }
   const text = isNonEmptyString(input.text) ? input.text.trim() : "";
@@ -87,7 +87,7 @@ export async function sendChatMessage(input: SendChatMessageInput): Promise<Send
     const { message, conversationRealId } = await sendMessage({
       id: input.id,
       senderProfileId: auth.profile.id,
-      recipientLegacyId: input.recipientLegacyId,
+      recipientProfileId: input.recipientProfileId,
       text,
       originalLanguage: input.originalLanguage,
     });
@@ -109,7 +109,7 @@ export interface MarkChatConversationReadInput {
   /** Which conversation to mark read, identified by the colleague on the
    * other side — still legacy-id-space. The viewer is always the caller's
    * own authenticated identity, never accepted from input. */
-  colleagueLegacyId: string;
+  colleagueProfileId: string;
 }
 
 export type MarkChatConversationReadResult =
@@ -124,12 +124,12 @@ export async function markChatConversationRead(
     return { status: "error", code: auth.code };
   }
 
-  if (!isNonEmptyString(input.colleagueLegacyId)) {
+  if (!isNonEmptyString(input.colleagueProfileId)) {
     return { status: "error", code: "INVALID_INPUT" };
   }
 
   try {
-    await markConversationRead(auth.profile.id, input.colleagueLegacyId);
+    await markConversationRead(auth.profile.id, input.colleagueProfileId);
     return { status: "success" };
   } catch (error) {
     console.error(

@@ -506,7 +506,48 @@
       "active": "Active",
       "inactive": "Inactive",
       "loadErrorTitle": "Couldn't load the user directory",
-      "loadErrorDescription": "We weren't able to connect to the database. Try reloading the page; if the problem continues, contact the technical team."
+      "loadErrorDescription": "We weren't able to connect to the database. Try reloading the page; if the problem continues, contact the technical team.",
+      "pendingInvitation": "Pending invitation",
+      "pendingInvitationHint": "A pending invitation means the person has no access yet: they cannot sign in or appear in chat until they complete it.",
+      "resend": "Resend",
+      "deactivate": "Deactivate",
+      "reactivate": "Reactivate",
+      "invite": {
+        "trigger": "Invite user",
+        "title": "Invite user",
+        "description": "The profile is created and an invitation e-mail is sent. The person chooses their own password.",
+        "fullName": "Full name",
+        "email": "Email address",
+        "role": "Role",
+        "language": "Preferred language",
+        "note": "No temporary password is ever created or sent — the invitation lets the person set their own.",
+        "cancel": "Cancel",
+        "submit": "Send invitation",
+        "submitting": "Sending...",
+        "validation": {
+          "email": "Enter a valid email address.",
+          "fullName": "Enter the full name."
+        },
+        "toasts": {
+          "invited": "Invitation sent to {email}.",
+          "pending": "The profile was created, but the invitation could not be sent. Use “Resend” to try again.",
+          "duplicateEmail": "A user with that email address already exists.",
+          "alreadyRegistered": "That email already has a registered sign-in account.",
+          "forbidden": "You do not have permission to manage users.",
+          "invalidInput": "Please check the details you entered.",
+          "error": "Could not invite the user. Please try again."
+        }
+      },
+      "toasts": {
+        "roleChanged": "{name}’s role changed to “{role}”.",
+        "roleError": "Could not change the role. Please try again.",
+        "deactivated": "{name} was deactivated.",
+        "reactivated": "{name} was reactivated.",
+        "activeError": "Could not change the status. Please try again.",
+        "cannotDeactivateSelf": "You cannot deactivate your own profile.",
+        "resent": "Invitation resent to {email}.",
+        "resendError": "Could not resend the invitation. Please try again."
+      }
     },
     "products": {
       "title": "Products",

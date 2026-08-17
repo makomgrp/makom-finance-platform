@@ -6,10 +6,10 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { LANGUAGE_CONFIG } from "@/lib/config/language";
 import { getInitials } from "@/lib/format";
-import type { User } from "@/types";
+import type { ChatColleague } from "@/types";
 
 interface ChatHeaderProps {
-  user: User;
+  user: ChatColleague;
   onBack?: () => void;
 }
 

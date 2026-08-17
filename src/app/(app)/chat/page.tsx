@@ -1,8 +1,8 @@
 import { ChatView } from "@/components/chat/chat-view";
-import { USERS } from "@/lib/demo-data";
 import { loadChatDataForUser } from "@/lib/services/chat";
+import { getChatColleagues } from "@/lib/services/profiles";
 import { getCurrentProfile } from "@/lib/auth/get-current-profile";
-import type { ChatConversation, ChatMessage } from "@/types";
+import type { ChatColleague, ChatConversation, ChatMessage } from "@/types";
 
 // This project uses Next's previous rendering model (no `cacheComponents`
 // in next.config.ts), where `export const dynamic` is the correct,
@@ -15,6 +15,7 @@ export const dynamic = "force-dynamic";
 export default async function ChatPage() {
   let initialMessages: ChatMessage[] = [];
   let initialConversations: ChatConversation[] = [];
+  let colleagues: ChatColleague[] = [];
   let hasLoadError = false;
 
   // getCurrentProfile() is wrapped in React's cache(), so this and the
@@ -29,17 +30,22 @@ export default async function ChatPage() {
     // "do not duplicate auth checks" rule in the Auth migration plan).
     hasLoadError = true;
   } else {
-    // Colleagues remain legacy-id-space (see the chat migration plan) —
-    // matched against the real authenticated profile by email, since
-    // Profile deliberately carries no legacy_id (see get-current-profile.ts).
-    // Display/targeting only — the acting user's own identity below is
-    // always profile.id, the real UUID, never this bridge.
-    const colleagueLegacyIds = USERS.filter(
-      (user) => user.active && user.email !== profile.email
-    ).map((user) => user.id);
+    // MILESTONE 21: the colleague directory is a live query against
+    // `profiles`, not a static list. Eligibility is active AND auth-linked —
+    // see getChatColleagues for why each clause is there. Identities are
+    // `profiles.id` UUIDs end to end; no email matching, no legacy ids.
+    const colleaguesResult = await getChatColleagues(profile.id);
+    if (colleaguesResult.status === "error") {
+      hasLoadError = true;
+    } else {
+      colleagues = colleaguesResult.colleagues;
+    }
 
     try {
-      const result = await loadChatDataForUser(profile.id, colleagueLegacyIds);
+      const result = await loadChatDataForUser(
+        profile.id,
+        colleagues.map((colleague) => colleague.id)
+      );
       initialMessages = result.messages;
       initialConversations = result.conversations;
     } catch (error) {
@@ -55,6 +61,7 @@ export default async function ChatPage() {
     <ChatView
       initialMessages={initialMessages}
       initialConversations={initialConversations}
+      colleagues={colleagues}
       hasLoadError={hasLoadError}
     />
   );

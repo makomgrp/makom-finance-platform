@@ -7,10 +7,10 @@ import { getMessageDisplay } from "@/lib/chat-message-display";
 import { formatRelativeTime, getInitials } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { Locale } from "@/i18n/config";
-import type { ChatMessage, SupportedLanguage, User } from "@/types";
+import type { ChatMessage, SupportedLanguage, ChatColleague } from "@/types";
 
 interface ConversationListItemProps {
-  user: User;
+  user: ChatColleague;
   lastMessage?: ChatMessage;
   unreadCount: number;
   isActive: boolean;

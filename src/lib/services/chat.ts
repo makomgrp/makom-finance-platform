@@ -8,35 +8,32 @@ import type { ChatConversation, ChatMessage, MessageTranslations, SupportedLangu
  * module, backed by the `conversations` / `conversation_members` /
  * `messages` / `message_translations` tables.
  *
- * IDENTITY MODEL (Milestone 5B): every database table uses real
- * `profiles.id` UUIDs exclusively — no chat table stores or reasons about
- * `legacy_id`, and never has. What changed in Milestone 5B is who's
- * allowed to *tell* this service which UUID the acting user is:
+ * IDENTITY MODEL — ONE SPACE, `profiles.id` UUIDs (Milestone 21).
  *
- *   - The ACTING user (sender of a message, viewer marking something
- *     read) is now always a real `profiles.id` UUID, supplied by the
- *     caller (a Server Action) after deriving it server-side via
- *     getCurrentProfile() — never resolved from a legacy id here, and
- *     never trusted from client input. See sendMessage/markConversationRead
- *     below.
- *   - The COLLEAGUE side of a conversation (who you're chatting with) is
- *     still identified by the demo "u-00N" legacy ids from
- *     src/lib/demo-data/users.ts, because the chat UI's colleague list
- *     (who's even reachable) is still sourced from that static, legacy-id-
- *     keyed data — nobody but the two real dev Auth accounts has a linked
- *     Supabase Auth session yet. resolveProfileIdByLegacyId/
- *     resolveProfileIdsByLegacyIds below remain, narrowly, for this one
- *     purpose only. This is a deliberate, temporary, isolated compatibility
- *     bridge — not a security-relevant identity resolution — and should be
- *     retired once colleague selection itself is driven by real profiles
- *     instead of the static demo user list (out of scope for this
- *     milestone; see the Auth migration plan).
+ * Every id this service accepts, returns or stores is a real `profiles.id`
+ * UUID. The acting user comes from getCurrentProfile() in a Server Action,
+ * never from client input; the colleague comes from getChatColleagues(),
+ * which queries `profiles` directly.
  *
- * Client-facing ids therefore live in a deliberately mixed space: "myself"
- * is always a real UUID, "the colleague" is always a legacy id. Every
- * public function's doc comment below says which is which. This is not a
- * new permanent architecture — see the chat migration plan for the fuller
- * colleague-identity migration this sets up for later.
+ * WHAT MILESTONE 21 REMOVED, AND WHY IT WAS SAFE. Until then the colleague
+ * side lived in a second identity space: the demo "u-00N" legacy ids from
+ * src/lib/demo-data/users.ts, translated to and from real UUIDs by
+ * resolveProfileIdByLegacyId / resolveProfileIdsByLegacyIds and a reverse
+ * map. That bridge is gone, along with the static list and the deleted
+ * demo-data/users.ts.
+ *
+ * It required NO data migration. The database was already correct —
+ * conversation_members.profile_id and messages.sender_profile_id have always
+ * been uuid foreign keys to profiles(id), and live verification found zero
+ * orphans across 8 conversations, 16 memberships and 30 messages. The legacy
+ * id existed only in memory, at this service's boundary. Not one persisted
+ * chat row was read, rewritten or migrated to retire it.
+ *
+ * A CONSEQUENCE WORTH KNOWING: a message's sender is now rendered straight
+ * from the stored `sender_profile_id`, so historical messages from people who
+ * are no longer selectable contacts — deactivated staff, pending invitees —
+ * keep displaying their correct author. Eligibility governs who you can START
+ * a conversation with (see getChatColleagues), never what was already said.
  *
  * Four functions are meant to be called from outside this module:
  * loadChatDataForUser, sendMessage, markConversationRead,
@@ -54,8 +51,7 @@ import type { ChatConversation, ChatMessage, MessageTranslations, SupportedLangu
  * subscriber can't otherwise distinguish "this is genuinely from the
  * colleague" from "this is my own send, echoed back to my other tab."
  * A receiving client only ever compares that UUID against its own known
- * real UUID — never against a legacy id, so this doesn't reintroduce a
- * dependency on the legacy_id bridge. The browser never publishes, only
+ * real UUID. The browser never publishes, only
  * subscribes — broadcastChatEvent below is the only thing that ever sends.
  * A broadcast failing never affects the mutation it followed; the database
  * write already succeeded by the time it's attempted, and the browser
@@ -68,12 +64,6 @@ import type { ChatConversation, ChatMessage, MessageTranslations, SupportedLangu
 
 interface ProfileIdentityRow {
   id: string;
-  preferred_language: string;
-}
-
-interface ProfileLegacyRow {
-  id: string;
-  legacy_id: string | null;
   preferred_language: string;
 }
 
@@ -113,58 +103,52 @@ interface MessageTranslationRow {
 }
 
 // ============================================================================
-// Legacy id <-> profile UUID resolution (private — the compatibility boundary)
+// Profile language lookup (private)
 // ============================================================================
+//
+// MILESTONE 21 removed resolveProfileIdByLegacyId / resolveProfileIdsByLegacyIds
+// and the colleagueProfileIdToLegacyId reverse map. There is no longer any
+// translation between identity spaces: every id entering, leaving or stored
+// by this service is a `profiles.id` UUID.
+//
+// That was a pure code change. The database was ALREADY profile-UUID-native —
+// conversation_members.profile_id and messages.sender_profile_id are uuid FKs
+// to profiles(id), verified live with zero orphans across 8 conversations, 16
+// memberships and 30 messages. The legacy id only ever existed in memory, at
+// this service's boundary, so removing it required no data migration and
+// rewrote no historical record.
+//
+// What remains is a narrow lookup of one display fact — the recipient's
+// preferred language, needed to decide whether to translate.
 
-/** Throws: an unresolvable legacy id means a required profile mapping is
- * missing — a data/config problem, not a normal runtime state. Returns
- * preferred_language alongside the id since most callers that need the
- * profile id also need to know what language to translate into/out of. */
-async function resolveProfileIdByLegacyId(legacyId: string): Promise<ProfileIdentity> {
+/** Batched preferred-language lookup by profile UUID. Throws listing every
+ * id that failed to resolve: an unresolvable profile id means the caller was
+ * handed an identity that does not exist, which is a data/config problem,
+ * not a normal runtime state. */
+async function resolveProfileLanguages(profileIds: string[]): Promise<Map<string, ProfileIdentity>> {
+  const uniqueIds = Array.from(new Set(profileIds));
+  if (uniqueIds.length === 0) return new Map();
+
   const supabase = getSupabaseServerClient();
   const { data, error } = await supabase
     .from("profiles")
     .select("id, preferred_language")
-    .eq("legacy_id", legacyId)
-    .maybeSingle<ProfileIdentityRow>();
+    .in("id", uniqueIds)
+    .returns<ProfileIdentityRow[]>();
 
   if (error) {
-    console.error("[chat service] resolveProfileIdByLegacyId query failed:", error.message);
-    throw new Error(`Failed to resolve profile for legacy id "${legacyId}".`);
-  }
-  if (!data) {
-    throw new Error(`No profile found for legacy id "${legacyId}".`);
-  }
-  return { id: data.id, preferredLanguage: data.preferred_language as SupportedLanguage };
-}
-
-/** Batched form of resolveProfileIdByLegacyId. Throws listing every id
- * that failed to resolve, so a single query serves the whole participant
- * set instead of one round-trip per person. */
-async function resolveProfileIdsByLegacyIds(legacyIds: string[]): Promise<Map<string, ProfileIdentity>> {
-  const uniqueIds = Array.from(new Set(legacyIds));
-  const supabase = getSupabaseServerClient();
-  const { data, error } = await supabase
-    .from("profiles")
-    .select("id, legacy_id, preferred_language")
-    .in("legacy_id", uniqueIds)
-    .returns<ProfileLegacyRow[]>();
-
-  if (error) {
-    console.error("[chat service] resolveProfileIdsByLegacyIds query failed:", error.message);
-    throw new Error("Failed to resolve profiles for the given legacy ids.");
+    console.error("[chat service] resolveProfileLanguages query failed:", error.message);
+    throw new Error("Failed to resolve profiles for the given ids.");
   }
 
   const map = new Map<string, ProfileIdentity>();
   for (const row of data ?? []) {
-    if (row.legacy_id) {
-      map.set(row.legacy_id, { id: row.id, preferredLanguage: row.preferred_language as SupportedLanguage });
-    }
+    map.set(row.id, { id: row.id, preferredLanguage: row.preferred_language as SupportedLanguage });
   }
 
   const missing = uniqueIds.filter((id) => !map.has(id));
   if (missing.length > 0) {
-    throw new Error(`No profile found for legacy id(s): ${missing.join(", ")}.`);
+    throw new Error(`No profile found for id(s): ${missing.join(", ")}.`);
   }
 
   return map;
@@ -173,10 +157,9 @@ async function resolveProfileIdsByLegacyIds(legacyIds: string[]): Promise<Map<st
 /** Deterministic client-facing conversation id, matching
  * demo-data/chat.ts's getConversationId() exactly. Deliberately
  * reimplemented here rather than imported, so this service has no
- * dependency on demo data — see the module doc comment. Agnostic to id
- * shape (just sorts + joins two strings), which is what lets it pair one
- * real profile UUID (the acting user) with one legacy id (the colleague)
- * — see the module doc comment's IDENTITY MODEL section. */
+ * dependency on demo data — see the module doc comment. As of Milestone 21
+ * both sides are always `profiles.id` UUIDs; there is no longer a mixed
+ * identity space for it to bridge. */
 function buildConversationClientId(idA: string, idB: string): string {
   return [idA, idB].sort().join("__");
 }
@@ -444,14 +427,13 @@ export interface LoadChatDataResult {
 
 /**
  * Loads every direct conversation (and its messages/existing translations)
- * between the current user and each colleague in `colleagueLegacyIds` that
+ * between the current user and each colleague in `colleagueProfileIds` that
  * already exists.
  *
- * `currentUserId` is the current user's real `profiles.id` UUID — the
- * caller (chat/page.tsx) derives it via getCurrentProfile(), never via
- * legacy id resolution (see the module doc comment's IDENTITY MODEL).
- * `colleagueLegacyIds` stays legacy-id-space, since colleague selection is
- * still driven by the static demo user list.
+ * MILESTONE 21: both arguments are now `profiles.id` UUIDs. `currentUserId`
+ * comes from getCurrentProfile(); `colleagueProfileIds` comes from
+ * getChatColleagues(), which queries `profiles` directly. There is no longer
+ * a second identity space anywhere in this service.
  *
  * STRICTLY READ-ONLY: this function must never call DeepL, insert a row,
  * or otherwise mutate anything — it reads conversations, messages, and
@@ -468,30 +450,25 @@ export interface LoadChatDataResult {
  */
 export async function loadChatDataForUser(
   currentUserId: string,
-  colleagueLegacyIds: string[]
+  colleagueProfileIds: string[]
 ): Promise<LoadChatDataResult> {
-  const colleagueLegacyToProfile = await resolveProfileIdsByLegacyIds(colleagueLegacyIds);
-  const colleagueProfileIdToLegacyId = new Map(
-    Array.from(colleagueLegacyToProfile.entries()).map(([legacyId, profile]) => [profile.id, legacyId])
-  );
+  // Validates that every requested colleague exists; the languages it
+  // returns are not needed for a read, but the existence check is the same
+  // guarantee the old legacy resolution provided.
+  await resolveProfileLanguages(colleagueProfileIds);
 
   const supabase = getSupabaseServerClient();
   const conversations: ChatConversation[] = [];
   const messages: ChatMessage[] = [];
 
-  for (const colleagueLegacyId of colleagueLegacyIds) {
-    const colleague = colleagueLegacyToProfile.get(colleagueLegacyId);
-    if (!colleague) {
-      throw new Error(`No profile found for legacy id "${colleagueLegacyId}".`);
-    }
-
-    const conversationId = await findDirectConversation(currentUserId, colleague.id);
+  for (const colleagueProfileId of colleagueProfileIds) {
+    const conversationId = await findDirectConversation(currentUserId, colleagueProfileId);
     if (!conversationId) continue;
 
-    const clientConversationId = buildConversationClientId(currentUserId, colleagueLegacyId);
+    const clientConversationId = buildConversationClientId(currentUserId, colleagueProfileId);
     conversations.push({
       id: clientConversationId,
-      participantIds: [currentUserId, colleagueLegacyId],
+      participantIds: [currentUserId, colleagueProfileId],
       realId: conversationId,
     });
 
@@ -525,13 +502,12 @@ export async function loadChatDataForUser(
 
     for (const row of rows) {
       const isOwnMessage = row.sender_profile_id === currentUserId;
-      // Own messages use the real UUID directly (it's already the current
-      // user's own id); anyone else's message must resolve to the
-      // colleague's legacy id — see the module doc comment's IDENTITY MODEL.
-      const senderId = isOwnMessage ? currentUserId : colleagueProfileIdToLegacyId.get(row.sender_profile_id);
-      if (!senderId) {
-        throw new Error(`Message ${row.id} has a sender outside the requested participant set.`);
-      }
+      // MILESTONE 21: the stored sender id IS the identity the UI uses — no
+      // translation, no lookup, no possibility of a sender falling outside a
+      // "requested participant set". This is what makes historical messages
+      // from people no longer in the colleague directory (deactivated staff,
+      // pending invitees) keep rendering with their correct author.
+      const senderId = row.sender_profile_id;
       const originalLanguage = row.original_language as SupportedLanguage;
       // Whatever is already cached — never requested here. A message whose
       // needed translation isn't in this map yet is returned as-is; see
@@ -543,7 +519,7 @@ export async function loadChatDataForUser(
         id: row.id,
         conversationId: clientConversationId,
         senderId,
-        recipientId: isOwnMessage ? colleagueLegacyId : currentUserId,
+        recipientId: isOwnMessage ? colleagueProfileId : currentUserId,
         originalText: row.original_text,
         originalLanguage,
         detectedLanguage: (row.detected_source_language as SupportedLanguage | null) ?? undefined,
@@ -570,9 +546,8 @@ export interface SendMessageInput {
    * server-side via getCurrentProfile() — never accept it as client input.
    * See the module doc comment's IDENTITY MODEL. */
   senderProfileId: string;
-  /** The colleague being messaged — still legacy-id-space; see the module
-   * doc comment. */
-  recipientLegacyId: string;
+  /** The colleague being messaged — a `profiles.id` UUID (Milestone 21). */
+  recipientProfileId: string;
   text: string;
   originalLanguage: SupportedLanguage;
 }
@@ -599,9 +574,18 @@ export async function sendMessage(input: SendMessageInput): Promise<SendMessageR
     throw new Error("sendMessage: text must not be empty.");
   }
 
-  const recipient = await resolveProfileIdByLegacyId(input.recipientLegacyId);
+  // Only the recipient's preferred language is looked up; their identity is
+  // already the UUID the caller supplied.
+  const recipients = await resolveProfileLanguages([input.recipientProfileId]);
+  const recipient = recipients.get(input.recipientProfileId);
+  if (!recipient) {
+    throw new Error(`No profile found for id "${input.recipientProfileId}".`);
+  }
 
-  const conversationId = await findOrCreateDirectConversation(input.senderProfileId, recipient.id);
+  const conversationId = await findOrCreateDirectConversation(
+    input.senderProfileId,
+    input.recipientProfileId
+  );
 
   const supabase = getSupabaseServerClient();
   const { data, error } = await supabase
@@ -662,9 +646,9 @@ export async function sendMessage(input: SendMessageInput): Promise<SendMessageR
   return {
     message: {
       id: data.id,
-      conversationId: buildConversationClientId(input.senderProfileId, input.recipientLegacyId),
+      conversationId: buildConversationClientId(input.senderProfileId, input.recipientProfileId),
       senderId: input.senderProfileId,
-      recipientId: input.recipientLegacyId,
+      recipientId: input.recipientProfileId,
       originalText: data.original_text,
       originalLanguage: data.original_language as SupportedLanguage,
       translations,
@@ -681,13 +665,14 @@ export async function sendMessage(input: SendMessageInput): Promise<SendMessageR
  *
  * `viewerProfileId` is the acting user's real `profiles.id` UUID — callers
  * must derive it server-side via getCurrentProfile(), never accept it as
- * client input (see the module doc comment's IDENTITY MODEL).
- * `colleagueLegacyId` stays legacy-id-space.
+ * client input. `colleagueProfileId` is likewise a `profiles.id` UUID
+ * (Milestone 21).
  */
-export async function markConversationRead(viewerProfileId: string, colleagueLegacyId: string): Promise<void> {
-  const colleague = await resolveProfileIdByLegacyId(colleagueLegacyId);
-
-  const conversationId = await findDirectConversation(viewerProfileId, colleague.id);
+export async function markConversationRead(
+  viewerProfileId: string,
+  colleagueProfileId: string
+): Promise<void> {
+  const conversationId = await findDirectConversation(viewerProfileId, colleagueProfileId);
   if (!conversationId) return;
 
   const supabase = getSupabaseServerClient();

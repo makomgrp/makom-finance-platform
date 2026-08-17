@@ -7,10 +7,10 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ConversationListItem } from "@/components/chat/conversation-list-item";
 import { getConversationId, getMessagesForConversation } from "@/lib/demo-data";
-import type { ChatMessage, SupportedLanguage, User } from "@/types";
+import type { ChatMessage, SupportedLanguage, ChatColleague } from "@/types";
 
 interface ConversationListProps {
-  colleagues: User[];
+  colleagues: ChatColleague[];
   messages: ChatMessage[];
   selectedUserId: string | null;
   onSelectUser: (userId: string) => void;
