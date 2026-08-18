@@ -10,7 +10,10 @@ import { APPLICATION_STATUS_BADGE_CLASS, APPLICATION_STATUS_ORDER } from "@/lib/
 import { DOCUMENT_TYPE_ORDER } from "@/lib/config/document";
 import { getProfiles } from "@/lib/services/profiles";
 import { getAllCapabilityGrants } from "@/lib/services/capability-grants";
-import { getBranches } from "@/lib/services/branches";
+import { getBranches, getActiveBranchesInScope } from "@/lib/services/branches";
+import { getCurrentProfile } from "@/lib/auth/get-current-profile";
+import { EMPTY_BRANCH_SCOPE } from "@/lib/services/branch-scope-query";
+import { assignableRolesFor } from "@/lib/auth/assignable-roles";
 import { getAllBranchMemberships } from "@/lib/services/branch-memberships";
 import type { DelegatableCapability } from "@/lib/auth/capabilities";
 import type { BranchMembership } from "@/types";
@@ -46,12 +49,26 @@ export default async function ConfiguracionPage() {
   // MILESTONE 24 — grants for the whole directory in ONE read, rather than a
   // query per row. The table holds only delegated exceptions (never the base
   // role matrix), so it stays small by nature.
-  const [profilesResult, grantsResult, branchesResult, membershipsResult] = await Promise.all([
-    getProfiles(),
-    getAllCapabilityGrants(),
-    getBranches(),
-    getAllBranchMemberships(),
-  ]);
+  // MILESTONE 25C-3 — the caller's own identity, needed for two UX decisions
+  // that must be made SERVER-SIDE: which roles they may hand out (rule A2), and
+  // which branches they may assign staff into (their own effective scope).
+  const profile = await getCurrentProfile();
+  const actorScope = profile?.branchScope ?? EMPTY_BRANCH_SCOPE;
+
+  const [profilesResult, grantsResult, branchesResult, membershipsResult, assignableBranchesResult] =
+    await Promise.all([
+      getProfiles(),
+      getAllCapabilityGrants(),
+      getBranches(),
+      getAllBranchMemberships(),
+      // SCOPED, and deliberately a SECOND read rather than a filter over the
+      // full list above: `branches` feeds the administration table (which must
+      // show inactive branches so they can be reactivated), while this feeds
+      // every "assign someone to a branch" control. Filtering the admin list
+      // client-side would have shipped out-of-scope branch NAMES to the browser
+      // and relied on the UI not to render them.
+      getActiveBranchesInScope(actorScope),
+    ]);
 
   // A failed grants read degrades to "no delegated extras shown" rather than
   // failing the whole Settings page — the same fail-closed direction
@@ -69,11 +86,28 @@ export default async function ConfiguracionPage() {
   const memberships: BranchMembership[] =
     membershipsResult.status === "ok" ? membershipsResult.memberships : [];
 
+  // MILESTONE 25C-3 — ACTIVE staff per branch. Counting every membership row
+  // would inflate the figure with deactivated employees who are still
+  // historically attached, and an administrator reads this number to decide
+  // whether a branch is staffed TODAY. Computed from the directory already
+  // loaded above — no extra query, no stored counter column.
+  const activeProfileIds = new Set(
+    (profilesResult.status === "ok" ? profilesResult.users : [])
+      .filter((user) => user.active)
+      .map((user) => user.id)
+  );
   const staffCountByBranchId: Record<string, number> = {};
   for (const membership of memberships) {
+    if (!activeProfileIds.has(membership.profileId)) continue;
     staffCountByBranchId[membership.branchId] =
       (staffCountByBranchId[membership.branchId] ?? 0) + 1;
   }
+
+  // MILESTONE 25C-3 — rule A2 mirrored for the UI only; the database re-checks
+  // it on every call. See src/lib/auth/assignable-roles.ts.
+  const assignableRoles = assignableRolesFor(profile?.role ?? "consulta");
+  const assignableBranches =
+    assignableBranchesResult.status === "ok" ? assignableBranchesResult.branches : [];
 
   const productsResult = await getAllProducts();
 
@@ -98,9 +132,10 @@ export default async function ConfiguracionPage() {
         <TabsContent value="usuarios" className="mt-4">
           <UsersSection
             grantsByProfileId={grantsByProfileId}
-            branches={branches}
             branchMemberships={memberships}
             users={profilesResult.status === "ok" ? profilesResult.users : []}
+            assignableRoles={assignableRoles}
+            assignableBranches={assignableBranches}
             hasError={profilesResult.status === "error"}
           />
         </TabsContent>

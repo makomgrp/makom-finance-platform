@@ -602,6 +602,37 @@
           "error": "No se pudo cambiar el permiso.",
           "forbidden": "Solo un administrador puede gestionar permisos adicionales."
         }
+      },
+      "onboarding": {
+        "title": "Nuevo empleado",
+        "stepData": "Datos",
+        "stepRole": "Rol",
+        "stepBranches": "Sucursales",
+        "stepReview": "Revisión",
+        "stepOf": "Paso {current} de {total}",
+        "next": "Siguiente",
+        "back": "Atrás",
+        "finish": "Crear e invitar",
+        "primaryBranch": "Sucursal principal",
+        "selectBranches": "Selecciona las sucursales donde trabajará",
+        "noAssignableBranches": "No tienes sucursales disponibles para asignar. El empleado se creará sin sucursal.",
+        "reviewEmployee": "Empleado",
+        "reviewRole": "Rol",
+        "reviewBranches": "Sucursales",
+        "reviewPrimary": "Principal",
+        "reviewNoBranches": "Sin sucursal asignada",
+        "profileCreated": "Perfil creado",
+        "invitationPending": "Invitación pendiente de reenvío",
+        "branchesPending": "Faltó asignar {count} sucursal(es)",
+        "retryBranches": "Reintentar sucursales",
+        "partialTitle": "Empleado creado con pasos pendientes",
+        "done": "Listo",
+        "permissionsHint": "Los permisos adicionales se asignan desde la fila del empleado, en Permisos."
+      },
+      "scopeSummary": {
+        "national": "Alcance nacional",
+        "none": "Sin sucursal asignada",
+        "more": "+{count} sucursales"
       }
     },
     "products": {

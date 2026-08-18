@@ -95,7 +95,11 @@ export async function getBranches(): Promise<GetBranchesResult> {
 }
 
 /**
- * The branches a caller may send a record TO (Milestone 25B-3).
+ * The ACTIVE branches this caller may work with (Milestone 25C-3).
+ *
+ * THE ONE SCOPED BRANCH DIRECTORY. Used for transfer destinations (25B-3) and
+ * for staff onboarding/branch assignment (25C-3), so a caller can never be
+ * offered — or even shown the name of — a branch outside their reach.
  *
  * Deliberately NOT getBranches(). That one is the administration screen's list
  * and returns every row including deactivated ones, because reactivating a
@@ -117,11 +121,9 @@ export async function getBranches(): Promise<GetBranchesResult> {
  * picking something that would be rejected; it stops nobody from crafting a
  * request.
  */
-export async function getTransferDestinationBranches(
-  scope: BranchScope
-): Promise<GetBranchesResult> {
-  // Empty scope reaches no branch, so there is nowhere to transfer to. Return
-  // without querying rather than emitting a predicate — see branch-scope-query.
+export async function getActiveBranchesInScope(scope: BranchScope): Promise<GetBranchesResult> {
+  // Empty scope reaches no branch. Return without querying rather than emitting
+  // a predicate — see branch-scope-query.ts on the empty-scope trap.
   if (isEmptyScope(scope)) return { status: "ok", branches: [] };
 
   try {
@@ -135,17 +137,32 @@ export async function getTransferDestinationBranches(
     ).order("name", { ascending: true });
 
     if (error) {
-      console.error("[branches service] Failed to load transfer destinations:", error.message);
+      console.error("[branches service] Failed to load in-scope active branches:", error.message);
       return { status: "error" };
     }
     return { status: "ok", branches: ((data ?? []) as BranchRow[]).map(toBranch) };
   } catch (error) {
     console.error(
-      "[branches service] Unexpected failure loading transfer destinations:",
+      "[branches service] Unexpected failure loading in-scope active branches:",
       error instanceof Error ? error.message : "unknown error"
     );
     return { status: "error" };
   }
+}
+
+/**
+ * The branches a caller may send a record TO (Milestone 25B-3).
+ *
+ * Identical question to "which branches may this person work with", so it
+ * delegates rather than repeating the query — one filter, two intention-
+ * revealing names. See getActiveBranchesInScope above for why `active` and
+ * scope are both applied, and why this is a MENU and never a gate: the transfer
+ * RPCs re-derive destination authorization inside the write's own transaction.
+ */
+export async function getTransferDestinationBranches(
+  scope: BranchScope
+): Promise<GetBranchesResult> {
+  return getActiveBranchesInScope(scope);
 }
 
 export type BranchMutationResult =

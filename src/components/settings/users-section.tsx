@@ -44,7 +44,6 @@ import { useCapability } from "@/lib/auth/use-capability";
 import { canActOnStaffTarget } from "@/lib/auth/capabilities";
 import { useCurrentProfile } from "@/lib/auth/current-profile-context";
 import { LANGUAGE_CONFIG } from "@/lib/config/language";
-import { USER_ROLE_VALUES } from "@/lib/config/user-role";
 import type { DelegatableCapability } from "@/lib/auth/capabilities";
 import type { Branch, BranchMembership, StaffUser, UserRole } from "@/types";
 
@@ -85,13 +84,23 @@ interface UsersSectionProps {
   /** Milestone 24 — delegated capabilities per profile id, resolved
    * server-side. A profile with no entry simply has no delegated extras. */
   grantsByProfileId: Record<string, DelegatableCapability[]>;
-  /** Milestone 25A — every branch, for the scope dialog's option list. Empty
-   * until ODL's real branches are configured; the dialog says so rather than
-   * offering invented options. */
-  branches: Branch[];
+  /* MILESTONE 25C-3 — the unscoped `branches` prop was REMOVED. It carried
+   * every branch, including inactive ones and ones outside the caller's reach,
+   * and fed the branch-assignment dialog. Deleting it rather than leaving it
+   * unused is deliberate: a prop that still exists is a prop someone can wire
+   * back up. `assignableBranches` below is the only branch list this section
+   * receives. */
   /** Milestone 25A — every staff branch membership, resolved server-side in one
    * read rather than a query per row. */
   branchMemberships: BranchMembership[];
+  /** MILESTONE 25C-3 — roles this caller may hand out (rule A2 mirrored
+   * server-side; the database re-checks). */
+  assignableRoles: UserRole[];
+  /** MILESTONE 25C-3 — ACTIVE branches inside this caller's OWN scope. Fed to
+   * every "assign someone to a branch" control, so an out-of-scope branch name
+   * never reaches the browser. Distinct from `branches` above, which is the
+   * administration list and deliberately includes inactive rows. */
+  assignableBranches: Branch[];
   /** True when the Supabase read failed — shows an explicit error state
    * instead of silently falling back to any other data source. */
   hasError: boolean;
@@ -100,8 +109,9 @@ interface UsersSectionProps {
 export function UsersSection({
   users,
   grantsByProfileId,
-  branches,
   branchMemberships,
+  assignableRoles,
+  assignableBranches,
   hasError,
 }: UsersSectionProps) {
   const t = useTranslations();
@@ -119,6 +129,12 @@ export function UsersSection({
   // scope mode (user:manage_permissions) — delegating the former must never
   // hand out the latter.
   const canManageBranches = useCapability("branch:manage");
+
+  /** MILESTONE 25C-3 — this profile's memberships, from the directory-wide read
+   * the page already performed. No query per row, and no second authorization
+   * path: these rows were resolved server-side. */
+  const membershipsFor = (profileId: string) =>
+    branchMemberships.filter((membership) => membership.profileId === profileId);
   /** Whether ANY row-level control is available to this viewer. Drives the
    * actions column header, which should not appear as an empty column. */
   const canUseAnyRowAction =
@@ -192,7 +208,13 @@ export function UsersSection({
     <Card>
       <CardHeader className="flex-row items-center justify-between space-y-0">
         <CardTitle>{t("settings.users.title")}</CardTitle>
-        {canInviteUsers && <InviteUserDialog onInvited={() => router.refresh()} />}
+        {canInviteUsers && (
+          <InviteUserDialog
+            onInvited={() => router.refresh()}
+            assignableRoles={assignableRoles}
+            assignableBranches={assignableBranches}
+          />
+        )}
       </CardHeader>
       <CardContent>
         {hasError ? (
@@ -247,7 +269,11 @@ export function UsersSection({
                               <SelectValue>{(value: string) => t(`roles.${value}`)}</SelectValue>
                             </SelectTrigger>
                             <SelectContent>
-                              {USER_ROLE_VALUES.map((role) => (
+                              {/* MILESTONE 25C-3 — same caller-aware list the
+                                  onboarding wizard uses. A gerente never sees
+                                  "Administrador" here either; update_staff_role
+                                  re-checks A2 regardless. */}
+                              {assignableRoles.map((role) => (
                                 <SelectItem key={role} value={role}>
                                   {t(`roles.${role}`)}
                                 </SelectItem>
@@ -293,12 +319,31 @@ export function UsersSection({
                           {/* Milestone 25A — national reach is the widest scope
                               anyone can hold, so it is visible at a glance
                               rather than hidden one dialog deep. */}
-                          {user.branchScopeMode === "national" && (
+                          {/* MILESTONE 25C-3 — NATIONAL BY ROLE, not just by
+                              declared mode. An administrador holds national
+                              reach because of their role and needs no
+                              memberships at all; showing them as branchless
+                              (which the previous check did, since their stored
+                              mode is 'branch') was simply wrong. */}
+                          {(user.role === "administrador" ||
+                            user.branchScopeMode === "national") && (
                             <StatusBadge
-                              label={t("settings.branches.scope.modes.national")}
+                              label={t("settings.users.scopeSummary.national")}
                               className="border-primary/20 bg-primary/10 text-primary"
                             />
                           )}
+                          {/* A non-national employee with no membership cannot
+                              reach any operational data. Stated plainly rather
+                              than left as a silent blank — an administrator
+                              reading this list needs to notice it. */}
+                          {user.role !== "administrador" &&
+                            user.branchScopeMode !== "national" &&
+                            membershipsFor(user.id).length === 0 && (
+                              <StatusBadge
+                                label={t("settings.users.scopeSummary.none")}
+                                className="border-border bg-muted text-muted-foreground"
+                              />
+                            )}
                         </div>
                       </TableCell>
                       {canUseAnyRowAction && (
@@ -383,7 +428,7 @@ export function UsersSection({
                 user={branchesUser}
                 scopeMode={branchesUser.branchScopeMode}
                 memberships={branchMemberships}
-                branches={branches}
+                branches={assignableBranches}
                 open={branchesUser !== null}
                 onOpenChange={(value) => !value && setBranchesUser(null)}
                 onChanged={() => router.refresh()}

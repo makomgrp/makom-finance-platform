@@ -602,6 +602,37 @@
           "error": "The permission could not be changed.",
           "forbidden": "Only an administrator can manage additional permissions."
         }
+      },
+      "onboarding": {
+        "title": "New employee",
+        "stepData": "Details",
+        "stepRole": "Role",
+        "stepBranches": "Branches",
+        "stepReview": "Review",
+        "stepOf": "Step {current} of {total}",
+        "next": "Next",
+        "back": "Back",
+        "finish": "Create and invite",
+        "primaryBranch": "Primary branch",
+        "selectBranches": "Select the branches where they will work",
+        "noAssignableBranches": "You have no branches available to assign. The employee will be created without a branch.",
+        "reviewEmployee": "Employee",
+        "reviewRole": "Role",
+        "reviewBranches": "Branches",
+        "reviewPrimary": "Primary",
+        "reviewNoBranches": "No branch assigned",
+        "profileCreated": "Profile created",
+        "invitationPending": "Invitation pending resend",
+        "branchesPending": "{count} branch(es) could not be assigned",
+        "retryBranches": "Retry branches",
+        "partialTitle": "Employee created with pending steps",
+        "done": "Done",
+        "permissionsHint": "Additional permissions are assigned from the employee row, under Permissions."
+      },
+      "scopeSummary": {
+        "national": "National scope",
+        "none": "No branch assigned",
+        "more": "+{count} branches"
       }
     },
     "products": {
