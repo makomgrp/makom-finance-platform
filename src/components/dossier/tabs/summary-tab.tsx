@@ -33,6 +33,10 @@ export function SummaryTab({ client, application, requirementsData }: SummaryTab
   // a client with no employer selected, unlike the demo model's required
   // companyId.
   const company = client.companyLegacyId ? getCompanyById(client.companyLegacyId) : undefined;
+  // MILESTONE 23: employerName (real free text) is authoritative; the
+  // static COMPANIES bridge is consulted ONLY as a fallback for fixture
+  // rows created before that column existed. Never the other way round.
+  const employerLabel = client.employerName ?? company?.name ?? "—";
 
   // Milestone 12E1: "how many document requirements for this Application
   // require no further action" — document-kind Requirement Slots whose
@@ -60,8 +64,8 @@ export function SummaryTab({ client, application, requirementsData }: SummaryTab
         <CardContent>
           <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
-              <dt className="text-xs text-muted-foreground">{t("dossier.summary.company")}</dt>
-              <dd className="text-sm font-medium text-foreground">{company?.name ?? "—"}</dd>
+              <dt className="text-xs text-muted-foreground">{t("dossier.summary.employer")}</dt>
+              <dd className="text-sm font-medium text-foreground">{employerLabel}</dd>
             </div>
             <div>
               <dt className="text-xs text-muted-foreground">{t("dossier.summary.position")}</dt>

@@ -74,6 +74,18 @@ export function DossierHeader({
                 label={t(`statuses.client.${client.status}`)}
                 className={CLIENT_STATUS_BADGE_CLASS[client.status]}
               />
+              {/* Milestone 23 — a restricted client must be visible the moment
+                  anyone opens the dossier, not buried in a tab. Rendered as a
+                  SECOND badge because restriction is orthogonal to status: a
+                  client can be both `activo` and restricted. Read-only here;
+                  the toggle lives in the Clientes row actions, where the
+                  capability check already is. */}
+              {client.restricted && (
+                <StatusBadge
+                  label={t("clients.restriction.badge")}
+                  className="border-destructive/20 bg-destructive/10 text-destructive"
+                />
+              )}
             </div>
             {activeApplication ? (
               <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">

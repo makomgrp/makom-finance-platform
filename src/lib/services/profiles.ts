@@ -1,7 +1,7 @@
 import "server-only";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { getInitials } from "@/lib/format";
-import type { ChatColleague, StaffUser, SupportedLanguage, UserRole } from "@/types";
+import type { AssignableAdvisor, ChatColleague, StaffUser, SupportedLanguage, UserRole } from "@/types";
 
 /**
  * ============================================================================
@@ -84,6 +84,107 @@ export async function getProfiles(): Promise<GetProfilesResult> {
   } catch (error) {
     console.error(
       "[profiles service] Unexpected failure loading staff profiles:",
+      error instanceof Error ? error.message : "unknown error"
+    );
+    return { status: "error" };
+  }
+}
+
+/**
+ * ASSIGNEE ELIGIBILITY — a domain rule, NOT an authorization rule.
+ *
+ * Two different questions were previously conflated here, and only one of them
+ * is about permissions:
+ *
+ *   WHO MAY ASSIGN a file  -> `application:assign_advisor` (administrador,
+ *                             gerente). That is authorization, it lives in
+ *                             ROLE_CAPABILITIES, and it is unchanged.
+ *   WHO MAY BE ASSIGNED    -> this constant. `assigned_advisor_profile_id`
+ *                             names the person who actually WORKS the file, so
+ *                             the population is a business fact about the job,
+ *                             not a permission anyone holds.
+ *
+ * The first implementation derived assignees from `application:create`, which
+ * made every administrador and gerente selectable as an advisor. Filing an
+ * application and carrying one are different acts; a manager who may originate
+ * a request is not thereby the advisor responsible for it.
+ *
+ * This rule is deliberately NOT expressed in ROLE_CAPABILITIES and gets no
+ * capability of its own — putting it there would re-introduce exactly the
+ * confusion above by describing a job title as a permission.
+ */
+const ADVISOR_ROLE: UserRole = "asesor";
+
+export type GetAssignableAdvisorsResult =
+  | { status: "ok"; advisors: AssignableAdvisor[] }
+  | { status: "error" };
+
+/**
+ * Staff who may be assigned an Application (Milestone 23).
+ *
+ * ELIGIBILITY, and why each clause is there:
+ *
+ *   role = 'asesor'          — the advisor is the person who works the file.
+ *                              Administradores and gerentes assign files; they
+ *                              are not themselves the assignee. Analistas
+ *                              evaluate an application rather than carry it,
+ *                              and consulta is read-only.
+ *   active = true            — a deactivated profile cannot enter the CRM at
+ *                              all (getCurrentProfile() rejects it), so a file
+ *                              assigned to one would have no real owner.
+ *   auth_user_id IS NOT NULL — a pending invitee has no way to sign in yet.
+ *                              Assigning work to someone who cannot open it is
+ *                              not an ownership record, it is a dead end.
+ *
+ * SAME OPERATIONAL-TRUTH PRINCIPLE AS THE CHAT DIRECTORY (getChatColleagues,
+ * just below): offer only staff who can actually do the thing right now. An
+ * earlier revision of this function deliberately INCLUDED pending invitees on
+ * the reasoning that ownership can be recorded ahead of a login; that was
+ * wrong for the same reason it is wrong in Chat — it produces a record the
+ * organisation cannot act on. Pending invitees become assignable
+ * AUTOMATICALLY, with no further code change, the moment their auth_user_id is
+ * linked.
+ *
+ * THIS FILTER GOVERNS NEW ASSIGNMENTS ONLY — never what is displayed.
+ * Historical assignments are read through the applications -> profiles join in
+ * src/lib/services/applications.ts and are completely unaffected: a file
+ * assigned to someone who later becomes inactive, or whose auth link is
+ * removed, keeps showing that person's name. Attribution is never rewritten by
+ * a change in eligibility.
+ *
+ * CONSEQUENCE, ACCEPTED DELIBERATELY: until real asesor accounts are invited
+ * and linked, this returns an EMPTY list and the assignment menu says so. That
+ * is the honest state of the directory, not a failure — exactly as the Chat
+ * directory currently resolves to one colleague.
+ */
+export async function getAssignableAdvisors(): Promise<GetAssignableAdvisorsResult> {
+  try {
+    const supabase = getSupabaseServerClient();
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("id, full_name, role")
+      .eq("role", ADVISOR_ROLE)
+      .eq("active", true)
+      .not("auth_user_id", "is", null)
+      .order("full_name", { ascending: true });
+
+    if (error) {
+      console.error("[profiles service] Failed to load assignable advisors:", error.message);
+      return { status: "error" };
+    }
+
+    const rows = (data ?? []) as Pick<StaffProfileRow, "id" | "full_name" | "role">[];
+    return {
+      status: "ok",
+      advisors: rows.map((row) => ({
+        id: row.id,
+        fullName: row.full_name,
+        role: row.role as UserRole,
+      })),
+    };
+  } catch (error) {
+    console.error(
+      "[profiles service] Unexpected failure loading assignable advisors:",
       error instanceof Error ? error.message : "unknown error"
     );
     return { status: "error" };

@@ -13,6 +13,8 @@ import {
   FilePlus2,
   StickyNote,
   ShieldAlert,
+  ShieldBan,
+  ShieldCheck,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -49,7 +51,10 @@ import {
   CLIENT_STATUS_VALUES,
 } from "@/lib/config/client-status";
 import { getCompanyById } from "@/lib/demo-data";
-import { setClientStatusAction } from "@/app/(app)/clientes/actions";
+import {
+  setClientRestrictedAction,
+  setClientStatusAction,
+} from "@/app/(app)/clientes/actions";
 import { useCapability } from "@/lib/auth/use-capability";
 import { formatDate, getInitials } from "@/lib/format";
 import type { ApplicationListItem, Client, ClientStatus, Product } from "@/types";
@@ -93,6 +98,9 @@ export function ClientsTable({
   const canCreateClient = useCapability("client:create");
   const canUpdateClient = useCapability("client:update");
   const canSetClientStatus = useCapability("client:set_status");
+  // Milestone 23 — `client:set_restriction`. Separate from client:set_status
+  // on purpose: restricted and status are orthogonal facts about a client.
+  const canSetClientRestriction = useCapability("client:set_restriction");
   // Milestone 17 — this row action used to be a demonstration toast and
   // was therefore ungated. It is now a real mutation entry point, so it
   // takes the same capability the Solicitudes entry point does and is
@@ -132,6 +140,26 @@ export function ClientsTable({
 
   const handleUpdated = (client: Client) => {
     setClients((prev) => prev.map((existing) => (existing.id === client.id ? client : existing)));
+  };
+
+  /** Milestone 23. The action returns the full re-read Client, so the row is
+   * replaced wholesale — unlike the Application handlers, nothing here is
+   * resolved separately from the mutation. */
+  const handleRestrictionChange = async (client: Client) => {
+    const next = !client.restricted;
+    const result = await setClientRestrictedAction({ clientId: client.id, restricted: next });
+
+    if (result.status !== "success") {
+      toast.error(t("clients.toasts.restrictionError"));
+      return;
+    }
+
+    handleUpdated(result.client);
+    toast.success(
+      next
+        ? t("clients.toasts.restricted", { name: client.fullName })
+        : t("clients.toasts.unrestricted", { name: client.fullName })
+    );
   };
 
   const handleStatusChange = async (clientId: string, status: ClientStatus) => {
@@ -226,7 +254,11 @@ export function ClientsTable({
             </TableHeader>
             <TableBody>
               {paginated.map((client) => {
+                // MILESTONE 23: the real free-text employer wins; the static
+                // COMPANIES bridge is only consulted for fixture rows that
+                // predate the column and have no employerName of their own.
                 const company = client.companyLegacyId ? getCompanyById(client.companyLegacyId) : undefined;
+                const employerLabel = client.employerName ?? company?.name ?? "—";
                 const applicationCount = applications.filter(
                   (application) => application.clientId === client.id
                 ).length;
@@ -255,9 +287,7 @@ export function ClientsTable({
                     </TableCell>
                     <TableCell className="text-muted-foreground">{client.phone}</TableCell>
                     <TableCell className="text-muted-foreground">{client.identificationNumber}</TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {company?.name ?? "—"}
-                    </TableCell>
+                    <TableCell className="text-muted-foreground">{employerLabel}</TableCell>
                     <TableCell className="text-center text-muted-foreground">
                       {applicationCount}
                     </TableCell>
@@ -267,6 +297,16 @@ export function ClientsTable({
                           label={t(`statuses.client.${client.status}`)}
                           className={CLIENT_STATUS_BADGE_CLASS[client.status]}
                         />
+                        {/* Milestone 23 — orthogonal to status, so it is a
+                            SECOND badge rather than a replacement value. A
+                            client can be simultaneously activo and restricted,
+                            and the row has to be able to say so. */}
+                        {client.restricted && (
+                          <StatusBadge
+                            label={t("clients.restriction.badge")}
+                            className="border-destructive/20 bg-destructive/10 text-destructive"
+                          />
+                        )}
                         {canSetClientStatus && (
                           <ApplicationStatusMenu
                             options={CLIENT_STATUS_VALUES.filter((status) => status !== client.status).map(
@@ -318,6 +358,21 @@ export function ClientsTable({
                             <ShieldAlert className="size-4" />
                             {t("clients.rowActions.registerAlert")}
                           </DropdownMenuItem>
+                          {canSetClientRestriction && (
+                            <DropdownMenuItem onClick={() => handleRestrictionChange(client)}>
+                              {client.restricted ? (
+                                <>
+                                  <ShieldCheck className="size-4" />
+                                  {t("clients.rowActions.unrestrict")}
+                                </>
+                              ) : (
+                                <>
+                                  <ShieldBan className="size-4" />
+                                  {t("clients.rowActions.restrict")}
+                                </>
+                              )}
+                            </DropdownMenuItem>
+                          )}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>

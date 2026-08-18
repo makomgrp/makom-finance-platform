@@ -51,6 +51,23 @@ export interface StaffUser {
 }
 
 /**
+ * A staff member who may own an Application (Milestone 23) — the option list
+ * behind advisor assignment.
+ *
+ * Deliberately minimal: an id to store, a name to render, and the role to
+ * disambiguate two people with similar names. No e-mail, no active flag, no
+ * auth-link flag — getAssignableAdvisors() has already applied every rule, so
+ * a caller cannot accidentally offer someone the database would refuse.
+ */
+export interface AssignableAdvisor {
+  /** `profiles.id` — exactly what applications.assigned_advisor_profile_id
+   * stores. */
+  id: string;
+  fullName: string;
+  role: UserRole;
+}
+
+/**
  * A selectable Chat contact (Milestone 21) — the replacement for the entries
  * the static `USERS` list used to supply.
  *

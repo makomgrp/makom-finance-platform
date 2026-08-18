@@ -23,7 +23,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { COMPANIES } from "@/lib/demo-data";
 import { createClientAction, updateClientProfileAction } from "@/app/(app)/clientes/actions";
 import type { Client, IdentificationType } from "@/types";
 
@@ -55,16 +54,14 @@ const EMPTY_FORM = {
   identificationNumber: "",
   phone: "",
   email: "",
-  // MILESTONE 18: deliberately EMPTY, not COMPANIES[0]. This field used
-  // to default to the first entry in the static company list, so every
-  // client created through the CRM was silently persisted as an employee
-  // of Grupo Kativo unless the operator noticed and changed it — the CRM
-  // was writing fabricated employer data, not merely displaying it.
-  // Employer is optional at both the schema level (clients.company_legacy_id
-  // is nullable) and the service level (CreateClientInput.companyLegacyId
-  // is optional, mapped `?? null`), so an untouched field now persists
-  // NULL, which is the honest value for "we did not ask".
-  companyLegacyId: "",
+  // MILESTONE 23: free text, replacing the closed list of 10 fabricated
+  // companies. Milestone 18 had already stopped this defaulting to
+  // COMPANIES[0] (which silently persisted every new client as an employee
+  // of Grupo Kativo), but an empty dropdown over fictitious employers is
+  // still unusable for real intake: ODL's actual employers are not a known
+  // closed set. Empty stays valid and persists NULL — the honest value for
+  // "we did not ask".
+  employerName: "",
   position: "",
   monthlySalary: "",
   birthDate: "",
@@ -97,7 +94,7 @@ export function RealClientFormDialog({
           identificationNumber: initialClient.identificationNumber,
           phone: initialClient.phone,
           email: initialClient.email,
-          companyLegacyId: initialClient.companyLegacyId ?? "",
+          employerName: initialClient.employerName ?? "",
           position: initialClient.position,
           monthlySalary: String(initialClient.monthlySalary),
           birthDate: initialClient.birthDate,
@@ -122,7 +119,13 @@ export function RealClientFormDialog({
       identificationNumber: form.identificationNumber,
       phone: form.phone,
       email: form.email,
-      companyLegacyId: form.companyLegacyId || undefined,
+      employerName: form.employerName.trim() || undefined,
+      // LEGACY PASS-THROUGH, never edited. record_client_profile_update writes
+      // every column it is handed, so a fixture client's existing company code
+      // must be returned unchanged or the save would erase the only value that
+      // still renders its employer. Undefined for every client created since
+      // Milestone 23, which is exactly right — they never had one.
+      companyLegacyId: initialClient?.companyLegacyId,
       position: form.position,
       monthlySalary: Number(form.monthlySalary) || 0,
       birthDate: form.birthDate,
@@ -235,27 +238,13 @@ export function RealClientFormDialog({
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="companyLegacyId">{t("clients.form.company")}</Label>
-              <Select
-                value={form.companyLegacyId}
-                onValueChange={(value) => value && update("companyLegacyId", value)}
-              >
-                <SelectTrigger id="companyLegacyId" className="w-full">
-                  <SelectValue>
-                    {(value: string) =>
-                      COMPANIES.find((company) => company.id === value)?.name ??
-                      t("clients.form.selectCompany")
-                    }
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {COMPANIES.map((company) => (
-                    <SelectItem key={company.id} value={company.id}>
-                      {company.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label htmlFor="employerName">{t("clients.form.employer")}</Label>
+              <Input
+                id="employerName"
+                value={form.employerName}
+                placeholder={t("clients.form.employerPlaceholder")}
+                onChange={(e) => update("employerName", e.target.value)}
+              />
             </div>
 
             <div className="space-y-1.5">

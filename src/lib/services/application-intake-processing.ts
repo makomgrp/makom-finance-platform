@@ -194,11 +194,18 @@ async function resolveClient(intake: ApplicationIntake): Promise<ClientResolutio
  * fabricated to fill a gap, and no partial Client is ever created (see
  * Milestone 15B correction, section 5).
  *
- * companyLegacyId is deliberately left unset: createClient does not
- * require it, and this milestone starts no Companies Engine work —
- * intake.employerName is preserved on the row for a future Companies
- * milestone to map, never guessed at here (Milestone 15B correction,
- * section 2).
+ * MILESTONE 23: intake.employerName is now carried straight onto the
+ * Client as employer_name. It always WAS captured on the intake row and
+ * then discarded here, because the only employer field a Client had was
+ * company_legacy_id — a code into a static list of ten fabricated
+ * companies, which no website submission could ever legitimately produce.
+ * Free-text employer removed that mismatch: the applicant typed a name,
+ * and the name is what gets stored. Nothing is mapped, matched or guessed
+ * at, so the Milestone 15B correction's rule (section 2) still holds —
+ * this is now a pass-through, not an inference.
+ *
+ * Employer stays OPTIONAL and is deliberately absent from the required-
+ * field check below: a submission without one still creates a Client.
  *
  * source is the intake's own channel, passed straight through as
  * Client.createdSource — the same unified ApplicationSource vocabulary
@@ -236,6 +243,7 @@ async function createClientFromIntake(intake: ApplicationIntake): Promise<Client
     birthDate: intake.applicantBirthDate!,
     nationality: intake.applicantNationality!,
     address: intake.applicantAddress!,
+    employerName: intake.employerName,
     source: intake.channel,
     actorProfileId: null,
   });

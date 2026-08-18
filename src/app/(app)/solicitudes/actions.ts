@@ -1,6 +1,10 @@
 "use server";
 
-import { createApplication, setApplicationStatus } from "@/lib/services/applications";
+import {
+  assignApplicationAdvisor,
+  createApplication,
+  setApplicationStatus,
+} from "@/lib/services/applications";
 import { getApplicationCreatableProducts } from "@/lib/services/products";
 import { getClientById } from "@/lib/services/clients";
 import { requireCapability } from "@/lib/auth/authorize";
@@ -240,6 +244,85 @@ export async function createSolicitudApplication(
   }
   if (result.status === "partial") {
     return { status: "partial", application: result.application, code: result.code };
+  }
+
+  return { status: "success", application: result.application };
+}
+
+export interface AssignSolicitudAdvisorInput {
+  applicationId: string;
+  /** `profiles.id`, or null to UNASSIGN. Null is a legitimate value, not a
+   * missing one — see this action's doc comment. */
+  advisorProfileId: string | null;
+}
+
+export type AssignSolicitudAdvisorResult =
+  | { status: "success"; application: Application }
+  | {
+      status: "error";
+      code:
+        | "INVALID_INPUT"
+        | "UNAUTHENTICATED"
+        | "FORBIDDEN"
+        | "NOT_FOUND"
+        | "INVALID_ADVISOR"
+        | "UPDATE_FAILED";
+    };
+
+/**
+ * Assigns, reassigns or unassigns the advisor who owns an application
+ * (Milestone 23) — the first caller assignApplicationAdvisor has ever had.
+ *
+ * CAPABILITY: `application:assign_advisor`, held by administrador and gerente.
+ * Deliberately NOT `application:set_status` — see that capability's note in
+ * src/lib/auth/capabilities.ts for why deciding WHO WORKS a file must be able
+ * to move independently of the lending determination.
+ *
+ * ORDERING (Milestone 16 rule): requireCapability() is the FIRST statement,
+ * before input validation and before the service call, so an unauthorized
+ * caller cannot use the difference between NOT_FOUND and INVALID_ADVISOR to
+ * probe for records or staff they may not see.
+ *
+ * NULL IS AN ACCEPTED VALUE, NOT AN OMISSION. Unassigning is a real operation
+ * the column has always permitted, so `advisorProfileId: null` is validated as
+ * legitimate input rather than rejected as missing. Anything that is neither
+ * null nor a well-formed UUID is INVALID_INPUT.
+ *
+ * ELIGIBILITY IS ENFORCED IN THE DATABASE, not here. The RPC refuses a
+ * nonexistent or deactivated profile and the service maps that to
+ * INVALID_ADVISOR. This action deliberately does not re-implement that check:
+ * the UI's option list is a convenience, the function's guard is the
+ * enforcement, and duplicating it here would create a second rule to keep in
+ * sync.
+ *
+ * AUDIT: the mutation and its `application_advisor_assigned` event are written
+ * atomically inside record_application_advisor_assignment. A no-op
+ * reassignment succeeds and writes no event.
+ */
+export async function assignSolicitudAdvisor(
+  input: AssignSolicitudAdvisorInput
+): Promise<AssignSolicitudAdvisorResult> {
+  const auth = await requireCapability("application:assign_advisor");
+  if (auth.status === "denied") {
+    return { status: "error", code: auth.code };
+  }
+
+  if (!isNonEmptyString(input.applicationId) || !UUID_PATTERN.test(input.applicationId)) {
+    return { status: "error", code: "INVALID_INPUT" };
+  }
+  if (input.advisorProfileId !== null) {
+    if (!isNonEmptyString(input.advisorProfileId) || !UUID_PATTERN.test(input.advisorProfileId)) {
+      return { status: "error", code: "INVALID_INPUT" };
+    }
+  }
+
+  const result = await assignApplicationAdvisor(
+    input.applicationId,
+    input.advisorProfileId,
+    auth.profile.id
+  );
+  if (result.status !== "ok") {
+    return { status: "error", code: result.code };
   }
 
   return { status: "success", application: result.application };

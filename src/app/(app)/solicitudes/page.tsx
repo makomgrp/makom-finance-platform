@@ -2,6 +2,7 @@ import { getApplications } from "@/lib/services/applications";
 import { getDocumentSlotCompletionCounts } from "@/lib/services/requirement-slots";
 import { getApplicationCreatableProducts } from "@/lib/services/products";
 import { getClients } from "@/lib/services/clients";
+import { getAssignableAdvisors } from "@/lib/services/profiles";
 import { SolicitudesView } from "@/app/(app)/solicitudes/solicitudes-view";
 
 /**
@@ -25,12 +26,14 @@ import { SolicitudesView } from "@/app/(app)/solicitudes/solicitudes-view";
  * is not imported.
  */
 export default async function SolicitudesPage() {
-  const [applicationsResult, countsResult, productsResult, clientsResult] = await Promise.all([
-    getApplications(),
-    getDocumentSlotCompletionCounts(),
-    getApplicationCreatableProducts(),
-    getClients(),
-  ]);
+  const [applicationsResult, countsResult, productsResult, clientsResult, advisorsResult] =
+    await Promise.all([
+      getApplications(),
+      getDocumentSlotCompletionCounts(),
+      getApplicationCreatableProducts(),
+      getClients(),
+      getAssignableAdvisors(),
+    ]);
 
   return (
     <SolicitudesView
@@ -40,6 +43,7 @@ export default async function SolicitudesPage() {
       creatableProducts={productsResult.status === "ok" ? productsResult.products : []}
       productsLoadError={productsResult.status === "error"}
       clients={clientsResult.status === "ok" ? clientsResult.clients : []}
+      assignableAdvisors={advisorsResult.status === "ok" ? advisorsResult.advisors : []}
     />
   );
 }

@@ -1,6 +1,11 @@
 "use server";
 
-import { createClient, updateClientProfile, setClientStatus } from "@/lib/services/clients";
+import {
+  createClient,
+  updateClientProfile,
+  setClientStatus,
+  setClientRestricted,
+} from "@/lib/services/clients";
 import { requireCapability } from "@/lib/auth/authorize";
 import { CLIENT_STATUS_VALUES } from "@/lib/config/client-status";
 import type { Client, ClientStatus, IdentificationType } from "@/types";
@@ -43,6 +48,12 @@ export interface ClientProfileFields {
   identificationNumber: string;
   phone: string;
   email: string;
+  /** Free-text employer (Milestone 23) — the only employer field the CRM
+   * writes. Optional; omitted means not recorded. */
+  employerName?: string;
+  /** LEGACY pass-through, edit path only. Never sent to createClient — see
+   * createClientAction. Present so updating a fixture client does not erase
+   * the static company code that still renders its employer. */
   companyLegacyId?: string;
   position: string;
   monthlySalary: number;
@@ -96,7 +107,11 @@ export async function createClientAction(input: ClientProfileFields): Promise<Cr
     identificationNumber: input.identificationNumber,
     phone: input.phone,
     email: input.email,
-    companyLegacyId: input.companyLegacyId,
+    // MILESTONE 23: companyLegacyId is deliberately NOT forwarded. It is
+    // still part of ClientProfileFields because the EDIT form must hand a
+    // fixture row's existing code back unchanged, but a newly created client
+    // must never acquire one — CreateClientInput has no such field at all.
+    employerName: input.employerName,
     position: input.position,
     monthlySalary: input.monthlySalary,
     birthDate: input.birthDate,
@@ -157,6 +172,7 @@ export async function updateClientProfileAction(
       phone: input.phone,
       email: input.email,
       address: input.address,
+      employerName: input.employerName,
       companyLegacyId: input.companyLegacyId,
       position: input.position,
       monthlySalary: input.monthlySalary,
@@ -216,6 +232,72 @@ export async function setClientStatusAction(
   if (result.status !== "ok") {
     const code = result.code === "INVALID_STATUS" ? "INVALID_INPUT" : result.code;
     return { status: "error", code };
+  }
+
+  return { status: "success", client: result.client };
+}
+
+export interface SetClientRestrictedActionInput {
+  clientId: string;
+  restricted: boolean;
+}
+
+export type SetClientRestrictedActionResult =
+  | { status: "success"; client: Client }
+  | {
+      status: "error";
+      code: "INVALID_INPUT" | "UNAUTHENTICATED" | "FORBIDDEN" | "CLIENT_NOT_FOUND" | "UPDATE_FAILED";
+    };
+
+/**
+ * Restricts or unrestricts a client (Milestone 23) — the first caller
+ * setClientRestricted has ever had.
+ *
+ * WHAT THIS IS. `clients.restricted` is a compliance/risk flag, deliberately
+ * ORTHOGONAL to `clients.status`: a restricted client may still be `activo`.
+ * Restricting records a human judgment that this file needs special care. It
+ * is a flag and a trail, nothing more.
+ *
+ * WHAT THIS IS NOT, and must not become: it is not a blacklist engine, not an
+ * APC lookup, not risk scoring, and it blocks nothing automatically. No code
+ * anywhere reads `restricted` to deny an operation, and Milestone 23 does not
+ * add any such rule — automated eligibility belongs to the dormant loan-
+ * criteria engine, as a deliberate Phase 2 decision.
+ *
+ * NO REASON FIELD, deliberately. The schema has no restriction_reason column
+ * and this milestone does not invent one: staff record the why in the client's
+ * `observations` or in a dossier note, both of which already exist, are
+ * already attributed to their author, and are already editable — unlike an
+ * audit event, which could never be corrected.
+ *
+ * CAPABILITY: `client:set_restriction`, held by administrador and gerente.
+ * Separate from `client:set_status` even though the holders match today — see
+ * that capability's note for why flagging a compliance risk and moving a
+ * lifecycle status should be separable.
+ *
+ * AUDIT: the mutation and its `client_restriction_changed` event are written
+ * atomically inside record_client_restriction_change, which stores only the
+ * boolean before/after — no client PII of any kind. Re-applying the state the
+ * client is already in succeeds and writes no event.
+ */
+export async function setClientRestrictedAction(
+  input: SetClientRestrictedActionInput
+): Promise<SetClientRestrictedActionResult> {
+  const auth = await requireCapability("client:set_restriction");
+  if (auth.status === "denied") {
+    return { status: "error", code: auth.code };
+  }
+
+  if (!isNonEmptyString(input.clientId) || !UUID_PATTERN.test(input.clientId)) {
+    return { status: "error", code: "INVALID_INPUT" };
+  }
+  if (typeof input.restricted !== "boolean") {
+    return { status: "error", code: "INVALID_INPUT" };
+  }
+
+  const result = await setClientRestricted(input.clientId, input.restricted, auth.profile.id);
+  if (result.status !== "ok") {
+    return { status: "error", code: result.code };
   }
 
   return { status: "success", client: result.client };

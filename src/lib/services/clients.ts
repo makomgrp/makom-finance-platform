@@ -28,6 +28,7 @@ interface ClientRow {
   identification_number: string;
   phone: string;
   email: string;
+  employer_name: string | null;
   company_legacy_id: string | null;
   position: string;
   monthly_salary: number;
@@ -43,7 +44,7 @@ interface ClientRow {
 }
 
 const CLIENT_SELECT =
-  "id, legacy_id, full_name, identification_type, identification_number, phone, email, company_legacy_id, " +
+  "id, legacy_id, full_name, identification_type, identification_number, phone, email, employer_name, company_legacy_id, " +
   "position, monthly_salary, birth_date, nationality, address, observations, status, restricted, created_at, " +
   "created_by_profile_id, created_source";
 
@@ -56,6 +57,7 @@ function toClient(row: ClientRow): Client {
     identificationNumber: row.identification_number,
     phone: row.phone,
     email: row.email,
+    employerName: row.employer_name ?? undefined,
     companyLegacyId: row.company_legacy_id ?? undefined,
     position: row.position,
     monthlySalary: row.monthly_salary,
@@ -229,7 +231,12 @@ export interface CreateClientInput {
   identificationNumber: string;
   phone: string;
   email: string;
-  companyLegacyId?: string;
+  /** Free-text employer as stated by the client (Milestone 23). Optional —
+   * an omitted employer persists NULL, which is the honest value for "we did
+   * not ask". This input deliberately has NO companyLegacyId: the CRM stopped
+   * writing that column entirely, so a newly created client can never carry a
+   * fabricated company code. */
+  employerName?: string;
   position: string;
   monthlySalary: number;
   birthDate: string;
@@ -291,7 +298,11 @@ export async function createClient(input: CreateClientInput): Promise<CreateClie
       identification_number: input.identificationNumber,
       phone: input.phone,
       email: input.email,
-      company_legacy_id: input.companyLegacyId ?? null,
+      // MILESTONE 23: company_legacy_id is NOT written here and has no
+      // input to write from. It is left to its column DEFAULT (NULL) on every
+      // new client, so the static COMPANIES bridge can never acquire a new
+      // dependant. employer_name is the only employer this path records.
+      employer_name: input.employerName ?? null,
       position: input.position,
       monthly_salary: input.monthlySalary,
       birth_date: input.birthDate,
@@ -322,6 +333,13 @@ export interface UpdateClientProfileInput {
   phone: string;
   email: string;
   address: string;
+  /** Free-text employer (Milestone 23) — the field the form actually
+   * edits. */
+  employerName?: string;
+  /** PASS-THROUGH ONLY, never edited. record_client_profile_update writes
+   * every column it is given, so a fixture row's existing company code has to
+   * be handed back unchanged or the update would silently erase the one value
+   * that still renders its employer. New clients never have one. */
   companyLegacyId?: string;
   position: string;
   monthlySalary: number;
@@ -370,6 +388,7 @@ export async function updateClientProfile(
     p_birth_date: input.birthDate,
     p_nationality: input.nationality,
     p_observations: input.observations ?? null,
+    p_employer_name: input.employerName ?? null,
     p_actor_profile_id: actorProfileId,
   });
 
@@ -468,28 +487,60 @@ export type SetClientRestrictedResult =
   | { status: "ok"; client: Client }
   | { status: "error"; code: "CLIENT_NOT_FOUND" | "UPDATE_FAILED" };
 
-/** Independently toggles the compliance/risk flag — never changes
+/**
+ * Independently toggles the compliance/risk flag — never changes
  * lifecycle status, matching this table's deliberate status/restricted
- * split (see the migration's column comment on `restricted`). */
+ * split (see the migration's column comment on `restricted`).
+ *
+ * MILESTONE 23: this used to be a blind direct UPDATE with no audit and no
+ * caller. It now goes through record_client_restriction_change, so the
+ * mutation and its `client_restriction_changed` event commit together or not
+ * at all — the same atomicity every other audited mutation here has had since
+ * Milestone 20. The event carries the two booleans and nothing else: no client
+ * name, no identification, no reason text.
+ *
+ * `actorProfileId` is a NEW required parameter. It was absent before precisely
+ * because nothing called this; an audit trail with no actor would be worthless,
+ * so the signature says the actor is not optional.
+ *
+ * A no-op (already in the requested state) is a success and writes no event.
+ */
 export async function setClientRestricted(
   clientId: string,
-  restricted: boolean
+  restricted: boolean,
+  actorProfileId: string | null
 ): Promise<SetClientRestrictedResult> {
   const supabase = getSupabaseServerClient();
 
-  const { data, error } = await supabase
-    .from("clients")
-    .update({ restricted })
-    .eq("id", clientId)
-    .select(CLIENT_SELECT)
-    .maybeSingle<ClientRow>();
+  const { data: changedId, error: rpcError } = await supabase.rpc(
+    "record_client_restriction_change",
+    {
+      p_client_id: clientId,
+      p_restricted: restricted,
+      p_actor_profile_id: actorProfileId,
+    }
+  );
 
-  if (error) {
-    console.error("[clients service] Failed to update client restricted flag:", error.message);
+  if (rpcError) {
+    console.error("[clients service] Failed to update client restricted flag:", rpcError.message);
     return { status: "error", code: "UPDATE_FAILED" };
   }
-  if (!data) {
+  if (!changedId) {
     return { status: "error", code: "CLIENT_NOT_FOUND" };
+  }
+
+  const { data, error } = await supabase
+    .from("clients")
+    .select(CLIENT_SELECT)
+    .eq("id", clientId)
+    .maybeSingle<ClientRow>();
+
+  if (error || !data) {
+    console.error(
+      "[clients service] Restriction changed but the client could not be re-read:",
+      error?.message ?? "no row returned"
+    );
+    return { status: "error", code: "UPDATE_FAILED" };
   }
 
   return { status: "ok", client: toClient(data) };

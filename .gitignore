@@ -32,6 +32,18 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+# ...but .env.example carries NO real values — only variable names and safe
+# placeholders — and is the one file that documents what a deployment needs.
+# It must stay tracked (Milestone 23).
+!.env.example
+
+# MCP server configuration (Milestone 23).
+# .mcp.json embeds a Supabase MCP endpoint URL that carries an access
+# credential. It was untracked but NOT ignored through Milestones 16-22, so a
+# single `git add .` would have committed that credential; it survived only
+# because every commit was explicitly path-staged. Ignoring it removes the
+# accident entirely. Local-only by design — never commit it.
+.mcp.json
 
 # vercel
 .vercel

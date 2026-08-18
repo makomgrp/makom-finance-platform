@@ -43,8 +43,23 @@ export interface Client {
   identificationNumber: string;
   phone: string;
   email: string;
-  /** DELIBERATE, TEMPORARY bridge to the still-demo Company id (e.g.
-   * "c-001") — see this interface's doc comment. */
+  /**
+   * The employer, as the client stated it (Milestone 23). Free text on
+   * purpose — ODL's real employers are not a known closed set, and a
+   * companies table without employer-based lending rules would be
+   * normalisation for its own sake.
+   *
+   * THIS IS THE ONLY EMPLOYER FIELD NEW CLIENTS WRITE. Undefined means not
+   * recorded, which is a true statement; it is never an empty string.
+   */
+  employerName?: string;
+  /**
+   * LEGACY, READ-ONLY. Bridge to the static demo Company id (e.g. "c-001"),
+   * populated on fixture rows only. Since Milestone 23 the CRM NEVER writes
+   * this field — it survives solely so those pre-existing rows still render an
+   * employer, and becomes removable once the cutover cleanup has purged them.
+   * Read `employerName` first and fall back to this; never the reverse.
+   */
   companyLegacyId?: string;
   position: string;
   monthlySalary: number;

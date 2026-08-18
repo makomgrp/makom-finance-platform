@@ -131,7 +131,9 @@
       "edit": "Editar",
       "createApplication": "Crear solicitud",
       "addNote": "Añadir nota",
-      "registerAlert": "Registrar alerta"
+      "registerAlert": "Registrar alerta",
+      "restrict": "Restringir cliente",
+      "unrestrict": "Quitar restricción"
     },
     "toasts": {
       "clientUpdated": "Cliente actualizado correctamente.",
@@ -140,7 +142,10 @@
       "createError": "No se pudo crear el cliente. Intente de nuevo.",
       "updateError": "No se pudo actualizar el cliente. Intente de nuevo.",
       "statusChanged": "Cliente movido a \"{status}\".",
-      "statusChangeError": "No se pudo cambiar el estado del cliente. Intente nuevamente."
+      "statusChangeError": "No se pudo cambiar el estado del cliente. Intente nuevamente.",
+      "restricted": "{name} fue marcado como restringido.",
+      "unrestricted": "Se quitó la restricción a {name}.",
+      "restrictionError": "No se pudo cambiar la restricción del cliente."
     },
     "form": {
       "titleNew": "Nuevo cliente",
@@ -164,7 +169,12 @@
       "observations": "Observaciones",
       "cancel": "Cancelar",
       "submitNew": "Registrar cliente",
-      "submitEdit": "Guardar cambios"
+      "submitEdit": "Guardar cambios",
+      "employer": "Empresa donde labora",
+      "employerPlaceholder": "Nombre del empleador (opcional)"
+    },
+    "restriction": {
+      "badge": "Restringido"
     }
   },
   "applications": {
@@ -197,7 +207,11 @@
     },
     "toasts": {
       "statusChanged": "Solicitud movida a \"{status}\".",
-      "statusChangeError": "No se pudo cambiar el estado. Intente nuevamente."
+      "statusChangeError": "No se pudo cambiar el estado. Intente nuevamente.",
+      "advisorAssigned": "Solicitud asignada a {name}.",
+      "advisorUnassigned": "Se quitó la asignación de la solicitud.",
+      "advisorError": "No se pudo cambiar el asesor asignado.",
+      "advisorInvalid": "Ese asesor no está disponible."
     },
     "create": {
       "trigger": "Nueva solicitud",
@@ -246,6 +260,12 @@
         "errorClientNotFound": "El cliente seleccionado ya no está disponible.",
         "errorProductNotAvailable": "El producto seleccionado ya no está disponible para nuevas solicitudes."
       }
+    },
+    "advisorMenu": {
+      "assignTo": "Asignar a",
+      "unassigned": "Sin asignar",
+      "unassign": "Quitar asignación",
+      "noneAvailable": "No hay asesores disponibles"
     }
   },
   "dossier": {
@@ -281,7 +301,8 @@
       "documentsPendingHint": "Aún faltan documentos por verificar. Revise la pestaña Documentos.",
       "noApplicationDocuments": "Este cliente no tiene una solicitud asociada con requisitos documentales.",
       "noDocumentRequirements": "Esta solicitud no tiene requisitos documentales.",
-      "lastUpdate": "Última actualización"
+      "lastUpdate": "Última actualización",
+      "employer": "Empresa donde labora"
     },
     "personalData": {
       "title": "Datos personales",
@@ -298,7 +319,8 @@
       "assignedAdvisor": "Asesor asignado",
       "registeredAt": "Fecha de registro",
       "observations": "Observaciones",
-      "noObservations": "Sin observaciones registradas."
+      "noObservations": "Sin observaciones registradas.",
+      "employer": "Empresa donde labora"
     },
     "documents": {
       "noApplicationTitle": "Sin solicitud asociada",

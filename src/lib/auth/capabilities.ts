@@ -76,6 +76,20 @@ export type Capability =
   | "client:update"
   /** Administrative client status change — separate from profile editing. */
   | "client:set_status"
+  /**
+   * Restrict or unrestrict a client — the compliance/risk flag (Milestone
+   * 23). DELIBERATELY SEPARATE from `client:set_status` even though both are
+   * held by the same two roles today, because they are separate facts about a
+   * client and the schema says so: `clients.status` and `clients.restricted`
+   * are an intentional split (a restricted client may still be `activo`), and
+   * restricting is not a lifecycle transition.
+   *
+   * Folding this into client:set_status would mean the capability that lets
+   * someone mark a prospect `inactivo` also lets them flag that person as a
+   * compliance risk. Those should be separable, and keeping them separate
+   * costs one line here and nothing anywhere else.
+   */
+  | "client:set_restriction"
 
   // --- Application operations --------------------------------------------
   /**
@@ -102,6 +116,28 @@ export type Capability =
    * the Milestone 16 report's ambiguity notes.
    */
   | "application:set_status"
+  /**
+   * Assign, reassign or unassign the advisor who owns an application
+   * (Milestone 23). Made reachable by Milestone 23 — the service function had
+   * existed since Milestone 13B with no Server Action and no UI, so ODL could
+   * not actually put a file in an advisor's hands.
+   *
+   * NOT `application:set_status`, deliberately, despite the two being held by
+   * the same roles today. That capability is the LENDING DETERMINATION — it
+   * includes `approved` and `not_eligible` — and is held at the level its most
+   * consequential target demands. Deciding who WORKS a file is workload
+   * management, not a credit decision, and the two must be able to move apart:
+   * when application:set_status is eventually split by target status (see its
+   * own note), assignment must not be dragged along with whichever half keeps
+   * the name.
+   *
+   * NOT granted to `asesor`. An advisor doing client-facing intake may file an
+   * application (`application:create`); deciding which advisor owns which file
+   * is supervisory, and self-assignment is the same act as assigning anyone
+   * else. Held by administrador and gerente, matching every other supervisory
+   * capability.
+   */
+  | "application:assign_advisor"
 
   // --- Dossier collaboration ---------------------------------------------
   | "note:create"
@@ -190,8 +226,10 @@ export const ROLE_CAPABILITIES = {
     "client:create",
     "client:update",
     "client:set_status",
+    "client:set_restriction",
     "application:create",
     "application:set_status",
+    "application:assign_advisor",
     "note:create",
     "alert:create",
     "alert:set_status",
@@ -217,8 +255,10 @@ export const ROLE_CAPABILITIES = {
     "client:create",
     "client:update",
     "client:set_status",
+    "client:set_restriction",
     "application:create",
     "application:set_status",
+    "application:assign_advisor",
     "note:create",
     "alert:create",
     "alert:set_status",

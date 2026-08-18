@@ -10,10 +10,19 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { ApplicationsTable } from "@/components/applications/applications-table";
 import { ApplicationsKanban } from "@/components/applications/applications-kanban";
 import { NewApplicationDialog } from "@/components/applications/new-application-dialog";
-import { setSolicitudApplicationStatus } from "@/app/(app)/solicitudes/actions";
+import {
+  assignSolicitudAdvisor,
+  setSolicitudApplicationStatus,
+} from "@/app/(app)/solicitudes/actions";
 import { useCapability } from "@/lib/auth/use-capability";
 import { cn } from "@/lib/utils";
-import type { ApplicationListItem, ApplicationStatus, Client, Product } from "@/types";
+import type {
+  ApplicationListItem,
+  ApplicationStatus,
+  AssignableAdvisor,
+  Client,
+  Product,
+} from "@/types";
 
 interface SolicitudesViewProps {
   initialApplications: ApplicationListItem[];
@@ -26,6 +35,8 @@ interface SolicitudesViewProps {
   /** Milestone 17 — the pool the creation dialog's client search picks
    * from. Same real Client Engine rows /clientes renders. */
   clients: Client[];
+  /** Milestone 23 — active staff eligible to own a file. */
+  assignableAdvisors: AssignableAdvisor[];
 }
 
 /**
@@ -45,6 +56,7 @@ export function SolicitudesView({
   creatableProducts,
   productsLoadError,
   clients,
+  assignableAdvisors,
 }: SolicitudesViewProps) {
   const t = useTranslations();
   // Milestone 17 — origination is its own capability, deliberately wider
@@ -87,6 +99,53 @@ export function SolicitudesView({
     );
     toast.success(
       t("applications.toasts.statusChanged", { status: t(`statuses.applicationStatus.${status}`) })
+    );
+  };
+
+  // MILESTONE 23. Mirrors handleStatusChange exactly, including the surgical
+  // local update: assignApplicationAdvisor returns an Application, which
+  // carries no productName/clientFullName (those are ApplicationListItem-only,
+  // resolved by getApplications()), so replacing the whole row would blank
+  // them. The advisor's display name is not returned by the mutation either —
+  // it is resolved here from the same list the menu rendered from, which is
+  // the only place the UI already legitimately knows it.
+  const handleAdvisorChange = async (
+    applicationId: string,
+    advisorProfileId: string | null
+  ) => {
+    const result = await assignSolicitudAdvisor({ applicationId, advisorProfileId });
+
+    if (result.status !== "success") {
+      toast.error(
+        t(
+          result.code === "INVALID_ADVISOR"
+            ? "applications.toasts.advisorInvalid"
+            : "applications.toasts.advisorError"
+        )
+      );
+      return;
+    }
+
+    const advisor = advisorProfileId
+      ? assignableAdvisors.find((candidate) => candidate.id === advisorProfileId)
+      : undefined;
+
+    setApplications((prev) =>
+      prev.map((app) =>
+        app.id === applicationId
+          ? {
+              ...app,
+              assignedAdvisorProfileId: result.application.assignedAdvisorProfileId,
+              assignedAdvisorFullName: advisor?.fullName,
+            }
+          : app
+      )
+    );
+
+    toast.success(
+      advisor
+        ? t("applications.toasts.advisorAssigned", { name: advisor.fullName })
+        : t("applications.toasts.advisorUnassigned")
     );
   };
 
@@ -148,6 +207,8 @@ export function SolicitudesView({
           applications={applications}
           documentSlotCounts={documentSlotCounts}
           onStatusChange={handleStatusChange}
+          assignableAdvisors={assignableAdvisors}
+          onAdvisorChange={handleAdvisorChange}
         />
       ) : (
         <ApplicationsKanban

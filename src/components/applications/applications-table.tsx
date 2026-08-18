@@ -25,6 +25,7 @@ import { StatusBadge } from "@/components/shared/status-badge";
 import { EmptyState } from "@/components/shared/empty-state";
 import { PaginationBar } from "@/components/shared/pagination-bar";
 import { ApplicationStatusMenu } from "@/components/applications/application-status-menu";
+import { AdvisorAssignMenu } from "@/components/applications/advisor-assign-menu";
 import {
   APPLICATION_STATUS_BADGE_CLASS,
   APPLICATION_STATUS_ORDER,
@@ -33,7 +34,7 @@ import {
 import { formatDate, formatRelativeTime } from "@/lib/format";
 import { useCapability } from "@/lib/auth/use-capability";
 import type { Locale } from "@/i18n/config";
-import type { ApplicationListItem, ApplicationStatus } from "@/types";
+import type { ApplicationListItem, ApplicationStatus, AssignableAdvisor } from "@/types";
 
 interface ApplicationsTableProps {
   applications: ApplicationListItem[];
@@ -44,16 +45,31 @@ interface ApplicationsTableProps {
    * which is never stored on the real Application. */
   documentSlotCounts: Record<string, { completed: number; total: number }>;
   onStatusChange: (applicationId: string, status: ApplicationStatus) => void;
+  /** Milestone 23 — staff eligible to own a file, resolved server-side by
+   * getAssignableAdvisors(). Empty when the read failed; the menu then simply
+   * offers only "unassign", never a fabricated list. */
+  assignableAdvisors: AssignableAdvisor[];
+  onAdvisorChange: (applicationId: string, advisorProfileId: string | null) => void;
 }
 
 const PAGE_SIZE = 8;
 
-export function ApplicationsTable({ applications, documentSlotCounts, onStatusChange }: ApplicationsTableProps) {
+export function ApplicationsTable({
+  applications,
+  documentSlotCounts,
+  onStatusChange,
+  assignableAdvisors,
+  onAdvisorChange,
+}: ApplicationsTableProps) {
   // Milestone 16 — `application:set_status` (administrador/gerente). The
   // application list itself stays readable by every role; only the
   // status-change affordance is gated. See the capability's note in
   // src/lib/auth/capabilities.ts for why it sits this high today.
   const canSetApplicationStatus = useCapability("application:set_status");
+  // Milestone 23 — `application:assign_advisor` (administrador/gerente).
+  // Deliberately its own capability, not application:set_status: deciding
+  // who WORKS a file is not the lending determination.
+  const canAssignAdvisor = useCapability("application:assign_advisor");
   const router = useRouter();
   const locale = useLocale() as Locale;
   const t = useTranslations();
@@ -170,7 +186,18 @@ export function ApplicationsTable({ applications, documentSlotCounts, onStatusCh
                       {formatDate(app.createdAt, locale)}
                     </TableCell>
                     <TableCell className="text-muted-foreground">
-                      {app.assignedAdvisorFullName ?? "—"}
+                      {canAssignAdvisor ? (
+                        <AdvisorAssignMenu
+                          advisors={assignableAdvisors}
+                          currentAdvisorProfileId={app.assignedAdvisorProfileId}
+                          currentAdvisorFullName={app.assignedAdvisorFullName}
+                          onChange={(advisorProfileId) =>
+                            onAdvisorChange(app.id, advisorProfileId)
+                          }
+                        />
+                      ) : (
+                        (app.assignedAdvisorFullName ?? "—")
+                      )}
                     </TableCell>
                     <TableCell>
                       <StatusBadge

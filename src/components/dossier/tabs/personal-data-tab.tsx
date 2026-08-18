@@ -27,6 +27,10 @@ export function PersonalDataTab({ client }: PersonalDataTabProps) {
   // bridge to the still-demo Company model used throughout the Dossier —
   // see summary-tab.tsx's identical pattern.
   const company = client.companyLegacyId ? getCompanyById(client.companyLegacyId) : undefined;
+  // MILESTONE 23: employerName (real free text) is authoritative; the
+  // static COMPANIES bridge is consulted ONLY as a fallback for fixture
+  // rows created before that column existed. Never the other way round.
+  const employerLabel = client.employerName ?? company?.name ?? "—";
   const idTypeLabel =
     client.identificationType === "cedula"
       ? t("clients.form.idTypeCedula")
@@ -46,7 +50,7 @@ export function PersonalDataTab({ client }: PersonalDataTabProps) {
           />
           <Field label={t("dossier.personalData.phone")} value={client.phone} />
           <Field label={t("dossier.personalData.email")} value={client.email} />
-          <Field label={t("dossier.personalData.company")} value={company?.name ?? "—"} />
+          <Field label={t("dossier.personalData.employer")} value={employerLabel} />
           <Field label={t("dossier.personalData.position")} value={client.position} />
           <Field
             label={t("dossier.personalData.monthlySalary")}

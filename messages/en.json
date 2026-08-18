@@ -131,7 +131,9 @@
       "edit": "Edit",
       "createApplication": "Create application",
       "addNote": "Add note",
-      "registerAlert": "Register alert"
+      "registerAlert": "Register alert",
+      "restrict": "Restrict client",
+      "unrestrict": "Remove restriction"
     },
     "toasts": {
       "clientUpdated": "Client updated successfully.",
@@ -140,7 +142,10 @@
       "createError": "Could not create the client. Please try again.",
       "updateError": "Could not update the client. Please try again.",
       "statusChanged": "Client moved to \"{status}\".",
-      "statusChangeError": "Could not change the client's status. Please try again."
+      "statusChangeError": "Could not change the client's status. Please try again.",
+      "restricted": "{name} was marked as restricted.",
+      "unrestricted": "The restriction on {name} was removed.",
+      "restrictionError": "The client restriction could not be changed."
     },
     "form": {
       "titleNew": "New client",
@@ -164,7 +169,12 @@
       "observations": "Observations",
       "cancel": "Cancel",
       "submitNew": "Register client",
-      "submitEdit": "Save changes"
+      "submitEdit": "Save changes",
+      "employer": "Employer",
+      "employerPlaceholder": "Employer name (optional)"
+    },
+    "restriction": {
+      "badge": "Restricted"
     }
   },
   "applications": {
@@ -197,7 +207,11 @@
     },
     "toasts": {
       "statusChanged": "Application moved to \"{status}\".",
-      "statusChangeError": "Could not change the status. Please try again."
+      "statusChangeError": "Could not change the status. Please try again.",
+      "advisorAssigned": "Application assigned to {name}.",
+      "advisorUnassigned": "The application assignment was removed.",
+      "advisorError": "The assigned advisor could not be changed.",
+      "advisorInvalid": "That advisor is not available."
     },
     "create": {
       "trigger": "New application",
@@ -246,6 +260,12 @@
         "errorClientNotFound": "The selected client is no longer available.",
         "errorProductNotAvailable": "The selected product is no longer available for new applications."
       }
+    },
+    "advisorMenu": {
+      "assignTo": "Assign to",
+      "unassigned": "Unassigned",
+      "unassign": "Remove assignment",
+      "noneAvailable": "No advisors available"
     }
   },
   "dossier": {
@@ -281,7 +301,8 @@
       "documentsPendingHint": "Some documents still need to be verified. Check the Documents tab.",
       "noApplicationDocuments": "This client does not have an associated application with document requirements.",
       "noDocumentRequirements": "This application has no document requirements.",
-      "lastUpdate": "Last update"
+      "lastUpdate": "Last update",
+      "employer": "Employer"
     },
     "personalData": {
       "title": "Personal data",
@@ -298,7 +319,8 @@
       "assignedAdvisor": "Assigned advisor",
       "registeredAt": "Registration date",
       "observations": "Observations",
-      "noObservations": "No observations recorded."
+      "noObservations": "No observations recorded.",
+      "employer": "Employer"
     },
     "documents": {
       "noApplicationTitle": "No associated application",

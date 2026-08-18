@@ -422,29 +422,71 @@ export async function setApplicationStatus(
 
 export type AssignApplicationAdvisorResult =
   | { status: "ok"; application: Application }
-  | { status: "error"; code: "NOT_FOUND" | "UPDATE_FAILED" };
+  | { status: "error"; code: "NOT_FOUND" | "INVALID_ADVISOR" | "UPDATE_FAILED" };
 
-/** Reassigns (or unassigns, when advisorProfileId is null) which advisor
+/**
+ * Reassigns (or unassigns, when advisorProfileId is null) which advisor
  * owns this application. Unlike status, there is no legality graph to
- * enforce — any profile may replace any other at any time — and no
- * accompanying audit-trail columns exist for this field (see the
- * applications table migration's comment on assigned_advisor_profile_id
- * for why one was deliberately not added). */
+ * enforce — any profile may replace any other at any time.
+ *
+ * MILESTONE 23: this function existed from Milestone 13B onward with NO
+ * Server Action and NO UI, so ODL could never actually put a file in an
+ * advisor's hands. It is now reachable, and consequently now audited.
+ *
+ * The direct UPDATE it used to perform is replaced by
+ * record_application_advisor_assignment, which locks the row, reads the
+ * advisor it is replacing, writes the change and appends the reserved
+ * `application_advisor_assigned` event in ONE transaction. The old comment
+ * here noted that "no accompanying audit-trail columns exist for this field";
+ * that is still true of the `applications` table, and is exactly why the
+ * history now lives in crm_events instead — a dedicated set of
+ * advisor_changed_at/by columns would have recorded only the most recent
+ * reassignment, which is the problem Milestone 20 was created to solve.
+ *
+ * The event stores profile IDs only — never staff name, e-mail or role.
+ *
+ * INVALID_ADVISOR is returned when the target profile does not exist or is
+ * deactivated: assigning a file to someone who cannot sign in produces an
+ * application nobody actually owns. A no-op reassignment (same advisor,
+ * including null -> null) is a success and writes no event.
+ */
 export async function assignApplicationAdvisor(
   applicationId: string,
-  advisorProfileId: string | null
+  advisorProfileId: string | null,
+  actorProfileId: string | null
 ): Promise<AssignApplicationAdvisorResult> {
   const supabase = getSupabaseServerClient();
 
+  const { data: changedId, error: rpcError } = await supabase.rpc(
+    "record_application_advisor_assignment",
+    {
+      p_application_id: applicationId,
+      p_advisor_profile_id: advisorProfileId,
+      p_actor_profile_id: actorProfileId,
+    }
+  );
+
+  if (rpcError) {
+    // 22023 is the function's own "advisor missing or inactive" guard; 23503
+    // would be the foreign key, which the guard normally reaches first.
+    if (rpcError.code === "22023" || rpcError.code === "23503") {
+      return { status: "error", code: "INVALID_ADVISOR" };
+    }
+    console.error("[applications service] Failed to update assigned advisor:", rpcError.message);
+    return { status: "error", code: "UPDATE_FAILED" };
+  }
+  if (!changedId) {
+    return { status: "error", code: "NOT_FOUND" };
+  }
+
   const { data: updated, error } = await supabase
     .from("applications")
-    .update({ assigned_advisor_profile_id: advisorProfileId })
-    .eq("id", applicationId)
     .select(APPLICATION_SELECT)
+    .eq("id", applicationId)
     .maybeSingle<ApplicationRow>();
 
   if (error) {
-    console.error("[applications service] Failed to update assigned advisor:", error.message);
+    console.error("[applications service] Advisor changed but re-read failed:", error.message);
     return { status: "error", code: "UPDATE_FAILED" };
   }
   if (!updated) {
