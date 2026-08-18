@@ -980,5 +980,24 @@
       "OUT_OF_RANGE": "This value is not valid.",
       "MUST_ACCEPT": "You must accept to continue."
     }
+  },
+  "branchTransfer": {
+    "title": "Transfer branch",
+    "titleApplication": "Transfer application",
+    "description": "Move this file to another branch. Only the responsible branch changes.",
+    "descriptionApplication": "Move this application to another branch. The client does not move.",
+    "currentBranch": "Current branch",
+    "destinationBranch": "Destination branch",
+    "unassigned": "Unassigned",
+    "selectDestination": "Select a branch",
+    "confirm": "Transfer",
+    "cancel": "Cancel",
+    "loading": "Loading branches…",
+    "noDestinations": "No branches available",
+    "success": "Transfer completed",
+    "successAdvisorCleared": "Transfer completed. The assigned advisor was removed because they do not serve the destination branch.",
+    "error": "Could not transfer",
+    "errorDestination": "The destination branch is not available",
+    "errorNotFound": "Record not found"
   }
 }

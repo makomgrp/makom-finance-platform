@@ -1,6 +1,7 @@
 import "server-only";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
-import type { Branch } from "@/types";
+import { applyBranchScope, isEmptyScope } from "@/lib/services/branch-scope-query";
+import type { Branch, BranchScope } from "@/types";
 
 /**
  * ============================================================================
@@ -87,6 +88,60 @@ export async function getBranches(): Promise<GetBranchesResult> {
   } catch (error) {
     console.error(
       "[branches service] Unexpected failure loading branches:",
+      error instanceof Error ? error.message : "unknown error"
+    );
+    return { status: "error" };
+  }
+}
+
+/**
+ * The branches a caller may send a record TO (Milestone 25B-3).
+ *
+ * Deliberately NOT getBranches(). That one is the administration screen's list
+ * and returns every row including deactivated ones, because reactivating a
+ * branch has to start from seeing it. This one answers a different question —
+ * "where may this person move a file?" — and so applies two filters the
+ * administration list must not:
+ *
+ *   active = true    a closed branch is not a valid destination. (A closed
+ *                    branch is still a valid SOURCE — records have to be able
+ *                    to leave one — which is why the RPC checks `active` only
+ *                    on the destination side.)
+ *   branch scope     national sees every active branch, including ones created
+ *                    tomorrow; a branch-scoped user sees only their own; an
+ *                    empty scope sees none.
+ *
+ * THIS IS A MENU, NOT A GATE. transfer_client_branch and
+ * transfer_application_branch re-derive destination authorization inside the
+ * write's own transaction. Narrowing the list here stops honest users from
+ * picking something that would be rejected; it stops nobody from crafting a
+ * request.
+ */
+export async function getTransferDestinationBranches(
+  scope: BranchScope
+): Promise<GetBranchesResult> {
+  // Empty scope reaches no branch, so there is nowhere to transfer to. Return
+  // without querying rather than emitting a predicate — see branch-scope-query.
+  if (isEmptyScope(scope)) return { status: "ok", branches: [] };
+
+  try {
+    const supabase = getSupabaseServerClient();
+    const { data, error } = await applyBranchScope(
+      supabase.from("branches").select(BRANCH_SELECT).eq("active", true),
+      scope,
+      // Scoping the branch directory filters on the branch's OWN id, not on a
+      // `branch_id` column — branches do not belong to branches.
+      "id"
+    ).order("name", { ascending: true });
+
+    if (error) {
+      console.error("[branches service] Failed to load transfer destinations:", error.message);
+      return { status: "error" };
+    }
+    return { status: "ok", branches: ((data ?? []) as BranchRow[]).map(toBranch) };
+  } catch (error) {
+    console.error(
+      "[branches service] Unexpected failure loading transfer destinations:",
       error instanceof Error ? error.message : "unknown error"
     );
     return { status: "error" };

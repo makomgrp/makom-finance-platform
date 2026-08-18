@@ -980,5 +980,24 @@
       "OUT_OF_RANGE": "Este valor no es válido.",
       "MUST_ACCEPT": "Debe aceptar para continuar."
     }
+  },
+  "branchTransfer": {
+    "title": "Transferir sucursal",
+    "titleApplication": "Transferir solicitud",
+    "description": "Mueve el expediente a otra sucursal. Solo la sucursal responsable cambia.",
+    "descriptionApplication": "Mueve la solicitud a otra sucursal. El cliente no se mueve.",
+    "currentBranch": "Sucursal actual",
+    "destinationBranch": "Sucursal destino",
+    "unassigned": "Sin asignar",
+    "selectDestination": "Selecciona una sucursal",
+    "confirm": "Transferir",
+    "cancel": "Cancelar",
+    "loading": "Cargando sucursales…",
+    "noDestinations": "No hay sucursales disponibles",
+    "success": "Transferencia completada",
+    "successAdvisorCleared": "Transferencia completada. Se quitó el asesor asignado porque no atiende la sucursal destino.",
+    "error": "No se pudo transferir",
+    "errorDestination": "La sucursal destino no está disponible",
+    "errorNotFound": "No se encontró el registro"
   }
 }

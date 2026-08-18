@@ -8,6 +8,7 @@ import {
   setClientRestricted,
 } from "@/lib/services/clients";
 import { canCreateUnassignedEntity } from "@/lib/services/branch-scope-query";
+import { getClientTransferContext, transferClientBranch } from "@/lib/services/branch-transfers";
 import { requireCapability } from "@/lib/auth/authorize";
 import { CLIENT_STATUS_VALUES } from "@/lib/config/client-status";
 import type { Client, ClientStatus, IdentificationType } from "@/types";
@@ -362,4 +363,119 @@ export async function setClientRestrictedAction(
   }
 
   return { status: "success", client: result.client };
+}
+
+// ============================================================================
+// transferClientBranchAction (Milestone 25B-3)
+// ============================================================================
+
+export interface TransferClientBranchActionInput {
+  clientId: string;
+  destinationBranchId: string;
+}
+
+export type TransferClientBranchActionResult =
+  | { status: "success"; client: Client }
+  | {
+      status: "error";
+      code:
+        | "INVALID_INPUT"
+        | "UNAUTHENTICATED"
+        | "FORBIDDEN"
+        /** The client does not exist, OR is outside the caller's branch reach.
+         * One code for both, deliberately — see the service. */
+        | "CLIENT_NOT_FOUND"
+        /** The destination is missing, inactive, or outside the caller's reach.
+         * Also one code for all three. */
+        | "INVALID_DESTINATION"
+        | "TRANSFER_FAILED";
+    };
+
+/**
+ * Moves a client to another branch (Milestone 25B-3).
+ *
+ * CAPABILITY: `branch:transfer` — delegatable, and held by administrador and
+ * gerente. Note carefully what delegating it does and does not do: it grants
+ * the ACTION, never the REACH. A gerente who receives `branch:transfer` can
+ * still only move a client between branches they already hold, because the
+ * database checks the caller's own effective scope on BOTH the source and the
+ * destination. A capability has never created data scope in this system and
+ * this action does not become the exception.
+ *
+ * WHY BOTH SIDES. Moving a record out of a branch you cannot see would be
+ * exfiltration; moving one into a branch you cannot see would be dumping. Only
+ * an administrador — national by role — can do either, which is exactly how an
+ * unassigned legacy or public-intake client gets routed into a real branch.
+ *
+ * THE DESTINATION ID IS NOT TRUSTED because it came from a select menu. The
+ * menu is narrowed by getTransferDestinationBranches() for honest users;
+ * transfer_client_branch re-derives the authorization inside the write's own
+ * transaction for everyone else.
+ *
+ * THE CLIENT'S APPLICATIONS DO NOT MOVE. Client and application ownership are
+ * independent facts, and there is no hidden cascade — see the service.
+ */
+export async function transferClientBranchAction(
+  input: TransferClientBranchActionInput
+): Promise<TransferClientBranchActionResult> {
+  const auth = await requireCapability("branch:transfer");
+  if (auth.status === "denied") {
+    return { status: "error", code: auth.code };
+  }
+
+  if (!isNonEmptyString(input.clientId) || !UUID_PATTERN.test(input.clientId)) {
+    return { status: "error", code: "INVALID_INPUT" };
+  }
+  if (
+    !isNonEmptyString(input.destinationBranchId) ||
+    !UUID_PATTERN.test(input.destinationBranchId)
+  ) {
+    return { status: "error", code: "INVALID_INPUT" };
+  }
+
+  const result = await transferClientBranch(
+    auth.profile.branchScope,
+    input.clientId,
+    input.destinationBranchId,
+    auth.profile.id
+  );
+
+  if (result.status !== "ok") {
+    const code = result.code === "NOT_FOUND" ? "CLIENT_NOT_FOUND" : result.code;
+    return { status: "error", code };
+  }
+
+  return { status: "success", client: result.client };
+}
+
+export type GetClientTransferOptionsActionResult =
+  | { status: "success"; currentBranchName: string | null; destinations: { id: string; name: string }[] }
+  | { status: "error"; code: "INVALID_INPUT" | "UNAUTHENTICATED" | "FORBIDDEN" | "CLIENT_NOT_FOUND" };
+
+/** Everything the transfer dialog renders, resolved server-side (25B-3).
+ *
+ * A READ action, guarded by the SAME capability as the transfer itself: the
+ * list of branches a person may move records into is exactly as sensitive as
+ * the move, and someone who cannot transfer has no reason to enumerate
+ * destinations. */
+export async function getClientTransferOptionsAction(
+  clientId: string
+): Promise<GetClientTransferOptionsActionResult> {
+  const auth = await requireCapability("branch:transfer");
+  if (auth.status === "denied") {
+    return { status: "error", code: auth.code };
+  }
+  if (!isNonEmptyString(clientId) || !UUID_PATTERN.test(clientId)) {
+    return { status: "error", code: "INVALID_INPUT" };
+  }
+
+  const result = await getClientTransferContext(auth.profile.branchScope, clientId);
+  if (result.status !== "ok") {
+    return { status: "error", code: "CLIENT_NOT_FOUND" };
+  }
+  return {
+    status: "success",
+    currentBranchName: result.context.currentBranchName,
+    destinations: result.context.destinations,
+  };
 }

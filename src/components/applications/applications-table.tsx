@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
-import { Search } from "lucide-react";
+import { Building2, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -26,6 +26,13 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { PaginationBar } from "@/components/shared/pagination-bar";
 import { ApplicationStatusMenu } from "@/components/applications/application-status-menu";
 import { AdvisorAssignMenu } from "@/components/applications/advisor-assign-menu";
+import { BranchTransferDialog } from "@/components/branches/branch-transfer-dialog";
+import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
+import {
+  getApplicationTransferOptionsAction,
+  transferApplicationBranchAction,
+} from "@/app/(app)/solicitudes/actions";
 import {
   APPLICATION_STATUS_BADGE_CLASS,
   APPLICATION_STATUS_ORDER,
@@ -74,12 +81,16 @@ export function ApplicationsTable({
   // Deliberately its own capability, not application:set_status: deciding
   // who WORKS a file is not the lending determination.
   const canAssignAdvisor = useCapability("application:assign_advisor");
+  // MILESTONE 25B-3 — `branch:transfer`. Visible does not mean permitted: the
+  // database requires scope over BOTH source and destination.
+  const canTransferBranch = useCapability("branch:transfer");
   const router = useRouter();
   const locale = useLocale() as Locale;
   const t = useTranslations();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<ApplicationStatus | "todos">("todos");
   const [page, setPage] = useState(1);
+  const [transferApplicationId, setTransferApplicationId] = useState<string | null>(null);
 
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -221,6 +232,16 @@ export function ApplicationsTable({
                       {formatRelativeTime(app.statusChangedAt ?? app.createdAt, locale, t)}
                     </TableCell>
                     <TableCell className="text-right">
+                      {canTransferBranch && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setTransferApplicationId(app.id)}
+                        >
+                          <Building2 className="size-4" />
+                          <span className="sr-only">{t("branchTransfer.titleApplication")}</span>
+                        </Button>
+                      )}
                       {canSetApplicationStatus && (
                         <ApplicationStatusMenu
                           options={legalTargets.map((status) => ({
@@ -238,6 +259,40 @@ export function ApplicationsTable({
             </TableBody>
           </Table>
         </div>
+      )}
+
+      {transferApplicationId && (
+        <BranchTransferDialog
+          open
+          onOpenChange={(next) => {
+            if (!next) setTransferApplicationId(null);
+          }}
+          entity="application"
+          loadOptions={() => getApplicationTransferOptionsAction(transferApplicationId)}
+          onConfirm={async (destinationBranchId) => {
+            const result = await transferApplicationBranchAction({
+              applicationId: transferApplicationId,
+              destinationBranchId,
+            });
+            if (result.status === "error") {
+              return result.code === "INVALID_DESTINATION"
+                ? t("branchTransfer.errorDestination")
+                : result.code === "NOT_FOUND"
+                  ? t("branchTransfer.errorNotFound")
+                  : t("branchTransfer.error");
+            }
+            // A transfer can strip the advisor. Saying so is the whole point:
+            // an ownership change the manager does not notice is worse than
+            // the reassignment it forces.
+            toast.success(
+              result.advisorCleared
+                ? t("branchTransfer.successAdvisorCleared")
+                : t("branchTransfer.success")
+            );
+            router.refresh();
+            return null;
+          }}
+        />
       )}
 
       <PaginationBar

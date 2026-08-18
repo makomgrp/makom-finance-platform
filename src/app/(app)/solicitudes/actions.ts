@@ -7,6 +7,10 @@ import {
   setApplicationStatus,
 } from "@/lib/services/applications";
 import { canCreateUnassignedEntity } from "@/lib/services/branch-scope-query";
+import {
+  getApplicationTransferContext,
+  transferApplicationBranch,
+} from "@/lib/services/branch-transfers";
 import { getApplicationCreatableProducts } from "@/lib/services/products";
 import { getClientById } from "@/lib/services/clients";
 import { requireCapability } from "@/lib/auth/authorize";
@@ -370,4 +374,127 @@ export async function assignSolicitudAdvisor(
   }
 
   return { status: "success", application: result.application };
+}
+
+// ============================================================================
+// transferApplicationBranchAction (Milestone 25B-3)
+// ============================================================================
+
+export interface TransferApplicationBranchActionInput {
+  applicationId: string;
+  destinationBranchId: string;
+}
+
+export type TransferApplicationBranchActionResult =
+  | {
+      status: "success";
+      application: Application;
+      /** True when the move made the assigned advisor ineligible and the
+       * database cleared them. The UI surfaces this so the manager learns the
+       * file now has no owner — silently dropping an assignment would be worse
+       * than the reassignment it forces. */
+      advisorCleared: boolean;
+    }
+  | {
+      status: "error";
+      code:
+        | "INVALID_INPUT"
+        | "UNAUTHENTICATED"
+        | "FORBIDDEN"
+        | "NOT_FOUND"
+        | "INVALID_DESTINATION"
+        | "TRANSFER_FAILED";
+    };
+
+/**
+ * Moves an application to another branch (Milestone 25B-3).
+ *
+ * CAPABILITY: `branch:transfer`. As with the client transfer, delegating it
+ * grants the ACTION and never the REACH — the database requires the caller's
+ * own effective scope to cover BOTH the source and the destination, so a
+ * gerente moves files only between branches they already hold, and only an
+ * administrador (national by role) can route an unassigned application.
+ *
+ * THE ADVISOR MAY BE CLEARED BY THIS CALL. An advisor whose own branch reach
+ * does not cover the destination is unassigned atomically with the move,
+ * because an application owned by somebody who cannot open it is a broken
+ * invariant rather than a valid state. No replacement is chosen automatically.
+ * `advisorCleared` reports it by comparing the assignment before and after —
+ * the database is the one that decides, this only observes the outcome.
+ *
+ * THE CLIENT DOES NOT MOVE. Application and client ownership are independent
+ * facts; transferring a file never silently relocates the person.
+ */
+export async function transferApplicationBranchAction(
+  input: TransferApplicationBranchActionInput
+): Promise<TransferApplicationBranchActionResult> {
+  const auth = await requireCapability("branch:transfer");
+  if (auth.status === "denied") {
+    return { status: "error", code: auth.code };
+  }
+
+  if (!isNonEmptyString(input.applicationId) || !UUID_PATTERN.test(input.applicationId)) {
+    return { status: "error", code: "INVALID_INPUT" };
+  }
+  if (
+    !isNonEmptyString(input.destinationBranchId) ||
+    !UUID_PATTERN.test(input.destinationBranchId)
+  ) {
+    return { status: "error", code: "INVALID_INPUT" };
+  }
+
+  // Read the current assignment BEFORE the move, through the caller's own
+  // scope, so `advisorCleared` can be reported truthfully. Out of scope stops
+  // here with the same NOT_FOUND a nonexistent id produces.
+  const before = await getApplicationById(auth.profile.branchScope, input.applicationId);
+  if (before.status !== "ok") {
+    return { status: "error", code: "NOT_FOUND" };
+  }
+  const advisorBefore = before.application.assignedAdvisorProfileId;
+
+  const result = await transferApplicationBranch(
+    auth.profile.branchScope,
+    input.applicationId,
+    input.destinationBranchId,
+    auth.profile.id
+  );
+
+  if (result.status !== "ok") {
+    return { status: "error", code: result.code };
+  }
+
+  return {
+    status: "success",
+    application: result.application,
+    advisorCleared:
+      advisorBefore !== undefined && result.application.assignedAdvisorProfileId === undefined,
+  };
+}
+
+export type GetApplicationTransferOptionsActionResult =
+  | { status: "success"; currentBranchName: string | null; destinations: { id: string; name: string }[] }
+  | { status: "error"; code: "INVALID_INPUT" | "UNAUTHENTICATED" | "FORBIDDEN" | "NOT_FOUND" };
+
+/** Transfer dialog context for one application (25B-3). Guarded by the same
+ * capability as the transfer — see the client equivalent. */
+export async function getApplicationTransferOptionsAction(
+  applicationId: string
+): Promise<GetApplicationTransferOptionsActionResult> {
+  const auth = await requireCapability("branch:transfer");
+  if (auth.status === "denied") {
+    return { status: "error", code: auth.code };
+  }
+  if (!isNonEmptyString(applicationId) || !UUID_PATTERN.test(applicationId)) {
+    return { status: "error", code: "INVALID_INPUT" };
+  }
+
+  const result = await getApplicationTransferContext(auth.profile.branchScope, applicationId);
+  if (result.status !== "ok") {
+    return { status: "error", code: "NOT_FOUND" };
+  }
+  return {
+    status: "success",
+    currentBranchName: result.context.currentBranchName,
+    destinations: result.context.destinations,
+  };
 }

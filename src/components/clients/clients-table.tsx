@@ -15,6 +15,7 @@ import {
   ShieldAlert,
   ShieldBan,
   ShieldCheck,
+  Building2,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -40,6 +41,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { BranchTransferDialog } from "@/components/branches/branch-transfer-dialog";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { EmptyState } from "@/components/shared/empty-state";
 import { PaginationBar } from "@/components/shared/pagination-bar";
@@ -52,8 +54,10 @@ import {
 } from "@/lib/config/client-status";
 import { getCompanyById } from "@/lib/demo-data";
 import {
+  getClientTransferOptionsAction,
   setClientRestrictedAction,
   setClientStatusAction,
+  transferClientBranchAction,
 } from "@/app/(app)/clientes/actions";
 import { useCapability } from "@/lib/auth/use-capability";
 import { formatDate, getInitials } from "@/lib/format";
@@ -106,7 +110,13 @@ export function ClientsTable({
   // takes the same capability the Solicitudes entry point does and is
   // enforced server-side by createSolicitudApplication.
   const canCreateApplication = useCapability("application:create");
+  // MILESTONE 25B-3 — `branch:transfer`. Delegatable, so a gerente can hold it,
+  // but holding it never widens their reach: the database requires scope over
+  // BOTH the source and the destination, so this affordance being visible does
+  // not mean any given move will be accepted.
+  const canTransferBranch = useCapability("branch:transfer");
   const [clients, setClients] = useState<Client[]>(initialClients);
+  const [transferClient, setTransferClient] = useState<Client | null>(null);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<ClientStatus | "todos">("todos");
   const [page, setPage] = useState(1);
@@ -358,6 +368,12 @@ export function ClientsTable({
                             <ShieldAlert className="size-4" />
                             {t("clients.rowActions.registerAlert")}
                           </DropdownMenuItem>
+                          {canTransferBranch && (
+                            <DropdownMenuItem onClick={() => setTransferClient(client)}>
+                              <Building2 className="size-4" />
+                              {t("branchTransfer.title")}
+                            </DropdownMenuItem>
+                          )}
                           {canSetClientRestriction && (
                             <DropdownMenuItem onClick={() => handleRestrictionChange(client)}>
                               {client.restricted ? (
@@ -391,6 +407,38 @@ export function ClientsTable({
         pageSize={PAGE_SIZE}
         onPageChange={setPage}
       />
+
+      {transferClient && (
+        <BranchTransferDialog
+          open
+          onOpenChange={(next) => {
+            if (!next) setTransferClient(null);
+          }}
+          entity="client"
+          loadOptions={() => getClientTransferOptionsAction(transferClient.id)}
+          onConfirm={async (destinationBranchId) => {
+            const result = await transferClientBranchAction({
+              clientId: transferClient.id,
+              destinationBranchId,
+            });
+            if (result.status === "error") {
+              // One message per failure CLASS, never per branch — the action's
+              // codes are already non-enumerating and the copy keeps them so.
+              return result.code === "INVALID_DESTINATION"
+                ? t("branchTransfer.errorDestination")
+                : result.code === "CLIENT_NOT_FOUND"
+                  ? t("branchTransfer.errorNotFound")
+                  : t("branchTransfer.error");
+            }
+            // The client itself is unchanged apart from its branch, which the
+            // table does not render — but a transfer can move it OUT of what
+            // this page loaded, so refresh rather than patching local state.
+            toast.success(t("branchTransfer.success"));
+            router.refresh();
+            return null;
+          }}
+        />
+      )}
 
       {editingClient && (
         <RealClientFormDialog
