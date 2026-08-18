@@ -1,6 +1,6 @@
 import "server-only";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
-import { applyBranchScope, isEmptyScope, withScopedParent } from "@/lib/services/branch-scope-query";
+import { applyBranchScope, isBranchDeniedError, isEmptyScope, withScopedParent } from "@/lib/services/branch-scope-query";
 import { REQUIREMENT_SLOT_STATUS_TRANSITIONS } from "@/lib/config/requirement-slot";
 import type {
   BranchScope,
@@ -302,6 +302,12 @@ export async function setRequirementSlotStatus(
   );
 
   if (rpcError) {
+    // MILESTONE 25B-2 — out of branch scope (resolved from the slot's parent
+    // application inside the RPC) reports NOT_FOUND, exactly like a slot that
+    // does not exist. See BRANCH_DENIED_SQLSTATE.
+    if (isBranchDeniedError(rpcError.code)) {
+      return { status: "error", code: "NOT_FOUND" };
+    }
     console.error("[requirement-slots service] Failed to update requirement slot status:", rpcError.message);
     return { status: "error", code: "UPDATE_FAILED" };
   }

@@ -2,10 +2,12 @@
 
 import {
   createClient,
+  getClientById,
   updateClientProfile,
   setClientStatus,
   setClientRestricted,
 } from "@/lib/services/clients";
+import { canCreateUnassignedEntity } from "@/lib/services/branch-scope-query";
 import { requireCapability } from "@/lib/auth/authorize";
 import { CLIENT_STATUS_VALUES } from "@/lib/config/client-status";
 import type { Client, ClientStatus, IdentificationType } from "@/types";
@@ -101,6 +103,31 @@ export async function createClientAction(input: ClientProfileFields): Promise<Cr
     return { status: "error", code: "INVALID_INPUT" };
   }
 
+  // ==========================================================================
+  // MILESTONE 25B-2 — WHO MAY CREATE A CLIENT, AND WHY THE ANSWER IS "NATIONAL"
+  // ==========================================================================
+  //
+  // createClient() does not write branch_id and has no input to write it from:
+  // no CRM surface carries a trusted branch context yet. Every client created
+  // here is therefore UNASSIGNED, and 25B-2 deliberately does NOT invent an
+  // owner for it — not the caller's first membership, not headquarters, not
+  // the first active branch. A guessed owner is worse than none, because it is
+  // indistinguishable from a real one afterwards.
+  //
+  // Given that, "may I create?" reduces to "may I operate on an unassigned
+  // record?", and the answer is the NULL rule: national only. A branch-scoped
+  // user permitted to create here would immediately lose the client they just
+  // created — unable to open, edit, or raise an application against it — and
+  // would be injecting rows only national scope can ever see.
+  //
+  // FORBIDDEN, not NOT_FOUND: this describes the CALLER, not a target. Nothing
+  // about any existing record is revealed.
+  //
+  // 25C lifts this by giving the creation form an explicit branch context.
+  if (!canCreateUnassignedEntity(auth.profile.branchScope)) {
+    return { status: "error", code: "FORBIDDEN" };
+  }
+
   const result = await createClient({
     fullName: input.fullName,
     identificationType: input.identificationType,
@@ -157,6 +184,26 @@ export async function updateClientProfileAction(
 
   if (!isNonEmptyString(input.clientId) || !UUID_PATTERN.test(input.clientId) || !hasValidProfileFields(input)) {
     return { status: "error", code: "INVALID_INPUT" };
+  }
+
+  // ==========================================================================
+  // MILESTONE 25B-2 — TARGET SCOPE, RESOLVED SERVER-SIDE
+  // ==========================================================================
+  //
+  // input.clientId IDENTIFIES a target; it does not AUTHORIZE one. The client
+  // is re-read through the caller's own effective branch scope, so a crafted
+  // request naming a client in another branch resolves to nothing and gets the
+  // same CLIENT_NOT_FOUND a nonexistent id would — never a distinct code that
+  // would confirm the record exists somewhere.
+  //
+  // This is the first of two independent checks. The second is inside
+  // record_client_profile_update itself, which re-resolves the branch in the
+  // same transaction as the write (Milestone 25B-2 migration). This one gives
+  // the correct public error contract; that one is the boundary that a bug in
+  // this file cannot get past.
+  const targetResult = await getClientById(auth.profile.branchScope, input.clientId);
+  if (targetResult.status !== "ok") {
+    return { status: "error", code: "CLIENT_NOT_FOUND" };
   }
 
   // Milestone 20: the caller's own resolved profile is now threaded through
@@ -227,6 +274,13 @@ export async function setClientStatusAction(
     return { status: "error", code: "INVALID_INPUT" };
   }
 
+  // MILESTONE 25B-2 — target scope resolved server-side; see
+  // updateClientProfileAction for the full rationale.
+  const targetResult = await getClientById(auth.profile.branchScope, input.clientId);
+  if (targetResult.status !== "ok") {
+    return { status: "error", code: "CLIENT_NOT_FOUND" };
+  }
+
   // Milestone 20: actor threaded through for the audit event (see above).
   const result = await setClientStatus(input.clientId, input.status, auth.profile.id);
   if (result.status !== "ok") {
@@ -293,6 +347,13 @@ export async function setClientRestrictedAction(
   }
   if (typeof input.restricted !== "boolean") {
     return { status: "error", code: "INVALID_INPUT" };
+  }
+
+  // MILESTONE 25B-2 — target scope resolved server-side; see
+  // updateClientProfileAction for the full rationale.
+  const targetResult = await getClientById(auth.profile.branchScope, input.clientId);
+  if (targetResult.status !== "ok") {
+    return { status: "error", code: "CLIENT_NOT_FOUND" };
   }
 
   const result = await setClientRestricted(input.clientId, input.restricted, auth.profile.id);

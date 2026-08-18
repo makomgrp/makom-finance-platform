@@ -3,8 +3,10 @@
 import {
   assignApplicationAdvisor,
   createApplication,
+  getApplicationById,
   setApplicationStatus,
 } from "@/lib/services/applications";
+import { canCreateUnassignedEntity } from "@/lib/services/branch-scope-query";
 import { getApplicationCreatableProducts } from "@/lib/services/products";
 import { getClientById } from "@/lib/services/clients";
 import { requireCapability } from "@/lib/auth/authorize";
@@ -101,6 +103,18 @@ export async function setSolicitudApplicationStatus(
   }
   if (!(APPLICATION_STATUS_TRANSITIONABLE as string[]).includes(input.status)) {
     return { status: "error", code: "INVALID_INPUT" };
+  }
+
+  // MILESTONE 25B-2 — the application is re-read through the caller's own
+  // effective branch scope, so an id naming an application in another branch
+  // resolves to nothing. NOT_FOUND is the service's existing code for an
+  // unknown application, so out-of-scope and nonexistent are indistinguishable.
+  // record_application_status_change repeats this check inside the write's own
+  // transaction; this layer exists for the error contract, that one for the
+  // boundary.
+  const targetResult = await getApplicationById(auth.profile.branchScope, input.applicationId);
+  if (targetResult.status !== "ok") {
+    return { status: "error", code: "NOT_FOUND" };
   }
 
   const result = await setApplicationStatus(
@@ -217,6 +231,16 @@ export async function createSolicitudApplication(
     return { status: "error", code: "CLIENT_NOT_FOUND" };
   }
 
+  // MILESTONE 25B-2 — createApplication() writes no branch_id, so the new
+  // application is UNASSIGNED regardless of which branch its client sits in.
+  // A branch-scoped creator would therefore lose the file the moment it was
+  // created. Same rule and same reasoning as createClientAction; 25C lifts it
+  // by supplying a real branch context. FORBIDDEN describes the caller and
+  // reveals nothing about the client, which was already proven in scope above.
+  if (!canCreateUnassignedEntity(auth.profile.branchScope)) {
+    return { status: "error", code: "FORBIDDEN" };
+  }
+
   const productsResult = await getApplicationCreatableProducts();
   if (productsResult.status === "error") {
     return { status: "error", code: "CREATE_FAILED" };
@@ -314,6 +338,26 @@ export async function assignSolicitudAdvisor(
     if (!isNonEmptyString(input.advisorProfileId) || !UUID_PATTERN.test(input.advisorProfileId)) {
       return { status: "error", code: "INVALID_INPUT" };
     }
+  }
+
+  // ==========================================================================
+  // MILESTONE 25B-2 — TWO INDEPENDENT QUESTIONS, ONLY ONE OF THEM ASKED HERE
+  // ==========================================================================
+  //
+  // (A) MAY THIS CALLER OPERATE ON THIS APPLICATION? That is the caller's own
+  //     effective branch scope, checked right here. A gerente holding
+  //     `application:assign_advisor` may still only assign inside their own
+  //     branches: a delegated capability says WHAT you may do, never WHERE.
+  //
+  // (B) IS THIS ADVISOR ELIGIBLE FOR THIS APPLICATION? That is the ADVISOR's
+  //     own role, active flag, auth link and branch reach — never the caller's
+  //     — and it is deliberately NOT re-implemented here. It lives in
+  //     record_application_advisor_assignment, with the directory in
+  //     getAssignableAdvisorsForApplications() offering exactly the same set.
+  //     Duplicating it in this file would create a second rule to keep in sync.
+  const targetResult = await getApplicationById(auth.profile.branchScope, input.applicationId);
+  if (targetResult.status !== "ok") {
+    return { status: "error", code: "NOT_FOUND" };
   }
 
   const result = await assignApplicationAdvisor(

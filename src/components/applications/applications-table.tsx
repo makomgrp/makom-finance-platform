@@ -46,9 +46,13 @@ interface ApplicationsTableProps {
   documentSlotCounts: Record<string, { completed: number; total: number }>;
   onStatusChange: (applicationId: string, status: ApplicationStatus) => void;
   /** Milestone 23 — staff eligible to own a file, resolved server-side by
-   * getAssignableAdvisors(). Empty when the read failed; the menu then simply
-   * offers only "unassign", never a fabricated list. */
-  assignableAdvisors: AssignableAdvisor[];
+   * getAssignableAdvisorsForApplications().
+   *
+   * MILESTONE 25B-2: keyed BY APPLICATION, because eligibility depends on the
+   * application's branch as well as the advisor. A missing key means "no
+   * eligible advisor for this file" and the menu then offers only "unassign",
+   * never a fabricated list — exactly as an empty array did before. */
+  assignableAdvisorsByApplication: Record<string, AssignableAdvisor[]>;
   onAdvisorChange: (applicationId: string, advisorProfileId: string | null) => void;
 }
 
@@ -58,7 +62,7 @@ export function ApplicationsTable({
   applications,
   documentSlotCounts,
   onStatusChange,
-  assignableAdvisors,
+  assignableAdvisorsByApplication,
   onAdvisorChange,
 }: ApplicationsTableProps) {
   // Milestone 16 — `application:set_status` (administrador/gerente). The
@@ -188,7 +192,7 @@ export function ApplicationsTable({
                     <TableCell className="text-muted-foreground">
                       {canAssignAdvisor ? (
                         <AdvisorAssignMenu
-                          advisors={assignableAdvisors}
+                          advisors={assignableAdvisorsByApplication[app.id] ?? []}
                           currentAdvisorProfileId={app.assignedAdvisorProfileId}
                           currentAdvisorFullName={app.assignedAdvisorFullName}
                           onChange={(advisorProfileId) =>

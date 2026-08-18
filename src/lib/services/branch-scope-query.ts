@@ -121,6 +121,36 @@ export function isBranchInScope(scope: BranchScope, branchId: string | null | un
 }
 
 /**
+ * ============================================================================
+ * MILESTONE 25B-2 — MAY THIS SCOPE CREATE A RECORD THAT WILL OWN NO BRANCH?
+ * ============================================================================
+ *
+ * This is `isBranchInScope(scope, null)` — deliberately the SAME predicate, so
+ * creation can never drift from access — given a name, because the bare call
+ * reads like a mistake at a creation site.
+ *
+ * WHY CREATION IS A BRANCH QUESTION AT ALL. Neither createClient() nor
+ * createApplication() writes branch_id: no CRM surface currently carries a
+ * trusted branch context to write it FROM, so every newly created row is
+ * UNASSIGNED. Milestone 25B-2 deliberately does not invent that context — see
+ * the Phase 14 note in src/app/(app)/clientes/actions.ts#createClientAction.
+ *
+ * The consequence is that "may I create?" is exactly "may I operate on an
+ * unassigned record?", and the answer is the NULL rule already in force
+ * everywhere else: national only. A branch-scoped user allowed to create here
+ * would produce a row they could not then see, read, edit or assign — an
+ * orphan visible only to national scope. Blocking is not a restriction bolted
+ * on; it is the same isolation rule applied one step earlier.
+ *
+ * This is TEMPORARY and scoped to the gap: 25C introduces an explicit branch
+ * context, at which point creation writes a real branch_id and this predicate
+ * stops being the deciding one.
+ */
+export function canCreateUnassignedEntity(scope: BranchScope): boolean {
+  return isBranchInScope(scope, null);
+}
+
+/**
  * Builds a select string that adds an `!inner` parent embed when — and only
  * when — the scope actually needs one.
  *
@@ -174,3 +204,33 @@ export function withScopedParent(
  * findClientByIdentification is unscoped entirely.
  */
 export const SYSTEM_NATIONAL_SCOPE: BranchScope = { mode: "national", branchIds: [] };
+
+/**
+ * ============================================================================
+ * MILESTONE 25B-2 — THE DATABASE BRANCH-DENIAL CONTRACT
+ * ============================================================================
+ *
+ * The operational RPCs replaced in
+ * supabase/migrations/20260818065526_milestone_25b2_branch_mutation_enforcement.sql
+ * signal "this actor may not operate in this entity's branch" by raising
+ * SQLSTATE 42501 (insufficient_privilege).
+ *
+ * EVERY operational service maps it to the SAME public code it already returns
+ * for a row that does not exist — NOT_FOUND / CLIENT_NOT_FOUND — and never to a
+ * distinct "forbidden" result. A separate code would tell a caller that the
+ * record they guessed at is real but belongs to someone else, which is an
+ * existence oracle over other branches' dossiers. Out of scope must be
+ * indistinguishable from absent.
+ *
+ * Staff and branch administration deliberately map 42501 to FORBIDDEN instead
+ * (see branch-memberships.ts / staff-admin.ts / branches.ts). That is not an
+ * inconsistency: those surfaces administer a directory whose membership is not
+ * a secret from someone already holding the capability, and B1-B6 established
+ * that contract long before this milestone.
+ */
+export const BRANCH_DENIED_SQLSTATE = "42501";
+
+/** True when a PostgrestError code is the branch-denial signal above. */
+export function isBranchDeniedError(code: string | undefined | null): boolean {
+  return code === BRANCH_DENIED_SQLSTATE;
+}

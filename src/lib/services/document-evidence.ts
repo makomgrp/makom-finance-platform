@@ -447,16 +447,41 @@ export type ReviewDocumentEvidenceResult =
  * the sole and sufficient enforcement, exactly as originally intended.
  */
 export async function reviewDocumentEvidence(
+  scope: BranchScope,
   evidenceId: string,
   actorProfileId: string
 ): Promise<ReviewDocumentEvidenceResult> {
+  // MILESTONE 25B-2 — no scope, nothing to review. Return before touching the
+  // database, exactly as createSignedEvidenceUrl does.
+  if (isEmptyScope(scope)) return { status: "error", code: "NOT_FOUND" };
+
   const supabase = getSupabaseServerClient();
 
-  const { data: current, error: fetchError } = await supabase
+  // MILESTONE 25B-2 — the pre-read now walks the SAME ownership chain the
+  // signed-URL path walks (25B-S0) and carries the SAME branch predicate
+  // (25B-1), so an evidence row belonging to another branch simply does not
+  // resolve and the existing NOT_FOUND is returned. Reviewing is a mutation:
+  // it must be at least as hard to reach as viewing.
+  //
+  // The guarded UPDATE below stays keyed on id alone, which is safe because it
+  // is unreachable unless this scoped read already proved the row is in scope,
+  // and its `.is("reviewed_at", null)` predicate still carries the race
+  // protection.
+  const chainQuery = supabase
     .from("dossier_documents")
-    .select("id, reviewed_at")
+    .select(
+      "id, reviewed_at, " +
+        "requirement_slot:requirement_slots!dossier_documents_requirement_slot_id_fkey!inner(" +
+        "id, application:applications!requirement_slots_application_id_fkey!inner(id, branch_id))"
+    )
     .eq("id", evidenceId)
-    .maybeSingle();
+    .not("requirement_slot_id", "is", null);
+
+  const { data: current, error: fetchError } = await applyBranchScope(
+    chainQuery,
+    scope,
+    "requirement_slot.application.branch_id"
+  ).maybeSingle<{ id: string; reviewed_at: string | null }>();
 
   if (fetchError) {
     console.error("[document-evidence service] Failed to look up evidence before review:", fetchError.message);
@@ -490,8 +515,8 @@ export async function reviewDocumentEvidence(
 
 /** The narrow projection createSignedEvidenceUrl reads. Only the two storage
  * fields are used; the embedded relations exist to force the INNER JOINs that
- * prove the ownership chain resolves, and to give Milestone 25B a
- * ready-made `application.branch_id` to filter on. */
+ * prove the ownership chain resolves, and they carry the
+ * `application.branch_id` that Milestone 25B-1 filters on. */
 interface SignedEvidenceChainRow {
   storage_bucket: string | null;
   storage_path: string | null;
@@ -568,8 +593,9 @@ export async function createSignedEvidenceUrl(
     .from("dossier_documents")
     .select(
       "storage_bucket, storage_path, requirement_slot_id, " +
-        // MILESTONE 25B ADDS: a branch-scope filter on application.branch_id
-        // here. The chain is already resolved; only the predicate is missing.
+        // MILESTONE 25B-1 added the branch-scope filter applied just below, on
+        // `requirement_slot.application.branch_id`. The embeds here resolve the
+        // ownership chain (25B-S0); the predicate is no longer missing.
         "requirement_slot:requirement_slots!dossier_documents_requirement_slot_id_fkey!inner(" +
         "id, application:applications!requirement_slots_application_id_fkey!inner(" +
         "id, branch_id, client:clients!applications_client_id_fkey!inner(id)))"

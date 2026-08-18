@@ -1,6 +1,6 @@
 import "server-only";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
-import { applyBranchScope, isEmptyScope } from "@/lib/services/branch-scope-query";
+import { applyBranchScope, isBranchDeniedError, isEmptyScope } from "@/lib/services/branch-scope-query";
 import { CLIENT_STATUS_VALUES } from "@/lib/config/client-status";
 import type {
   ApplicationSource,
@@ -441,6 +441,11 @@ export async function updateClientProfile(
   });
 
   if (rpcError) {
+    // MILESTONE 25B-2 — out of branch scope is reported as CLIENT_NOT_FOUND,
+    // exactly like a client that does not exist. See BRANCH_DENIED_SQLSTATE.
+    if (isBranchDeniedError(rpcError.code)) {
+      return { status: "error", code: "CLIENT_NOT_FOUND" };
+    }
     // clients_identification_type_identification_number_key still raises
     // 23505 from inside the function, aborting both the update and the event.
     if (rpcError.code === "23505") {
@@ -507,6 +512,10 @@ export async function setClientStatus(
   });
 
   if (rpcError) {
+    // MILESTONE 25B-2 — see updateClientProfile above.
+    if (isBranchDeniedError(rpcError.code)) {
+      return { status: "error", code: "CLIENT_NOT_FOUND" };
+    }
     console.error("[clients service] Failed to update client status:", rpcError.message);
     return { status: "error", code: "UPDATE_FAILED" };
   }
@@ -570,6 +579,10 @@ export async function setClientRestricted(
   );
 
   if (rpcError) {
+    // MILESTONE 25B-2 — see updateClientProfile above.
+    if (isBranchDeniedError(rpcError.code)) {
+      return { status: "error", code: "CLIENT_NOT_FOUND" };
+    }
     console.error("[clients service] Failed to update client restricted flag:", rpcError.message);
     return { status: "error", code: "UPDATE_FAILED" };
   }

@@ -1,6 +1,6 @@
 import "server-only";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
-import { applyBranchScope, isEmptyScope } from "@/lib/services/branch-scope-query";
+import { applyBranchScope, isBranchDeniedError, isEmptyScope } from "@/lib/services/branch-scope-query";
 import { createRequirementSlotsForApplication } from "@/lib/services/requirement-slots";
 import { APPLICATION_STATUS_TRANSITIONS } from "@/lib/config/application";
 import type {
@@ -411,6 +411,11 @@ export async function setApplicationStatus(
   );
 
   if (rpcError) {
+    // MILESTONE 25B-2 — out of branch scope reports NOT_FOUND, exactly like an
+    // application that does not exist. See BRANCH_DENIED_SQLSTATE.
+    if (isBranchDeniedError(rpcError.code)) {
+      return { status: "error", code: "NOT_FOUND" };
+    }
     console.error("[applications service] Failed to update application status:", rpcError.message);
     return { status: "error", code: "UPDATE_FAILED" };
   }
@@ -487,8 +492,16 @@ export async function assignApplicationAdvisor(
   );
 
   if (rpcError) {
-    // 22023 is the function's own "advisor missing or inactive" guard; 23503
-    // would be the foreign key, which the guard normally reaches first.
+    // MILESTONE 25B-2 — the ACTOR is out of branch scope for this application.
+    // Reported as NOT_FOUND, never as a distinct code.
+    if (isBranchDeniedError(rpcError.code)) {
+      return { status: "error", code: "NOT_FOUND" };
+    }
+    // 22023 is the function's own "advisor missing or inactive" guard — which
+    // MILESTONE 25B-2 widened to include "this advisor's own branch reach does
+    // not cover this application", deliberately under the SAME code so the
+    // error cannot be used to probe which branch an application belongs to.
+    // 23503 would be the foreign key, which the guard normally reaches first.
     if (rpcError.code === "22023" || rpcError.code === "23503") {
       return { status: "error", code: "INVALID_ADVISOR" };
     }

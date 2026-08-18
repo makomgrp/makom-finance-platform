@@ -36,7 +36,7 @@ interface SolicitudesViewProps {
    * from. Same real Client Engine rows /clientes renders. */
   clients: Client[];
   /** Milestone 23 — active staff eligible to own a file. */
-  assignableAdvisors: AssignableAdvisor[];
+  assignableAdvisorsByApplication: Record<string, AssignableAdvisor[]>;
 }
 
 /**
@@ -56,7 +56,7 @@ export function SolicitudesView({
   creatableProducts,
   productsLoadError,
   clients,
-  assignableAdvisors,
+  assignableAdvisorsByApplication,
 }: SolicitudesViewProps) {
   const t = useTranslations();
   // Milestone 17 — origination is its own capability, deliberately wider
@@ -127,7 +127,9 @@ export function SolicitudesView({
     }
 
     const advisor = advisorProfileId
-      ? assignableAdvisors.find((candidate) => candidate.id === advisorProfileId)
+      ? (assignableAdvisorsByApplication[applicationId] ?? []).find(
+          (candidate) => candidate.id === advisorProfileId
+        )
       : undefined;
 
     setApplications((prev) =>
@@ -207,7 +209,7 @@ export function SolicitudesView({
           applications={applications}
           documentSlotCounts={documentSlotCounts}
           onStatusChange={handleStatusChange}
-          assignableAdvisors={assignableAdvisors}
+          assignableAdvisorsByApplication={assignableAdvisorsByApplication}
           onAdvisorChange={handleAdvisorChange}
         />
       ) : (

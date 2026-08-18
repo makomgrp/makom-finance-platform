@@ -4,7 +4,7 @@ import { getCurrentProfile } from "@/lib/auth/get-current-profile";
 import { getDocumentSlotCompletionCounts } from "@/lib/services/requirement-slots";
 import { getApplicationCreatableProducts } from "@/lib/services/products";
 import { getClients } from "@/lib/services/clients";
-import { getAssignableAdvisors } from "@/lib/services/profiles";
+import { getAssignableAdvisorsForApplications } from "@/lib/services/profiles";
 import { SolicitudesView } from "@/app/(app)/solicitudes/solicitudes-view";
 
 /**
@@ -33,24 +33,36 @@ export default async function SolicitudesPage() {  // MILESTONE 25B-1 — effect
   // supplies it. The (app) layout has already guaranteed an active profile.
   const profile = await getCurrentProfile();
   const scope = profile?.branchScope ?? EMPTY_BRANCH_SCOPE;
-  const [applicationsResult, countsResult, productsResult, clientsResult, advisorsResult] =
-    await Promise.all([
-      getApplications(scope),
-      getDocumentSlotCompletionCounts(scope),
-      getApplicationCreatableProducts(),
-      getClients(scope),
-      getAssignableAdvisors(),
-    ]);
+  const [applicationsResult, countsResult, productsResult, clientsResult] = await Promise.all([
+    getApplications(scope),
+    getDocumentSlotCompletionCounts(scope),
+    getApplicationCreatableProducts(),
+    getClients(scope),
+  ]);
+
+  // MILESTONE 25B-2 — advisor eligibility now depends on each application's
+  // OWN branch, so the directory is resolved per application rather than once
+  // for the page. It runs after the applications load because it needs their
+  // ids; it is still two queries in total, not one per row, and it re-reads
+  // the applications through the same scope so no branch is taken on trust
+  // from this list.
+  const applications = applicationsResult.status === "ok" ? applicationsResult.applications : [];
+  const advisorsResult = await getAssignableAdvisorsForApplications(
+    scope,
+    applications.map((application) => application.id)
+  );
 
   return (
     <SolicitudesView
-      initialApplications={applicationsResult.status === "ok" ? applicationsResult.applications : []}
+      initialApplications={applications}
       documentSlotCounts={countsResult.status === "ok" ? countsResult.counts : {}}
       loadError={applicationsResult.status === "error"}
       creatableProducts={productsResult.status === "ok" ? productsResult.products : []}
       productsLoadError={productsResult.status === "error"}
       clients={clientsResult.status === "ok" ? clientsResult.clients : []}
-      assignableAdvisors={advisorsResult.status === "ok" ? advisorsResult.advisors : []}
+      assignableAdvisorsByApplication={
+        advisorsResult.status === "ok" ? advisorsResult.byApplicationId : {}
+      }
     />
   );
 }

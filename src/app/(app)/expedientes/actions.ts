@@ -10,6 +10,7 @@ import {
 import { ingestDocument } from "@/lib/services/document-intake";
 import { setRequirementSlotStatus, getRequirementSlotsByApplicationId } from "@/lib/services/requirement-slots";
 import { requireCapability } from "@/lib/auth/authorize";
+import { getApplicationById } from "@/lib/services/applications";
 import { getClientById } from "@/lib/services/clients";
 import { NOTE_PRIORITY_VALUES, NOTE_TYPE_VALUES } from "@/lib/config/note";
 import { ALERT_LEVEL_VALUES, ALERT_TYPE_VALUES } from "@/lib/config/alert";
@@ -354,6 +355,25 @@ export async function uploadRequirementEvidence(formData: FormData): Promise<Upl
     return { status: "error", code: "INVALID_INPUT" };
   }
 
+  // ==========================================================================
+  // MILESTONE 25B-2 — BRANCH GATE BEFORE ANY STORAGE OR DATABASE WRITE
+  // ==========================================================================
+  //
+  // Uploading is a mutation on a dossier, so it must be at least as hard to
+  // reach as viewing one. The application is re-read through the caller's own
+  // effective branch scope; an application in another branch resolves to
+  // nothing and the caller gets SLOT_NOT_FOUND — the exact code this action
+  // already returns for a slot that does not belong to this application, so
+  // out-of-scope and unknown remain indistinguishable.
+  //
+  // Placed BEFORE ingestDocument() deliberately: no bytes reach Storage, no
+  // row reaches dossier_documents, and no requirement slot transitions, for a
+  // caller who may not operate on this file.
+  const applicationResult = await getApplicationById(auth.profile.branchScope, applicationId);
+  if (applicationResult.status !== "ok") {
+    return { status: "error", code: "SLOT_NOT_FOUND" };
+  }
+
   const result = await ingestDocument({
     applicationId,
     requirementSlotId,
@@ -436,7 +456,11 @@ export async function reviewRequirementEvidence(evidenceId: string): Promise<Rev
     return { status: "error", code: "INVALID_INPUT" };
   }
 
-  const result = await reviewDocumentEvidence(evidenceId, auth.profile.id);
+  // MILESTONE 25B-2 — scope is threaded into the service, which resolves the
+  // evidence through its requirement slot -> application chain and applies the
+  // branch predicate there. Out of scope returns NOT_FOUND, identical to a
+  // nonexistent evidence id.
+  const result = await reviewDocumentEvidence(auth.profile.branchScope, evidenceId, auth.profile.id);
   if (result.status !== "ok") {
     return { status: "error", code: result.code };
   }

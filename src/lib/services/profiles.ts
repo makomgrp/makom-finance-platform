@@ -1,8 +1,10 @@
 import "server-only";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
+import { applyBranchScope, isEmptyScope } from "@/lib/services/branch-scope-query";
 import { getInitials } from "@/lib/format";
 import type {
   AssignableAdvisor,
+  BranchScope,
   BranchScopeMode,
   ChatColleague,
   StaffUser,
@@ -126,11 +128,49 @@ export async function getProfiles(): Promise<GetProfilesResult> {
 const ADVISOR_ROLE: UserRole = "asesor";
 
 export type GetAssignableAdvisorsResult =
-  | { status: "ok"; advisors: AssignableAdvisor[] }
+  | {
+      status: "ok";
+      /** Keyed by application id. An application the caller may not see gets
+       * no entry at all — never an empty array, which would confirm it
+       * exists. */
+      byApplicationId: Record<string, AssignableAdvisor[]>;
+    }
   | { status: "error" };
 
 /**
- * Staff who may be assigned an Application (Milestone 23).
+ * Staff who may be assigned an Application (Milestone 23), now resolved PER
+ * APPLICATION (Milestone 25B-2).
+ *
+ * ============================================================================
+ * WHY THIS IS NO LONGER ONE FLAT LIST
+ * ============================================================================
+ * Advisor eligibility stopped being a property of the advisor alone the moment
+ * branches became real: the same person is a legitimate owner for a file in
+ * their own branch and an illegitimate one for a file in another. A single
+ * global list could only ever be right for one of them, so the directory now
+ * takes the applications it is being asked about and answers for each.
+ *
+ * TWO SEPARATE PEOPLE, TWO SEPARATE SCOPES — the distinction this function
+ * exists to keep straight:
+ *
+ *   THE CALLER'S scope decides which APPLICATIONS are visible here at all. It
+ *   is applied to the applications query below, which is why an application id
+ *   from another branch silently produces no entry.
+ *
+ *   THE ADVISOR'S OWN scope decides who may OWN each of those applications. It
+ *   is read from that advisor's `branch_scope_mode` and memberships — never
+ *   from the caller's. An administrador assigning nationally still cannot park
+ *   a single-branch advisor on another branch's file.
+ *
+ * Being NATIONAL does not make anyone advisor-eligible: the role = 'asesor'
+ * test still runs first, so administradores and gerentes are never offered
+ * however wide their reach.
+ *
+ * THE DATABASE AGREES, INDEPENDENTLY. record_application_advisor_assignment
+ * re-derives exactly this rule inside the write's own transaction
+ * (Milestone 25B-2 migration), so a hand-crafted request naming an advisor the
+ * menu never offered is rejected there. This function shapes the menu; it is
+ * not the enforcement.
  *
  * ELIGIBILITY, and why each clause is there:
  *
@@ -165,33 +205,120 @@ export type GetAssignableAdvisorsResult =
  * CONSEQUENCE, ACCEPTED DELIBERATELY: until real asesor accounts are invited
  * and linked, this returns an EMPTY list and the assignment menu says so. That
  * is the honest state of the directory, not a failure — exactly as the Chat
- * directory currently resolves to one colleague.
+ * directory currently resolves to one colleague. With zero branches and zero
+ * memberships that remains true for a second reason: every application is
+ * unassigned, and an unassigned application admits only a national advisor.
  */
-export async function getAssignableAdvisors(): Promise<GetAssignableAdvisorsResult> {
+export async function getAssignableAdvisorsForApplications(
+  scope: BranchScope,
+  applicationIds: readonly string[]
+): Promise<GetAssignableAdvisorsResult> {
+  if (applicationIds.length === 0) {
+    return { status: "ok", byApplicationId: {} };
+  }
+  // An empty scope reaches no application, so it can offer no advisor for one.
+  if (isEmptyScope(scope)) {
+    return { status: "ok", byApplicationId: {} };
+  }
+
   try {
     const supabase = getSupabaseServerClient();
-    const { data, error } = await supabase
+
+    // (1) The applications, READ THROUGH THE CALLER'S OWN SCOPE. This is what
+    // makes the application's branch server-authoritative: an id the caller
+    // may not see resolves to nothing and simply gets no entry in the map.
+    const { data: applicationRows, error: applicationsError } = await applyBranchScope(
+      supabase.from("applications").select("id, branch_id").in("id", applicationIds),
+      scope
+    );
+
+    if (applicationsError) {
+      console.error(
+        "[profiles service] Failed to load applications for advisor eligibility:",
+        applicationsError.message
+      );
+      return { status: "error" };
+    }
+
+    // (2) Every advisor passing the Milestone 23B BASE invariant, unchanged.
+    const { data: advisorRows, error: advisorsError } = await supabase
       .from("profiles")
-      .select("id, full_name, role")
+      .select("id, full_name, role, branch_scope_mode")
       .eq("role", ADVISOR_ROLE)
       .eq("active", true)
       .not("auth_user_id", "is", null)
       .order("full_name", { ascending: true });
 
-    if (error) {
-      console.error("[profiles service] Failed to load assignable advisors:", error.message);
+    if (advisorsError) {
+      console.error("[profiles service] Failed to load assignable advisors:", advisorsError.message);
       return { status: "error" };
     }
 
-    const rows = (data ?? []) as Pick<StaffProfileRow, "id" | "full_name" | "role">[];
-    return {
-      status: "ok",
-      advisors: rows.map((row) => ({
-        id: row.id,
-        fullName: row.full_name,
-        role: row.role as UserRole,
-      })),
-    };
+    const advisors = (advisorRows ?? []) as Pick<
+      StaffProfileRow,
+      "id" | "full_name" | "role" | "branch_scope_mode"
+    >[];
+
+    if (advisors.length === 0) {
+      const empty: Record<string, AssignableAdvisor[]> = {};
+      for (const row of (applicationRows ?? []) as { id: string }[]) empty[row.id] = [];
+      return { status: "ok", byApplicationId: empty };
+    }
+
+    // (3) Their memberships — ONE query, not one per advisor per application.
+    const { data: membershipRows, error: membershipsError } = await supabase
+      .from("profile_branch_memberships")
+      .select("profile_id, branch_id")
+      .in(
+        "profile_id",
+        advisors.map((a) => a.id)
+      );
+
+    if (membershipsError) {
+      console.error(
+        "[profiles service] Failed to load advisor branch memberships:",
+        membershipsError.message
+      );
+      // FAIL CLOSED. Falling back to "no memberships" would be tempting and
+      // wrong in the other direction too: it must not silently widen the
+      // directory, and it must not silently present a national-only list as
+      // complete. An explicit error lets the caller render the honest
+      // "directory unavailable" state.
+      return { status: "error" };
+    }
+
+    const membershipsByAdvisor = new Map<string, Set<string>>();
+    for (const row of (membershipRows ?? []) as { profile_id: string; branch_id: string }[]) {
+      const set = membershipsByAdvisor.get(row.profile_id) ?? new Set<string>();
+      set.add(row.branch_id);
+      membershipsByAdvisor.set(row.profile_id, set);
+    }
+
+    const byApplicationId: Record<string, AssignableAdvisor[]> = {};
+    for (const application of (applicationRows ?? []) as {
+      id: string;
+      branch_id: string | null;
+    }[]) {
+      byApplicationId[application.id] = advisors
+        .filter((advisor) => {
+          // NATIONAL advisors reach every application, INCLUDING unassigned
+          // ones. Note this reads the advisor's OWN scope mode — never the
+          // assigning manager's.
+          if (advisor.branch_scope_mode === "national") return true;
+          // An UNASSIGNED application (branch_id NULL) has no branch for a
+          // membership to match, so only a national advisor qualifies. Never
+          // reinterpreted as "any branch".
+          if (!application.branch_id) return false;
+          return membershipsByAdvisor.get(advisor.id)?.has(application.branch_id) ?? false;
+        })
+        .map((advisor) => ({
+          id: advisor.id,
+          fullName: advisor.full_name,
+          role: advisor.role as UserRole,
+        }));
+    }
+
+    return { status: "ok", byApplicationId };
   } catch (error) {
     console.error(
       "[profiles service] Unexpected failure loading assignable advisors:",
