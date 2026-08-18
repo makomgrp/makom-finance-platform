@@ -1,3 +1,4 @@
+import type { BranchOrigin } from "@/types/branch";
 import type { ApplicationSource } from "@/types/application";
 
 /**
@@ -36,6 +37,11 @@ export type IdentificationType = "cedula" | "pasaporte";
  * UI has already organically converged.
  */
 export interface Client {
+  /** MILESTONE 25C-2 — which branch owns this client TODAY, joined from
+   * `clients.branch_id`. Null fields mean UNASSIGNED, which is a real state
+   * (public intake, pre-cutover records), never a missing value to fill in.
+   * Independent of any application's branch — see 25B-3 transfers. */
+  branchOrigin: BranchOrigin;
   id: string;
   legacyId?: string;
   fullName: string;

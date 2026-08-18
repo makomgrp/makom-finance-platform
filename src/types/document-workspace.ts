@@ -1,3 +1,4 @@
+import type { BranchOrigin } from "@/types/branch";
 import type { DocumentEvidence } from "./document-evidence";
 import type { RequirementSlot } from "./requirement-slot";
 
@@ -19,6 +20,9 @@ export interface DocumentWorkspaceApplication {
   clientId: string;
   assignedAdvisorProfileId?: string;
   assignedAdvisorFullName?: string;
+  /** MILESTONE 25C-2 — resolved from the APPLICATION, which owns the branch;
+   * dossier_documents has no branch_id. Null fields mean unassigned. */
+  branchOrigin: BranchOrigin;
   /** Resolved server-side (joined from clients) — never guessed
    * client-side. Always populated: clientId is NOT NULL. */
   clientFullName: string;

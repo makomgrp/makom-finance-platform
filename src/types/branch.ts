@@ -151,6 +151,44 @@ export type BranchViewMode = BranchScopeMode | "unassigned";
  * and meaningless as a credential: it is resolved back to a branch server-side,
  * against the caller's own authorized scope, on every request.
  */
+/**
+ * ============================================================================
+ * MILESTONE 25C-2 — WHICH BRANCH OWNS THIS RECORD, FOR DISPLAY
+ * ============================================================================
+ *
+ * ONE shape for branch origin across every operational surface — clients,
+ * applications, documents and alerts all use this, so a branch label means the
+ * same thing and renders the same way wherever it appears.
+ *
+ * `null` IS A REAL, TRUTHFUL VALUE. A record with no branch is UNASSIGNED: it
+ * has entered ODL but has not been routed yet, which is the permanent state of
+ * public intake and of every pre-cutover fixture. It renders as "Sin asignar" /
+ * "Unassigned" and is NEVER substituted with "Principal", "Casa Matriz",
+ * "Panamá" or the viewer's own branch. Inventing an owner would make an
+ * unrouted record indistinguishable from a routed one, which is exactly the
+ * confusion this milestone exists to remove.
+ *
+ * `id` STAYS SERVER-SIDE IN PRACTICE. It is carried so a caller can key or
+ * group rows without a second lookup; the UI renders `name`, and never the
+ * UUID. `code` is available for compact surfaces where a short token reads
+ * better than a long branch name.
+ *
+ * NOT AN AUTHORIZATION VALUE. This is what a row's owner is CALLED. Whether the
+ * viewer may see that row was already decided, before this was ever resolved,
+ * by the scoped query that returned it.
+ */
+export interface BranchOrigin {
+  /** `branches.id`. Never rendered to users. Null when unassigned. */
+  id: string | null;
+  /** `branches.code`. Null when unassigned. */
+  code: string | null;
+  /** `branches.name` — the only value shown to users. Null when unassigned. */
+  name: string | null;
+}
+
+/** The unassigned origin, stated once so no surface has to invent it. */
+export const UNASSIGNED_BRANCH_ORIGIN: BranchOrigin = { id: null, code: null, name: null };
+
 export interface BranchContextOption {
   /** `branches.code`, or one of the reserved UI tokens. */
   value: string;

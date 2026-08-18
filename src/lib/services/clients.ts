@@ -1,6 +1,7 @@
 import "server-only";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { applyBranchScope, isBranchDeniedError, isEmptyScope } from "@/lib/services/branch-scope-query";
+import { branchOriginEmbed, toBranchOrigin, type BranchOriginRow } from "@/lib/services/branch-origin";
 import { CLIENT_STATUS_VALUES } from "@/lib/config/client-status";
 import type {
   ApplicationSource,
@@ -48,12 +49,18 @@ interface ClientRow {
   created_at: string;
   created_by_profile_id: string | null;
   created_source: string;
+  branch: BranchOriginRow | null;
 }
 
 const CLIENT_SELECT =
   "id, legacy_id, full_name, identification_type, identification_number, phone, email, employer_name, company_legacy_id, " +
   "position, monthly_salary, birth_date, nationality, address, observations, status, restricted, created_at, " +
-  "created_by_profile_id, created_source";
+  "created_by_profile_id, created_source, " +
+  // MILESTONE 25C-2 — branch origin, joined onto the row the scope already
+  // authorized. NOT `!inner`: an inner join would drop every unassigned client,
+  // which are exactly the rows a national administrator needs to find and
+  // route. See src/lib/services/branch-origin.ts.
+  branchOriginEmbed("clients_branch_id_fkey");
 
 function toClient(row: ClientRow): Client {
   return {
@@ -77,6 +84,7 @@ function toClient(row: ClientRow): Client {
     createdAt: row.created_at,
     createdByProfileId: row.created_by_profile_id ?? undefined,
     createdSource: row.created_source as ApplicationSource,
+    branchOrigin: toBranchOrigin(row.branch),
   };
 }
 

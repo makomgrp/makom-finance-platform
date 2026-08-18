@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { BranchOriginLabel } from "@/components/shared/branch-origin-label";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { toast } from "sonner";
@@ -39,6 +40,12 @@ import type { Locale } from "@/i18n/config";
 import type { AlertLevel, AlertType, DossierAlertListItem } from "@/types";
 
 interface AlertsTableProps {
+  /** MILESTONE 25C-2 — true when the CURRENT VIEW can contain rows from more
+   * than one branch, decided server-side by viewSpansMultipleBranches(). When
+   * false, every row would repeat the same label, so the column is omitted
+   * rather than rendered as noise. Never an authorization signal. */
+  showBranchOrigin: boolean;
+
   initialAlerts: DossierAlertListItem[];
   /** True when the parent page's getAllAlerts() call failed. Never falls
    * back to demo data or an empty-looking table — shows a distinct error
@@ -55,7 +62,7 @@ interface AlertsTableProps {
  * made here persists to the exact same dossier_alerts row the dossier tab
  * reads, so both surfaces always agree after a reload.
  */
-export function AlertsTable({ initialAlerts, loadError }: AlertsTableProps) {
+export function AlertsTable({ initialAlerts, loadError, showBranchOrigin }: AlertsTableProps) {
   const router = useRouter();
   const locale = useLocale() as Locale;
   const t = useTranslations();
@@ -228,6 +235,7 @@ export function AlertsTable({ initialAlerts, loadError }: AlertsTableProps) {
                 <TableHead>{t("alertsModule.columns.reason")}</TableHead>
                 <TableHead>{t("alertsModule.columns.date")}</TableHead>
                 <TableHead>{t("alertsModule.columns.responsible")}</TableHead>
+                {showBranchOrigin && <TableHead>{t("branchContext.branch")}</TableHead>}
                 <TableHead>{t("alertsModule.columns.status")}</TableHead>
                 <TableHead className="text-right">{t("alertsModule.columns.actions")}</TableHead>
               </TableRow>
@@ -257,6 +265,11 @@ export function AlertsTable({ initialAlerts, loadError }: AlertsTableProps) {
                     <TableCell className="text-muted-foreground">
                       {alert.createdByFullName}
                     </TableCell>
+                    {showBranchOrigin && (
+                      <TableCell>
+                        <BranchOriginLabel origin={alert.branchOrigin} />
+                      </TableCell>
+                    )}
                     <TableCell>
                       <StatusBadge
                         label={alert.active ? t("alertsModule.active") : t("alertsModule.resolved")}

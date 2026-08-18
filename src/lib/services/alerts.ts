@@ -2,6 +2,7 @@ import "server-only";
 import { cache } from "react";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { applyBranchScope, isEmptyScope, withScopedParent } from "@/lib/services/branch-scope-query";
+import { branchOriginEmbed, toBranchOrigin, type BranchOriginRow } from "@/lib/services/branch-origin";
 import type {
   AlertLevel,
   AlertType,
@@ -86,10 +87,16 @@ function toDossierAlert(row: DossierAlertRow): DossierAlert {
 // display reads across multiple clients, same reasoning
 // APPLICATION_LIST_SELECT documents.
 interface DossierAlertListRow extends DossierAlertRow {
-  client: { full_name: string } | null;
+  client: { full_name: string; branch: BranchOriginRow | null } | null;
 }
 
-const ALERT_LIST_SELECT = `${ALERT_SELECT}, client:clients!dossier_alerts_client_id_fkey(full_name)`;
+// MILESTONE 25C-2 — an alert has NO branch_id of its own (verified against the
+// live schema) and does not gain one. Its operational owner is its CLIENT, the
+// same chain 25B-1 already scopes through. Note this is the CURRENT ownership
+// join, deliberately distinct from crm_events.branch_id, which is permanent
+// historical audit attribution and must never be read as "who owns this now".
+const ALERT_LIST_SELECT =
+  `${ALERT_SELECT}, client:clients!dossier_alerts_client_id_fkey(full_name, ${branchOriginEmbed("clients_branch_id_fkey")})`;
 
 /**
  * MILESTONE 25B-1 — alerts have no branch_id of their own; they derive it from
@@ -105,6 +112,7 @@ function toDossierAlertListItem(row: DossierAlertListRow): DossierAlertListItem 
   return {
     ...toDossierAlert(row),
     clientFullName: row.client?.full_name ?? "",
+    branchOrigin: toBranchOrigin(row.client?.branch),
   };
 }
 

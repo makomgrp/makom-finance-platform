@@ -1,6 +1,7 @@
 import { getApplications } from "@/lib/services/applications";
 import { EMPTY_BRANCH_SCOPE } from "@/lib/services/branch-scope-query";
 import { resolveBranchViewScope } from "@/lib/services/branch-view-context";
+import { viewSpansMultipleBranches } from "@/lib/services/branch-origin";
 import { getCurrentProfile } from "@/lib/auth/get-current-profile";
 import { getDocumentSlotCompletionCounts } from "@/lib/services/requirement-slots";
 import { getApplicationCreatableProducts } from "@/lib/services/products";
@@ -45,6 +46,11 @@ export default async function SolicitudesPage({ searchParams }: { searchParams: 
     profile?.branchScope ?? EMPTY_BRANCH_SCOPE,
     sucursal
   );
+  // MILESTONE 25C-2 — does THIS view span more than one branch? Computed
+  // server-side from the effective view scope and passed as a single boolean:
+  // the component never receives the scope itself, so it cannot recompute — or
+  // misread — authorization. The deciding factor is the VIEW, not the role.
+  const showBranchOrigin = viewSpansMultipleBranches(scope);
   const [applicationsResult, countsResult, productsResult, clientsResult] = await Promise.all([
     getApplications(scope),
     getDocumentSlotCompletionCounts(scope),
@@ -66,6 +72,7 @@ export default async function SolicitudesPage({ searchParams }: { searchParams: 
 
   return (
     <SolicitudesView
+      showBranchOrigin={showBranchOrigin}
       initialApplications={applications}
       documentSlotCounts={countsResult.status === "ok" ? countsResult.counts : {}}
       loadError={applicationsResult.status === "error"}

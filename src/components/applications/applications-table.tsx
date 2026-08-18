@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { BranchOriginLabel } from "@/components/shared/branch-origin-label";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { Building2, Search } from "lucide-react";
@@ -44,6 +45,12 @@ import type { Locale } from "@/i18n/config";
 import type { ApplicationListItem, ApplicationStatus, AssignableAdvisor } from "@/types";
 
 interface ApplicationsTableProps {
+  /** MILESTONE 25C-2 — true when the CURRENT VIEW can contain rows from more
+   * than one branch, decided server-side by viewSpansMultipleBranches(). When
+   * false, every row would repeat the same label, so the column is omitted
+   * rather than rendered as noise. Never an authorization signal. */
+  showBranchOrigin: boolean;
+
   applications: ApplicationListItem[];
   /** Per-application document-kind Requirement Slot completion, keyed by
    * application id — see src/lib/services/requirement-slots.ts#
@@ -71,6 +78,7 @@ export function ApplicationsTable({
   onStatusChange,
   assignableAdvisorsByApplication,
   onAdvisorChange,
+  showBranchOrigin,
 }: ApplicationsTableProps) {
   // Milestone 16 — `application:set_status` (administrador/gerente). The
   // application list itself stays readable by every role; only the
@@ -169,6 +177,7 @@ export function ApplicationsTable({
                 <TableHead>{t("applications.columns.loanType")}</TableHead>
                 <TableHead>{t("applications.columns.requestDate")}</TableHead>
                 <TableHead>{t("applications.columns.advisor")}</TableHead>
+                {showBranchOrigin && <TableHead>{t("branchContext.branch")}</TableHead>}
                 <TableHead>{t("applications.columns.status")}</TableHead>
                 <TableHead className="w-40">{t("applications.columns.documentation")}</TableHead>
                 <TableHead>{t("applications.columns.lastActivity")}</TableHead>
@@ -214,6 +223,11 @@ export function ApplicationsTable({
                         (app.assignedAdvisorFullName ?? "—")
                       )}
                     </TableCell>
+                    {showBranchOrigin && (
+                      <TableCell>
+                        <BranchOriginLabel origin={app.branchOrigin} />
+                      </TableCell>
+                    )}
                     <TableCell>
                       <StatusBadge
                         label={t(`statuses.applicationStatus.${app.status}`)}

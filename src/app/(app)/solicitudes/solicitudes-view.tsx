@@ -37,6 +37,9 @@ interface SolicitudesViewProps {
   clients: Client[];
   /** Milestone 23 — active staff eligible to own a file. */
   assignableAdvisorsByApplication: Record<string, AssignableAdvisor[]>;
+  /** MILESTONE 25C-2 — passed straight through to ApplicationsTable. Decided
+   * server-side from the effective view scope; this view only forwards it. */
+  showBranchOrigin: boolean;
 }
 
 /**
@@ -57,6 +60,7 @@ export function SolicitudesView({
   productsLoadError,
   clients,
   assignableAdvisorsByApplication,
+  showBranchOrigin,
 }: SolicitudesViewProps) {
   const t = useTranslations();
   // Milestone 17 — origination is its own capability, deliberately wider
@@ -210,6 +214,7 @@ export function SolicitudesView({
           documentSlotCounts={documentSlotCounts}
           onStatusChange={handleStatusChange}
           assignableAdvisorsByApplication={assignableAdvisorsByApplication}
+          showBranchOrigin={showBranchOrigin}
           onAdvisorChange={handleAdvisorChange}
         />
       ) : (

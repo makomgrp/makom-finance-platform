@@ -1,6 +1,7 @@
 "use client";
 
 import { Fragment, useMemo, useRef, useState } from "react";
+import { BranchOriginLabel } from "@/components/shared/branch-origin-label";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { toast } from "sonner";
@@ -76,6 +77,12 @@ const ALLOWED_MIME_TYPES = ["application/pdf", "image/jpeg", "image/png", "image
 type ReviewFilter = "todos" | "reviewed" | "needsReview";
 
 interface DocumentsTableProps {
+  /** MILESTONE 25C-2 — true when the CURRENT VIEW can contain rows from more
+   * than one branch, decided server-side by viewSpansMultipleBranches(). When
+   * false, every row would repeat the same label, so the column is omitted
+   * rather than rendered as noise. Never an authorization signal. */
+  showBranchOrigin: boolean;
+
   initialRows: DocumentWorkspaceRow[];
   loadError: boolean;
 }
@@ -105,7 +112,11 @@ interface ViewDialogState {
  * tab, for the same reason (a single Evidence upload can silently
  * transition its own Slot's status).
  */
-export function DocumentsTable({ initialRows, loadError: initialLoadError }: DocumentsTableProps) {
+export function DocumentsTable({
+  initialRows,
+  loadError: initialLoadError,
+  showBranchOrigin,
+}: DocumentsTableProps) {
   const router = useRouter();
   const locale = useLocale() as Locale;
   const t = useTranslations();
@@ -450,6 +461,7 @@ export function DocumentsTable({ initialRows, loadError: initialLoadError }: Doc
                   <TableHead>{t("documentsModule.columns.client")}</TableHead>
                   <TableHead>{t("documentsModule.columns.application")}</TableHead>
                   <TableHead>{t("documentsModule.columns.requirement")}</TableHead>
+                  {showBranchOrigin && <TableHead>{t("branchContext.branch")}</TableHead>}
                   <TableHead>{t("documentsModule.columns.status")}</TableHead>
                   <TableHead>{t("documentsModule.columns.evidence")}</TableHead>
                   <TableHead className="text-right">{t("documentsModule.columns.actions")}</TableHead>
@@ -469,6 +481,11 @@ export function DocumentsTable({ initialRows, loadError: initialLoadError }: Doc
                         <TableCell className="font-medium text-foreground">{row.application.clientFullName}</TableCell>
                         <TableCell className="text-muted-foreground">{row.application.applicationNumber}</TableCell>
                         <TableCell className="text-muted-foreground">{name}</TableCell>
+                        {showBranchOrigin && (
+                          <TableCell>
+                            <BranchOriginLabel origin={row.application.branchOrigin} />
+                          </TableCell>
+                        )}
                         <TableCell>
                           <StatusBadge
                             label={t(`statuses.requirementSlotStatus.${row.requirementSlot.status}`)}

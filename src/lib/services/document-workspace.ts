@@ -1,6 +1,7 @@
 import "server-only";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { applyBranchScope, isEmptyScope } from "@/lib/services/branch-scope-query";
+import { branchOriginEmbed, toBranchOrigin, type BranchOriginRow } from "@/lib/services/branch-origin";
 import type {
   BranchScope,
   DocumentEvidence,
@@ -44,6 +45,7 @@ interface WorkspaceApplicationRow {
   assigned_advisor_profile_id: string | null;
   advisor: { full_name: string } | null;
   client: { full_name: string } | null;
+  branch: BranchOriginRow | null;
 }
 
 interface WorkspaceEvidenceRow {
@@ -95,7 +97,12 @@ interface WorkspaceSlotRow {
 const WORKSPACE_SELECT =
   "id, application_id, requirement_template_id, code, name, description, requirement_kind, required, display_order, status, status_changed_at, status_changed_by_profile_id, status_changed_source, created_at, " +
   "status_changed_by:profiles!requirement_slots_status_changed_by_profile_id_fkey(full_name), " +
-  "application:applications!requirement_slots_application_id_fkey(id, application_number, client_id, assigned_advisor_profile_id, advisor:profiles!applications_assigned_advisor_profile_id_fkey(full_name), client:clients!applications_client_id_fkey(full_name)), " +
+  // MILESTONE 25C-2 — branch origin for a document comes from its APPLICATION,
+  // the same chain 25B-1/25B-2 already authorize through. dossier_documents has
+  // no branch_id of its own and deliberately does not gain one: a second
+  // ownership column would have to be kept in step with every 25B-3 transfer,
+  // and any drift between them would be an isolation hole.
+  `application:applications!requirement_slots_application_id_fkey(id, application_number, client_id, assigned_advisor_profile_id, advisor:profiles!applications_assigned_advisor_profile_id_fkey(full_name), client:clients!applications_client_id_fkey(full_name), ${branchOriginEmbed("applications_branch_id_fkey")}), ` +
   "evidence:dossier_documents!dossier_documents_requirement_slot_id_fkey(id, requirement_slot_id, replaces_evidence_id, storage_bucket, storage_path, file_name, mime_type, file_size_bytes, file_sha256, uploaded_at, uploaded_by_profile_id, uploaded_source, reviewed_at, reviewed_by_profile_id, uploaded_by:profiles!dossier_documents_uploaded_by_profile_id_fkey(full_name), reviewed_by:profiles!dossier_documents_reviewed_by_profile_id_fkey(full_name))";
 
 function toRequirementSlot(row: WorkspaceSlotRow): RequirementSlot {
@@ -216,6 +223,7 @@ export async function getDocumentEvidenceWorkspace(
         assignedAdvisorProfileId: row.application?.assigned_advisor_profile_id ?? undefined,
         assignedAdvisorFullName: row.application?.advisor?.full_name ?? undefined,
         clientFullName: row.application?.client?.full_name ?? "",
+        branchOrigin: toBranchOrigin(row.application?.branch),
       },
       evidence: withSupersessionInfo(row.evidence ?? []),
     }));

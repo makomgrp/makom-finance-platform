@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { BranchOriginLabel } from "@/components/shared/branch-origin-label";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { toast } from "sonner";
@@ -67,6 +68,12 @@ import type { Locale } from "@/i18n/config";
 const PAGE_SIZE = 8;
 
 interface ClientsTableProps {
+  /** MILESTONE 25C-2 — true when the CURRENT VIEW can contain rows from more
+   * than one branch, decided server-side by viewSpansMultipleBranches(). When
+   * false, every row would repeat the same label, so the column is omitted
+   * rather than rendered as noise. Never an authorization signal. */
+  showBranchOrigin: boolean;
+
   /** Milestone 14C: the real Client Engine's rows (src/lib/services/
    * clients.ts#getClients()) — replaces the demo CLIENTS array this
    * component used to seed itself from. */
@@ -90,6 +97,7 @@ export function ClientsTable({
   applications,
   creatableProducts,
   productsLoadError,
+  showBranchOrigin,
 }: ClientsTableProps) {
   const router = useRouter();
   const locale = useLocale() as Locale;
@@ -257,6 +265,7 @@ export function ClientsTable({
                 <TableHead>{t("clients.columns.idNumber")}</TableHead>
                 <TableHead>{t("clients.columns.company")}</TableHead>
                 <TableHead className="text-center">{t("clients.columns.applications")}</TableHead>
+                {showBranchOrigin && <TableHead>{t("branchContext.branch")}</TableHead>}
                 <TableHead>{t("clients.columns.status")}</TableHead>
                 <TableHead>{t("clients.columns.registeredAt")}</TableHead>
                 <TableHead className="text-right">{t("clients.columns.actions")}</TableHead>
@@ -301,6 +310,11 @@ export function ClientsTable({
                     <TableCell className="text-center text-muted-foreground">
                       {applicationCount}
                     </TableCell>
+                    {showBranchOrigin && (
+                      <TableCell>
+                        <BranchOriginLabel origin={client.branchOrigin} />
+                      </TableCell>
+                    )}
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <StatusBadge

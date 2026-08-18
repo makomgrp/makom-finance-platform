@@ -1,6 +1,7 @@
 import { getTranslations } from "next-intl/server";
 import { EMPTY_BRANCH_SCOPE } from "@/lib/services/branch-scope-query";
 import { resolveBranchViewScope } from "@/lib/services/branch-view-context";
+import { viewSpansMultipleBranches } from "@/lib/services/branch-origin";
 import { getCurrentProfile } from "@/lib/auth/get-current-profile";
 import { PageHeader } from "@/components/shared/page-header";
 import { AlertsSummary } from "@/components/alerts/alerts-summary";
@@ -34,6 +35,11 @@ export default async function AlertasPage({ searchParams }: { searchParams: Prom
     profile?.branchScope ?? EMPTY_BRANCH_SCOPE,
     sucursal
   );
+  // MILESTONE 25C-2 — does THIS view span more than one branch? Computed
+  // server-side from the effective view scope and passed as a single boolean:
+  // the component never receives the scope itself, so it cannot recompute — or
+  // misread — authorization. The deciding factor is the VIEW, not the role.
+  const showBranchOrigin = viewSpansMultipleBranches(scope);
 
   const alertsResult = await getAllAlerts(scope);
   const alerts = alertsResult.status === "ok" ? alertsResult.alerts : [];
@@ -44,7 +50,7 @@ export default async function AlertasPage({ searchParams }: { searchParams: Prom
       <PageHeader title={t("title")} description={t("description")} />
       <div className="space-y-4">
         <AlertsSummary alerts={alerts} loadError={loadError} />
-        <AlertsTable initialAlerts={alerts} loadError={loadError} />
+        <AlertsTable initialAlerts={alerts} loadError={loadError} showBranchOrigin={showBranchOrigin} />
       </div>
     </div>
   );

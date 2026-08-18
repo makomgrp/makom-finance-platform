@@ -1,6 +1,7 @@
 import { getTranslations } from "next-intl/server";
 import { EMPTY_BRANCH_SCOPE } from "@/lib/services/branch-scope-query";
 import { resolveBranchViewScope } from "@/lib/services/branch-view-context";
+import { viewSpansMultipleBranches } from "@/lib/services/branch-origin";
 import { getCurrentProfile } from "@/lib/auth/get-current-profile";
 import { PageHeader } from "@/components/shared/page-header";
 import { DocumentsTable } from "@/components/documents/documents-table";
@@ -25,12 +26,18 @@ export default async function DocumentosPage({ searchParams }: { searchParams: P
     profile?.branchScope ?? EMPTY_BRANCH_SCOPE,
     sucursal
   );
+  // MILESTONE 25C-2 — does THIS view span more than one branch? Computed
+  // server-side from the effective view scope and passed as a single boolean:
+  // the component never receives the scope itself, so it cannot recompute — or
+  // misread — authorization. The deciding factor is the VIEW, not the role.
+  const showBranchOrigin = viewSpansMultipleBranches(scope);
   const result = await getDocumentEvidenceWorkspace(scope);
 
   return (
     <div>
       <PageHeader title={t("title")} description={t("description")} />
       <DocumentsTable
+        showBranchOrigin={showBranchOrigin}
         initialRows={result.status === "ok" ? result.rows : []}
         loadError={result.status === "error"}
       />

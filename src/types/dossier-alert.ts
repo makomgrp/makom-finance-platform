@@ -1,3 +1,4 @@
+import type { BranchOrigin } from "@/types/branch";
 import type { AlertLevel, AlertType } from "./client-alert";
 
 /**
@@ -37,4 +38,8 @@ export interface DossierAlertListItem extends DossierAlert {
   /** Resolved server-side (joined from clients) — never guessed
    * client-side. Always populated: clientId is NOT NULL. */
   clientFullName: string;
+  /** MILESTONE 25C-2 — resolved from the alert's CLIENT, which is its
+   * operational owner; alerts carry no branch of their own. Null fields mean
+   * the client is unassigned. */
+  branchOrigin: BranchOrigin;
 }

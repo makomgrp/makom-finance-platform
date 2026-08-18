@@ -1,6 +1,7 @@
 import "server-only";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { applyBranchScope, isBranchDeniedError, isEmptyScope } from "@/lib/services/branch-scope-query";
+import { branchOriginEmbed, toBranchOrigin, type BranchOriginRow } from "@/lib/services/branch-origin";
 import { createRequirementSlotsForApplication } from "@/lib/services/requirement-slots";
 import { APPLICATION_STATUS_TRANSITIONS } from "@/lib/config/application";
 import type {
@@ -49,10 +50,16 @@ interface ApplicationRow {
   status_changed_by_profile_id: string | null;
   status_changed_source: string | null;
   assigned_advisor_profile_id: string | null;
+  branch: BranchOriginRow | null;
 }
 
 const APPLICATION_SELECT =
-  "id, application_number, client_id, product_id, requested_amount, requested_term_months, created_at, created_by_profile_id, created_source, status, status_changed_at, status_changed_by_profile_id, status_changed_source, assigned_advisor_profile_id";
+  "id, application_number, client_id, product_id, requested_amount, requested_term_months, created_at, created_by_profile_id, created_source, status, status_changed_at, status_changed_by_profile_id, status_changed_source, assigned_advisor_profile_id, " +
+  // MILESTONE 25C-2 — the application's OWN branch, never inferred from its
+  // client. 25B-3 transfers the two independently, so a file may legitimately
+  // sit in David while its client's home branch is Panamá; reading one from the
+  // other would quietly erase that fact. Left embed, so unassigned survives.
+  branchOriginEmbed("applications_branch_id_fkey");
 
 function toApplication(row: ApplicationRow): Application {
   return {
@@ -70,6 +77,7 @@ function toApplication(row: ApplicationRow): Application {
     statusChangedByProfileId: row.status_changed_by_profile_id ?? undefined,
     statusChangedSource: (row.status_changed_source as ApplicationSource | null) ?? undefined,
     assignedAdvisorProfileId: row.assigned_advisor_profile_id ?? undefined,
+    branchOrigin: toBranchOrigin(row.branch),
   };
 }
 

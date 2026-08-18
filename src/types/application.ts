@@ -1,3 +1,4 @@
+import type { BranchOrigin } from "@/types/branch";
 import type { LocalizedText } from "@/types/product";
 
 /**
@@ -38,6 +39,11 @@ export type ApplicationSource = "crm_manual" | "website_form" | "whatsapp" | "em
  * client_legacy_id's own migration comment for why it isn't dropped yet).
  */
 export interface Application {
+  /** MILESTONE 25C-2 — the application's OWN branch, joined from
+   * `applications.branch_id` and never inferred from the client. 25B-3 moves
+   * the two independently, so they may legitimately differ. Null fields mean
+   * UNASSIGNED. */
+  branchOrigin: BranchOrigin;
   id: string;
   applicationNumber: string;
   /** The real Client this application belongs to (Milestone 14E). NOT
