@@ -1,4 +1,5 @@
 import "server-only";
+import { SYSTEM_NATIONAL_SCOPE } from "@/lib/services/branch-scope-query";
 import { findClientByIdentification, findClientsByEmail, findClientsByPhone } from "./clients";
 import type { ApplicationIntake } from "@/types";
 
@@ -67,8 +68,8 @@ export async function matchClientForIntake(intake: ApplicationIntake): Promise<M
       const candidate = identificationResult.client;
 
       const [emailResult, phoneResult] = await Promise.all([
-        intake.applicantEmail ? findClientsByEmail(intake.applicantEmail) : Promise.resolve(null),
-        intake.applicantPhone ? findClientsByPhone(intake.applicantPhone) : Promise.resolve(null),
+        intake.applicantEmail ? findClientsByEmail(SYSTEM_NATIONAL_SCOPE, intake.applicantEmail) : Promise.resolve(null),
+        intake.applicantPhone ? findClientsByPhone(SYSTEM_NATIONAL_SCOPE, intake.applicantPhone) : Promise.resolve(null),
       ]);
       if (emailResult?.status === "error" || phoneResult?.status === "error") {
         return { status: "error" };
@@ -90,8 +91,8 @@ export async function matchClientForIntake(intake: ApplicationIntake): Promise<M
   }
 
   const [emailResult, phoneResult] = await Promise.all([
-    intake.applicantEmail ? findClientsByEmail(intake.applicantEmail) : Promise.resolve(null),
-    intake.applicantPhone ? findClientsByPhone(intake.applicantPhone) : Promise.resolve(null),
+    intake.applicantEmail ? findClientsByEmail(SYSTEM_NATIONAL_SCOPE, intake.applicantEmail) : Promise.resolve(null),
+    intake.applicantPhone ? findClientsByPhone(SYSTEM_NATIONAL_SCOPE, intake.applicantPhone) : Promise.resolve(null),
   ]);
   if (emailResult?.status === "error" || phoneResult?.status === "error") {
     return { status: "error" };

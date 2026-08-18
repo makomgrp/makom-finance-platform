@@ -1,8 +1,16 @@
 import "server-only";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
+import { applyBranchScope, isEmptyScope } from "@/lib/services/branch-scope-query";
 import { createRequirementSlotsForApplication } from "@/lib/services/requirement-slots";
 import { APPLICATION_STATUS_TRANSITIONS } from "@/lib/config/application";
-import type { Application, ApplicationListItem, ApplicationSource, ApplicationStatus, LocalizedText } from "@/types";
+import type {
+  Application,
+  ApplicationListItem,
+  ApplicationSource,
+  ApplicationStatus,
+  BranchScope,
+  LocalizedText,
+} from "@/types";
 
 /**
  * Server-only service for the Application Engine's identity + lifecycle
@@ -128,14 +136,19 @@ export type GetApplicationByIdResult =
  * there is no demo data backing this table (see the implementation
  * report's UI Scope section: the existing demo Solicitudes/Dossier views
  * are not wired to this table in this milestone). */
-export async function getApplicationById(applicationId: string): Promise<GetApplicationByIdResult> {
+export async function getApplicationById(
+  scope: BranchScope,
+  applicationId: string
+): Promise<GetApplicationByIdResult> {
+  // Out of scope => NOT_FOUND, never FORBIDDEN. See getClientById.
+  if (isEmptyScope(scope)) return { status: "error", code: "NOT_FOUND" };
+
   try {
     const supabase = getSupabaseServerClient();
-    const { data, error } = await supabase
-      .from("applications")
-      .select(APPLICATION_SELECT)
-      .eq("id", applicationId)
-      .maybeSingle<ApplicationRow>();
+    const { data, error } = await applyBranchScope(
+      supabase.from("applications").select(APPLICATION_SELECT).eq("id", applicationId),
+      scope
+    ).maybeSingle<ApplicationRow>();
 
     if (error) {
       console.error("[applications service] Failed to load application:", error.message);
@@ -166,14 +179,18 @@ export async function getApplicationById(applicationId: string): Promise<GetAppl
  * application except ap-001 today; callers must treat that as "not yet
  * migrated," not as an error to alarm on.
  */
-export async function getApplicationByLegacyId(legacyId: string): Promise<GetApplicationByIdResult> {
+export async function getApplicationByLegacyId(
+  scope: BranchScope,
+  legacyId: string
+): Promise<GetApplicationByIdResult> {
+  if (isEmptyScope(scope)) return { status: "error", code: "NOT_FOUND" };
+
   try {
     const supabase = getSupabaseServerClient();
-    const { data, error } = await supabase
-      .from("applications")
-      .select(APPLICATION_SELECT)
-      .eq("legacy_id", legacyId)
-      .maybeSingle<ApplicationRow>();
+    const { data, error } = await applyBranchScope(
+      supabase.from("applications").select(APPLICATION_SELECT).eq("legacy_id", legacyId),
+      scope
+    ).maybeSingle<ApplicationRow>();
 
     if (error) {
       console.error("[applications service] Failed to load application by legacy id:", error.message);
@@ -207,12 +224,15 @@ export type GetApplicationsResult = { status: "ok"; applications: ApplicationLis
  * advisor) — no consumer needs one until a real UI is migrated onto this
  * table; adding filters later is purely additive, not a redesign.
  */
-export async function getApplications(): Promise<GetApplicationsResult> {
+export async function getApplications(scope: BranchScope): Promise<GetApplicationsResult> {
+  if (isEmptyScope(scope)) return { status: "ok", applications: [] };
+
   try {
     const supabase = getSupabaseServerClient();
-    const { data, error } = await supabase
-      .from("applications")
-      .select(APPLICATION_LIST_SELECT)
+    const { data, error } = await applyBranchScope(
+      supabase.from("applications").select(APPLICATION_LIST_SELECT),
+      scope
+    )
       .order("created_at", { ascending: false });
 
     if (error) {

@@ -1,6 +1,12 @@
 import "server-only";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
-import type { InternalNote, NotePriority, NoteType } from "@/types";
+import { applyBranchScope, isEmptyScope, withScopedParent } from "@/lib/services/branch-scope-query";
+import type {
+  BranchScope,
+  InternalNote,
+  NotePriority,
+  NoteType,
+} from "@/types";
 
 /**
  * Server-only service for dossier_notes (see the Milestone 6 architecture
@@ -52,14 +58,25 @@ export type GetDossierNotesResult = { status: "ok"; notes: InternalNote[] } | { 
  * show that the real connection is down, matching the pattern already
  * established in src/lib/services/profiles.ts.
  */
-export async function getNotesByClientId(clientId: string): Promise<GetDossierNotesResult> {
+/** MILESTONE 25B-1 — notes derive their branch from their client via an
+ * `!inner` join, so a note whose client is out of scope disappears rather than
+ * returning with a null client. */
+const NOTE_CLIENT_SCOPE_EMBED =
+  "scope_client:clients!dossier_notes_client_id_fkey!inner(branch_id)";
+
+export async function getNotesByClientId(scope: BranchScope, clientId: string): Promise<GetDossierNotesResult> {
+  if (isEmptyScope(scope)) return { status: "ok", notes: [] };
+
   try {
     const supabase = getSupabaseServerClient();
-    const { data, error } = await supabase
-      .from("dossier_notes")
-      .select(NOTE_SELECT)
-      .eq("client_id", clientId)
-      .order("created_at", { ascending: false });
+    const { data, error } = await applyBranchScope(
+      supabase
+        .from("dossier_notes")
+        .select(withScopedParent(NOTE_SELECT, scope, NOTE_CLIENT_SCOPE_EMBED))
+        .eq("client_id", clientId),
+      scope,
+      "scope_client.branch_id"
+    ).order("created_at", { ascending: false });
 
     if (error) {
       console.error("[notes service] Failed to load dossier notes:", error.message);

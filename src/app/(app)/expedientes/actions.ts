@@ -115,7 +115,7 @@ export async function createDossierNote(
   // Real existence check against the Client Engine (Milestone 14E) —
   // replaces the former soft check against demo data now that
   // dossier_notes.client_id is a real, FK-constrained reference.
-  const clientResult = await getClientById(input.clientId);
+  const clientResult = await getClientById(auth.profile.branchScope, input.clientId);
   if (clientResult.status !== "ok") {
     return { status: "error", code: "CLIENT_NOT_FOUND" };
   }
@@ -184,7 +184,7 @@ export async function createDossierAlert(
   // Real existence check against the Client Engine (Milestone 14E) —
   // replaces the former soft check against demo data now that
   // dossier_alerts.client_id is a real, FK-constrained reference.
-  const clientResult = await getClientById(input.clientId);
+  const clientResult = await getClientById(auth.profile.branchScope, input.clientId);
   if (clientResult.status !== "ok") {
     return { status: "error", code: "CLIENT_NOT_FOUND" };
   }
@@ -488,7 +488,7 @@ export async function getRequirementEvidenceViewUrl(
   // chain server-side and mints only if every link holds. It accepts nothing
   // from the caller but the evidence id, so no client-supplied client,
   // application or branch id can widen what is reachable.
-  const result = await createSignedEvidenceUrl(evidenceId);
+  const result = await createSignedEvidenceUrl(auth.profile.branchScope, evidenceId);
   if (result.status !== "ok") {
     return { status: "error", code: "NOT_FOUND" };
   }
@@ -600,8 +600,8 @@ export async function getDossierRequirements(applicationId: string): Promise<Get
   }
 
   const [slotsResult, evidenceResult] = await Promise.all([
-    getRequirementSlotsByApplicationId(applicationId),
-    getEvidenceByApplicationId(applicationId),
+    getRequirementSlotsByApplicationId(auth.profile.branchScope, applicationId),
+    getEvidenceByApplicationId(auth.profile.branchScope, applicationId),
   ]);
 
   if (slotsResult.status !== "ok" || evidenceResult.status !== "ok") {

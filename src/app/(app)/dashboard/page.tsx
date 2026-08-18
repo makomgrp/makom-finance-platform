@@ -1,4 +1,6 @@
 import { getTranslations } from "next-intl/server";
+import { EMPTY_BRANCH_SCOPE } from "@/lib/services/branch-scope-query";
+import { getCurrentProfile } from "@/lib/auth/get-current-profile";
 import { Users, FilePlus2, FileClock, Scale, CheckCircle2, XCircle } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { KpiCard } from "@/components/dashboard/kpi-card";
@@ -38,11 +40,16 @@ import type { ApplicationListItem } from "@/types";
  * explanatory hint, never a fabricated 0.
  */
 export default async function DashboardPage() {
-  const t = await getTranslations("dashboard");
+  const t = await getTranslations("dashboard");  // MILESTONE 25B-1 — effective branch scope, resolved server-side ONCE by
+  // getCurrentProfile() (cached per request) and passed explicitly to every
+  // scoped read. Services never resolve scope themselves, and the client never
+  // supplies it. The (app) layout has already guaranteed an active profile.
+  const profile = await getCurrentProfile();
+  const scope = profile?.branchScope ?? EMPTY_BRANCH_SCOPE;
   const [documentsAwaitingReviewResult, applicationsResult, clientsResult] = await Promise.all([
-    getDocumentSlotsAwaitingReviewCount(),
-    getApplications(),
-    getClients(),
+    getDocumentSlotsAwaitingReviewCount(scope),
+    getApplications(scope),
+    getClients(scope),
   ]);
 
   const applications: ApplicationListItem[] =

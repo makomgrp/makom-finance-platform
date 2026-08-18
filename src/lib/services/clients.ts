@@ -1,7 +1,14 @@
 import "server-only";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
+import { applyBranchScope, isEmptyScope } from "@/lib/services/branch-scope-query";
 import { CLIENT_STATUS_VALUES } from "@/lib/config/client-status";
-import type { ApplicationSource, Client, ClientStatus, IdentificationType } from "@/types";
+import type {
+  ApplicationSource,
+  BranchScope,
+  Client,
+  ClientStatus,
+  IdentificationType,
+} from "@/types";
 
 /**
  * Server-only service for the Client Engine's identity table (Milestone
@@ -79,13 +86,17 @@ export type GetClientsResult = { status: "ok"; clients: Client[] } | { status: "
  * params, matching getApplications()'s established "load everything,
  * filter client-side" precedent (the current Clients list already does
  * its own search/filter/paginate over a full array). */
-export async function getClients(): Promise<GetClientsResult> {
+export async function getClients(scope: BranchScope): Promise<GetClientsResult> {
+  // Empty scope can never match. Return without querying rather than emitting a
+  // predicate — see branch-scope-query.ts on the empty-scope trap.
+  if (isEmptyScope(scope)) return { status: "ok", clients: [] };
+
   try {
     const supabase = getSupabaseServerClient();
-    const { data, error } = await supabase
-      .from("clients")
-      .select(CLIENT_SELECT)
-      .order("full_name", { ascending: true });
+    const { data, error } = await applyBranchScope(
+      supabase.from("clients").select(CLIENT_SELECT),
+      scope
+    ).order("full_name", { ascending: true });
 
     if (error) {
       console.error("[clients service] Failed to load clients:", error.message);
@@ -108,14 +119,20 @@ export type GetClientResult =
   | { status: "error"; code: "NOT_FOUND" | "QUERY_FAILED" };
 
 /** Loads a single real client by its real uuid id. */
-export async function getClientById(id: string): Promise<GetClientResult> {
+export async function getClientById(scope: BranchScope, id: string): Promise<GetClientResult> {
+  // OUT OF SCOPE => NOT_FOUND, NEVER FORBIDDEN. The scope is part of the same
+  // query as the id, so an inaccessible client simply does not come back and
+  // the existing null path yields the right answer. Fetch-then-compare would be
+  // a second code path that could drift, and returning a distinct code would
+  // itself confirm the record exists in another branch.
+  if (isEmptyScope(scope)) return { status: "error", code: "NOT_FOUND" };
+
   try {
     const supabase = getSupabaseServerClient();
-    const { data, error } = await supabase
-      .from("clients")
-      .select(CLIENT_SELECT)
-      .eq("id", id)
-      .maybeSingle<ClientRow>();
+    const { data, error } = await applyBranchScope(
+      supabase.from("clients").select(CLIENT_SELECT).eq("id", id),
+      scope
+    ).maybeSingle<ClientRow>();
 
     if (error) {
       console.error("[clients service] Failed to load client by id:", error.message);
@@ -142,7 +159,19 @@ export type FindClientByIdentificationResult =
 /** Narrow lookup used only for duplicate-detection ahead of createClient
  * — "no match" is a normal, successful outcome here (client is null),
  * distinct from getClientById's NOT_FOUND-is-an-error semantics. Not
- * intended as a general-purpose read API. */
+ * intended as a general-purpose read API.
+ *
+ * MILESTONE 25B-1 — DELIBERATELY UNSCOPED, AND THE ONLY APPROVED EXCEPTION.
+ * Client identification uniqueness is NATIONAL across ODL (a cédula identifies
+ * one person, not one person per branch), and this function is the guard that
+ * enforces it. Scoping it would let the same identification be created twice in
+ * different branches, splitting one human's compliance flags — including
+ * `restricted` — across duplicate records.
+ *
+ * IT IS NOT AN ENUMERATION CHANNEL: it is reachable only from createClient's
+ * duplicate check and the intake matcher, never from a search surface, and its
+ * caller must surface an OPAQUE duplicate error that names no branch, no client
+ * and no other field. */
 export async function findClientByIdentification(
   identificationType: IdentificationType,
   identificationNumber: string
@@ -179,10 +208,20 @@ export type FindClientsByEmailResult = { status: "ok"; clients: Client[] } | { s
  * rather than assuming at most one, letting the caller distinguish "no
  * match" / "exactly one match" / "ambiguous" itself. Not intended as a
  * general-purpose read API. */
-export async function findClientsByEmail(email: string): Promise<FindClientsByEmailResult> {
+export async function findClientsByEmail(
+  scope: BranchScope,
+  email: string
+): Promise<FindClientsByEmailResult> {
+  // SEARCH IS A DISCOVERY CHANNEL: a user must not learn that an inaccessible
+  // client exists by searching for their e-mail.
+  if (isEmptyScope(scope)) return { status: "ok", clients: [] };
+
   try {
     const supabase = getSupabaseServerClient();
-    const { data, error } = await supabase.from("clients").select(CLIENT_SELECT).eq("email", email);
+    const { data, error } = await applyBranchScope(
+      supabase.from("clients").select(CLIENT_SELECT).eq("email", email),
+      scope
+    );
 
     if (error) {
       console.error("[clients service] Failed to look up clients by email:", error.message);
@@ -204,10 +243,19 @@ export type FindClientsByPhoneResult = { status: "ok"; clients: Client[] } | { s
 
 /** Same rationale as findClientsByEmail, for phone — no unique
  * constraint on this table either. */
-export async function findClientsByPhone(phone: string): Promise<FindClientsByPhoneResult> {
+export async function findClientsByPhone(
+  scope: BranchScope,
+  phone: string
+): Promise<FindClientsByPhoneResult> {
+  // Same discovery reasoning as findClientsByEmail.
+  if (isEmptyScope(scope)) return { status: "ok", clients: [] };
+
   try {
     const supabase = getSupabaseServerClient();
-    const { data, error } = await supabase.from("clients").select(CLIENT_SELECT).eq("phone", phone);
+    const { data, error } = await applyBranchScope(
+      supabase.from("clients").select(CLIENT_SELECT).eq("phone", phone),
+      scope
+    );
 
     if (error) {
       console.error("[clients service] Failed to look up clients by phone:", error.message);

@@ -1,6 +1,7 @@
 import "server-only";
 import { createHash } from "node:crypto";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
+import { applyBranchScope, isEmptyScope } from "@/lib/services/branch-scope-query";
 import { setRequirementSlotStatus } from "@/lib/services/requirement-slots";
 import {
   ALLOWED_MIME_TYPES,
@@ -10,7 +11,11 @@ import {
   VIEW_URL_TTL_SECONDS,
   buildTimestampComponent,
 } from "@/lib/config/evidence-storage";
-import type { DocumentEvidence, EvidenceUploadedSource } from "@/types";
+import type {
+  BranchScope,
+  DocumentEvidence,
+  EvidenceUploadedSource,
+} from "@/types";
 
 /**
  * Server-only service for the Document Evidence Engine (Milestone 12B,
@@ -48,6 +53,14 @@ interface DocumentEvidenceRow {
   uploaded_by: { full_name: string } | null;
   reviewed_by: { full_name: string } | null;
 }
+
+/** MILESTONE 25B-1 — evidence derives its branch two hops up:
+ * dossier_documents -> requirement_slots -> applications.branch_id. Both hops
+ * are `!inner`, so evidence whose chain leaves scope disappears rather than
+ * returning with a null relation. */
+const EVIDENCE_APPLICATION_SCOPE_EMBED =
+  "scope_slot:requirement_slots!dossier_documents_requirement_slot_id_fkey!inner(" +
+  "scope_application:applications!requirement_slots_application_id_fkey!inner(branch_id))";
 
 const EVIDENCE_SELECT =
   "id, requirement_slot_id, replaces_evidence_id, storage_bucket, storage_path, file_name, mime_type, file_size_bytes, file_sha256, uploaded_at, uploaded_by_profile_id, uploaded_source, reviewed_at, reviewed_by_profile_id, " +
@@ -101,14 +114,26 @@ export type GetEvidenceResult = { status: "ok"; evidence: DocumentEvidence[] } |
  * Exposes supersession info (supersededByEvidenceId) computed from this
  * same result set. Does not rely on, or query, any legacy type/client/
  * application field. */
-export async function getEvidenceByRequirementSlotId(requirementSlotId: string): Promise<GetEvidenceResult> {
+export async function getEvidenceByRequirementSlotId(
+  scope: BranchScope,
+  requirementSlotId: string
+): Promise<GetEvidenceResult> {
+  if (isEmptyScope(scope)) return { status: "ok", evidence: [] };
+
   try {
     const supabase = getSupabaseServerClient();
-    const { data, error } = await supabase
-      .from("dossier_documents")
-      .select(EVIDENCE_SELECT)
-      .eq("requirement_slot_id", requirementSlotId)
-      .order("created_at", { ascending: false });
+    const { data, error } = await applyBranchScope(
+      supabase
+        .from("dossier_documents")
+        .select(
+          scope.mode === "national"
+            ? EVIDENCE_SELECT
+            : `${EVIDENCE_SELECT}, ${EVIDENCE_APPLICATION_SCOPE_EMBED}`
+        )
+        .eq("requirement_slot_id", requirementSlotId),
+      scope,
+      "scope_slot.scope_application.branch_id"
+    ).order("created_at", { ascending: false });
 
     if (error) {
       console.error("[document-evidence service] Failed to load evidence by slot:", error.message);
@@ -134,14 +159,31 @@ export async function getEvidenceByRequirementSlotId(requirementSlotId: string):
  * use. Two-step (slot ids, then evidence rows) rather than a single
  * embedded-filter query, for clarity and reliability.
  */
-export async function getEvidenceByApplicationId(applicationId: string): Promise<GetEvidenceResult> {
+export async function getEvidenceByApplicationId(
+  scope: BranchScope,
+  applicationId: string
+): Promise<GetEvidenceResult> {
+  if (isEmptyScope(scope)) return { status: "ok", evidence: [] };
+
   try {
     const supabase = getSupabaseServerClient();
 
-    const { data: slots, error: slotsError } = await supabase
-      .from("requirement_slots")
-      .select("id")
-      .eq("application_id", applicationId);
+    // SCOPED PARENT IDS. The slot lookup is itself scoped through the
+    // application, so an out-of-scope application yields no slot ids and
+    // therefore no evidence — the branch check happens once, at the parent,
+    // rather than being re-expressed two hops down.
+    const { data: slots, error: slotsError } = await applyBranchScope(
+      supabase
+        .from("requirement_slots")
+        .select(
+          scope.mode === "national"
+            ? "id"
+            : "id, scope_application:applications!requirement_slots_application_id_fkey!inner(branch_id)"
+        )
+        .eq("application_id", applicationId),
+      scope,
+      "scope_application.branch_id"
+    );
 
     if (slotsError) {
       console.error(
@@ -151,7 +193,10 @@ export async function getEvidenceByApplicationId(applicationId: string): Promise
       return { status: "error" };
     }
 
-    const slotIds = (slots ?? []).map((slot) => slot.id);
+    // The select string is chosen at runtime (national omits the join), so
+    // PostgREST cannot statically infer the row shape. Only `id` is read.
+    const slotRows = (slots ?? []) as unknown as { id: string }[];
+    const slotIds = slotRows.map((slot) => slot.id);
     if (slotIds.length === 0) {
       return { status: "ok", evidence: [] };
     }
@@ -500,20 +545,26 @@ export type CreateSignedEvidenceUrlResult =
  * cross — a caller who can mint a URL for a document can equally open that
  * dossier and click view.
  *
- * That changes the moment Milestone 25B introduces branch ownership. THE SEAM
- * IS HERE, and it is one filter, not an API rewrite: add a `scope: BranchScope`
- * parameter and apply it to `application.branch_id` on the join below. The
- * chain this function now resolves is exactly the chain that filter needs, and
- * the single NOT_FOUND code already gives the correct non-leaking behaviour for
- * an out-of-scope document.
+ * MILESTONE 25B-1 CLOSED THAT GAP. `scope` is now a required first parameter
+ * and is applied to `requirement_slot.application.branch_id` on the chain
+ * below, so an out-of-scope document produces no row and therefore no URL. The
+ * single NOT_FOUND code makes an out-of-scope document indistinguishable from
+ * one that does not exist.
  *
  * The `documentos` workspace legitimately spans dossiers, which is why the
  * boundary cannot be a caller-supplied client id — it has to be branch scope.
  */
-export async function createSignedEvidenceUrl(evidenceId: string): Promise<CreateSignedEvidenceUrlResult> {
+export async function createSignedEvidenceUrl(
+  scope: BranchScope,
+  evidenceId: string
+): Promise<CreateSignedEvidenceUrlResult> {
+  // MILESTONE 25B-1 — no scope, no URL. An empty scope reaches nothing, so
+  // return before touching the database or Storage.
+  if (isEmptyScope(scope)) return { status: "error", code: "NOT_FOUND" };
+
   const supabase = getSupabaseServerClient();
 
-  const { data: row, error: fetchError } = await supabase
+  const chainQuery = supabase
     .from("dossier_documents")
     .select(
       "storage_bucket, storage_path, requirement_slot_id, " +
@@ -524,8 +575,16 @@ export async function createSignedEvidenceUrl(evidenceId: string): Promise<Creat
         "id, branch_id, client:clients!applications_client_id_fkey!inner(id)))"
     )
     .eq("id", evidenceId)
-    .not("requirement_slot_id", "is", null)
-    .maybeSingle<SignedEvidenceChainRow>();
+    .not("requirement_slot_id", "is", null);
+
+  // MILESTONE 25B-1 — the branch filter lands on the application the S0 chain
+  // already resolves. National sees assigned AND unassigned evidence;
+  // branch-scoped sees only its own branches and never NULL.
+  const { data: row, error: fetchError } = await applyBranchScope(
+    chainQuery,
+    scope,
+    "requirement_slot.application.branch_id"
+  ).maybeSingle<SignedEvidenceChainRow>();
 
   // EVERY failure returns the same NOT_FOUND. A database error, a broken
   // chain, a missing row and a failed signature are indistinguishable to the

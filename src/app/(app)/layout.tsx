@@ -60,7 +60,11 @@ export default async function AuthenticatedLayout({ children }: { children: Reac
 
   // Returns null (never a fabricated 0) when the read fails, in which
   // case Topbar simply renders no badge.
-  const activeAlertsCount = await getActiveAlertsCount();
+  // MILESTONE 25B-1 — the badge is a COUNT, and a count leaks too: an
+  // unscoped figure would tell a branch user how many alerts exist elsewhere in
+  // ODL without showing them a single row. `profile` is already resolved and
+  // non-null here (the redirect above guarantees it).
+  const activeAlertsCount = await getActiveAlertsCount(profile.branchScope);
 
   return (
     <CurrentProfileProvider profile={profile}>

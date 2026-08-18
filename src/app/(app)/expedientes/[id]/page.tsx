@@ -1,4 +1,6 @@
 import { notFound } from "next/navigation";
+import { EMPTY_BRANCH_SCOPE } from "@/lib/services/branch-scope-query";
+import { getCurrentProfile } from "@/lib/auth/get-current-profile";
 import { getLocale } from "next-intl/server";
 import { getClientById } from "@/lib/services/clients";
 import { getNotesByClientId } from "@/lib/services/notes";
@@ -9,6 +11,7 @@ import { getEvidenceByApplicationId } from "@/lib/services/document-evidence";
 import { getClientCrmEvents } from "@/lib/services/crm-events";
 import { DossierView, type DossierRequirementsData } from "@/components/dossier/dossier-view";
 import { buildClientActivityFeed } from "@/lib/activity/build-client-activity-feed";
+import type { BranchScope } from "@/types";
 import type { Locale } from "@/i18n/config";
 import type { ApplicationListItem } from "@/types";
 
@@ -24,13 +27,14 @@ import type { ApplicationListItem } from "@/types";
  * Milestone 13E implementation report).
  */
 async function resolveRequirementsByApplicationId(
+  scope: BranchScope,
   applications: ApplicationListItem[]
 ): Promise<Record<string, DossierRequirementsData>> {
   const entries = await Promise.all(
     applications.map(async (application): Promise<readonly [string, DossierRequirementsData]> => {
       const [slotsResult, evidenceResult] = await Promise.all([
-        getRequirementSlotsByApplicationId(application.id),
-        getEvidenceByApplicationId(application.id),
+        getRequirementSlotsByApplicationId(scope, application.id),
+        getEvidenceByApplicationId(scope, application.id),
       ]);
 
       return [
@@ -67,7 +71,14 @@ export default async function ExpedientePage({
   // Milestone 14E; nothing in the app generates a legacy-shaped
   // /expedientes/cl-001 link anymore. A failed lookup is a genuine 404 —
   // there is no fallback to demo data.
-  const clientResult = await getClientById(id);
+  // MILESTONE 25B-1 — scope resolved once, threaded into every dossier read.
+  // An out-of-scope client returns NOT_FOUND from the service, which becomes a
+  // genuine 404 here — indistinguishable from a client that does not exist, so
+  // the route cannot be used to probe other branches.
+  const profile = await getCurrentProfile();
+  const scope = profile?.branchScope ?? EMPTY_BRANCH_SCOPE;
+
+  const clientResult = await getClientById(scope, id);
   if (clientResult.status !== "ok") notFound();
   const client = clientResult.client;
 
@@ -81,10 +92,10 @@ export default async function ExpedientePage({
   // durable history lives in its own table, and there is no way to read it
   // without reading it.
   const [notesResult, alertsResult, applicationsResult, crmEventsResult] = await Promise.all([
-    getNotesByClientId(client.id),
-    getAlertsByClientId(client.id),
-    getApplications(),
-    getClientCrmEvents(client.id),
+    getNotesByClientId(scope, client.id),
+    getAlertsByClientId(scope, client.id),
+    getApplications(scope),
+    getClientCrmEvents(scope, client.id),
   ]);
 
   const applications =
@@ -94,7 +105,7 @@ export default async function ExpedientePage({
 
   // Requires the filtered application list above, so it cannot join the
   // Promise.all — a genuine data dependency, not a duplicated query.
-  const requirementsByApplicationId = await resolveRequirementsByApplicationId(applications);
+  const requirementsByApplicationId = await resolveRequirementsByApplicationId(scope, applications);
 
   // Milestone 19: the Activity feed is DERIVED, not fetched. Every record it
   // needs — client, applications, notes, alerts, requirement slots, evidence

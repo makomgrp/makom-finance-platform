@@ -1,4 +1,5 @@
 import "server-only";
+import { SYSTEM_NATIONAL_SCOPE } from "@/lib/services/branch-scope-query";
 import { getRequirementSlotsByApplicationId } from "@/lib/services/requirement-slots";
 import { ALLOWED_MIME_TYPES } from "@/lib/config/evidence-storage";
 
@@ -86,7 +87,7 @@ const OPEN_SLOT_STATUSES = new Set(["pending", "missing", "rejected"]);
 /**
  * Classifies one incoming file against one Application's Requirement
  * Slots. Application is authoritative throughout: every candidate Slot
- * is loaded via getRequirementSlotsByApplicationId(applicationId),
+ * is loaded via getRequirementSlotsByApplicationId(SYSTEM_NATIONAL_SCOPE, applicationId),
  * so a Slot belonging to a different Application can never even be
  * considered — this is what makes cross-Application association
  * structurally impossible, not merely validated after the fact (see the
@@ -97,7 +98,7 @@ export async function classifyDocument(input: ClassifyDocumentInput): Promise<Cl
     return { status: "ok", result: { outcome: "needs_review", reason: "unsupported_file_type" } };
   }
 
-  const slotsResult = await getRequirementSlotsByApplicationId(input.applicationId);
+  const slotsResult = await getRequirementSlotsByApplicationId(SYSTEM_NATIONAL_SCOPE, input.applicationId);
   if (slotsResult.status !== "ok") {
     return { status: "error" };
   }

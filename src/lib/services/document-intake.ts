@@ -1,4 +1,5 @@
 import "server-only";
+import { SYSTEM_NATIONAL_SCOPE } from "@/lib/services/branch-scope-query";
 import { createHash } from "node:crypto";
 import { classifyDocument, type DocumentReviewReason } from "@/lib/services/document-classification";
 import {
@@ -118,7 +119,7 @@ export async function ingestDocument(input: IngestDocumentInput): Promise<Ingest
   const bytes = Buffer.from(await input.file.arrayBuffer());
   const fileSha256 = createHash("sha256").update(bytes).digest("hex");
 
-  const existingEvidenceResult = await getEvidenceByRequirementSlotId(requirementSlotId);
+  const existingEvidenceResult = await getEvidenceByRequirementSlotId(SYSTEM_NATIONAL_SCOPE, requirementSlotId);
   if (existingEvidenceResult.status === "ok") {
     const duplicate = existingEvidenceResult.evidence.find((evidence) => evidence.fileSha256 === fileSha256);
     if (duplicate) {

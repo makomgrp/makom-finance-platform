@@ -1,7 +1,14 @@
 import "server-only";
 import { cache } from "react";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
-import type { AlertLevel, AlertType, DossierAlert, DossierAlertListItem } from "@/types";
+import { applyBranchScope, isEmptyScope, withScopedParent } from "@/lib/services/branch-scope-query";
+import type {
+  AlertLevel,
+  AlertType,
+  BranchScope,
+  DossierAlert,
+  DossierAlertListItem,
+} from "@/types";
 
 /**
  * Server-only service for dossier_alerts (see the Milestone 7 architecture
@@ -84,6 +91,16 @@ interface DossierAlertListRow extends DossierAlertRow {
 
 const ALERT_LIST_SELECT = `${ALERT_SELECT}, client:clients!dossier_alerts_client_id_fkey(full_name)`;
 
+/**
+ * MILESTONE 25B-1 — alerts have no branch_id of their own; they derive it from
+ * their client. `!inner` makes this an INNER JOIN, so an alert whose client is
+ * out of scope disappears entirely rather than returning with a null client.
+ * That distinction is the security property. Deriving beats denormalizing: a
+ * stored branch_id here would need updating on every client transfer, forever.
+ */
+const ALERT_CLIENT_SCOPE_EMBED =
+  "scope_client:clients!dossier_alerts_client_id_fkey!inner(branch_id)";
+
 function toDossierAlertListItem(row: DossierAlertListRow): DossierAlertListItem {
   return {
     ...toDossierAlert(row),
@@ -98,14 +115,22 @@ export type GetDossierAlertsResult = { status: "ok"; alerts: DossierAlert[] } | 
  * data on failure — callers get an explicit "error" status, matching
  * src/lib/services/notes.ts's convention.
  */
-export async function getAlertsByClientId(clientId: string): Promise<GetDossierAlertsResult> {
+export async function getAlertsByClientId(
+  scope: BranchScope,
+  clientId: string
+): Promise<GetDossierAlertsResult> {
+  if (isEmptyScope(scope)) return { status: "ok", alerts: [] };
+
   try {
     const supabase = getSupabaseServerClient();
-    const { data, error } = await supabase
-      .from("dossier_alerts")
-      .select(ALERT_SELECT)
-      .eq("client_id", clientId)
-      .order("created_at", { ascending: false });
+    const { data, error } = await applyBranchScope(
+      supabase
+        .from("dossier_alerts")
+        .select(withScopedParent(ALERT_SELECT, scope, ALERT_CLIENT_SCOPE_EMBED))
+        .eq("client_id", clientId),
+      scope,
+      "scope_client.branch_id"
+    ).order("created_at", { ascending: false });
 
     if (error) {
       console.error("[alerts service] Failed to load dossier alerts:", error.message);
@@ -136,13 +161,19 @@ export type GetAllDossierAlertsResult =
  * Supabase query instead of issuing it twice, the same reasoning already
  * applied to getCurrentProfile().
  */
-export const getAllAlerts = cache(async (): Promise<GetAllDossierAlertsResult> => {
+export const getAllAlerts = cache(
+  async (scope: BranchScope): Promise<GetAllDossierAlertsResult> => {
+  if (isEmptyScope(scope)) return { status: "ok", alerts: [] };
+
   try {
     const supabase = getSupabaseServerClient();
-    const { data, error } = await supabase
-      .from("dossier_alerts")
-      .select(ALERT_LIST_SELECT)
-      .order("created_at", { ascending: false });
+    const { data, error } = await applyBranchScope(
+      supabase
+        .from("dossier_alerts")
+        .select(withScopedParent(ALERT_LIST_SELECT, scope, ALERT_CLIENT_SCOPE_EMBED)),
+      scope,
+      "scope_client.branch_id"
+    ).order("created_at", { ascending: false });
 
     if (error) {
       console.error("[alerts service] Failed to load all dossier alerts:", error.message);
@@ -158,7 +189,8 @@ export const getAllAlerts = cache(async (): Promise<GetAllDossierAlertsResult> =
     );
     return { status: "error" };
   }
-});
+  }
+);
 
 export interface AlertsSummaryCounts {
   active: number;
@@ -174,8 +206,8 @@ export type GetAlertsSummaryResult = { status: "ok"; counts: AlertsSummaryCounts
  * separate query — preserves the exact semantics of the old
  * ALERTS.filter(...).length calculations, just computed over real rows.
  */
-export async function getAlertsSummary(): Promise<GetAlertsSummaryResult> {
-  const result = await getAllAlerts();
+export async function getAlertsSummary(scope: BranchScope): Promise<GetAlertsSummaryResult> {
+  const result = await getAllAlerts(scope);
   if (result.status === "error") {
     return { status: "error" };
   }
@@ -201,13 +233,24 @@ export async function getAlertsSummary(): Promise<GetAlertsSummaryResult> {
  * genuine zero, rather than asserting "no active alerts" when the truth is
  * "unknown").
  */
-export async function getActiveAlertsCount(): Promise<number | null> {
+export async function getActiveAlertsCount(scope: BranchScope): Promise<number | null> {
+  // A COUNT LEAKS TOO. An unscoped badge would tell a branch user how many
+  // alerts exist across ODL without showing them a single row.
+  if (isEmptyScope(scope)) return 0;
+
   try {
     const supabase = getSupabaseServerClient();
-    const { count, error } = await supabase
-      .from("dossier_alerts")
-      .select("id", { count: "exact", head: true })
-      .eq("active", true);
+    const { count, error } = await applyBranchScope(
+      supabase
+        .from("dossier_alerts")
+        .select(withScopedParent("id", scope, ALERT_CLIENT_SCOPE_EMBED), {
+          count: "exact",
+          head: true,
+        })
+        .eq("active", true),
+      scope,
+      "scope_client.branch_id"
+    );
 
     if (error) {
       console.error("[alerts service] Failed to count active dossier alerts:", error.message);

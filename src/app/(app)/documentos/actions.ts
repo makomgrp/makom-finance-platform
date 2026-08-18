@@ -36,7 +36,7 @@ export async function getDocumentEvidenceWorkspaceAction(): Promise<GetDocumentE
     return { status: "error", code: auth.code };
   }
 
-  const result = await getDocumentEvidenceWorkspace();
+  const result = await getDocumentEvidenceWorkspace(auth.profile.branchScope);
   if (result.status !== "ok") {
     return { status: "error", code: "QUERY_FAILED" };
   }

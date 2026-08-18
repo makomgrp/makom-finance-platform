@@ -200,7 +200,29 @@ export const getCurrentProfile = cache(async (): Promise<Profile | null> => {
   // 'national' short-circuits the membership list entirely: it means "every
   // active branch, including ones created tomorrow", which an enumerated array
   // could not express without a backfill on every branch creation.
-  const scopeMode = (row.branch_scope_mode as BranchScopeMode) ?? "branch";
+  // ==========================================================================
+  // MILESTONE 25B-1 — THE ADMINISTRADOR NATIONAL INVARIANT
+  // ==========================================================================
+  // role = 'administrador'  =>  effective operational branch scope is NATIONAL.
+  //
+  // A SYSTEM-LEVEL RULE, resolved HERE and nowhere else. An administrador must
+  // see and operate across every ODL branch — present and future — and must
+  // NOT need memberships to do it, so this is derived from the ROLE, never
+  // from rows.
+  //
+  // WHY NOT AUTO-CREATED MEMBERSHIPS: they would make the invariant look
+  // membership-derived, need a backfill on every new branch, and drag
+  // administradores inside the B1/B2 subset rules that exist to bound
+  // DELEGATED managers.
+  //
+  // WHY NOT A CAPABILITY: national reach would then be grantable through
+  // profile_capability_grants, letting DATA SCOPE be widened by a mechanism
+  // built for ACTION permissions. `branch:manage` and `branch:transfer` confer
+  // no visibility whatsoever — delegating an action never delegates scope.
+  const declaredMode = (row.branch_scope_mode as BranchScopeMode) ?? "branch";
+  const resolvedRole = row.role as UserRole;
+  const scopeMode: BranchScopeMode =
+    resolvedRole === "administrador" ? "national" : declaredMode;
   let branchIds: string[] = [];
 
   if (scopeMode === "branch") {

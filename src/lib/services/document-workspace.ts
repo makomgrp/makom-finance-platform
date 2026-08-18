@@ -1,6 +1,8 @@
 import "server-only";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
+import { applyBranchScope, isEmptyScope } from "@/lib/services/branch-scope-query";
 import type {
+  BranchScope,
   DocumentEvidence,
   DocumentWorkspaceRow,
   EvidenceUploadedSource,
@@ -176,14 +178,28 @@ export type GetDocumentEvidenceWorkspaceResult =
  * add either a view or server-side pagination before real volume demands
  * it).
  */
-export async function getDocumentEvidenceWorkspace(): Promise<GetDocumentEvidenceWorkspaceResult> {
+export async function getDocumentEvidenceWorkspace(
+  scope: BranchScope
+): Promise<GetDocumentEvidenceWorkspaceResult> {
+  if (isEmptyScope(scope)) return { status: "ok", rows: [] };
+
   try {
     const supabase = getSupabaseServerClient();
-    const { data, error } = await supabase
-      .from("requirement_slots")
-      .select(WORKSPACE_SELECT)
-      .eq("requirement_kind", "document")
-      .order("created_at", { ascending: true });
+    // The workspace already embeds `application`; scoping filters on that same
+    // embed rather than adding a second join. The embed is a plain (non-inner)
+    // relation for national, so unassigned slots stay visible there.
+    const { data, error } = await applyBranchScope(
+      supabase
+        .from("requirement_slots")
+        .select(
+          scope.mode === "national"
+            ? WORKSPACE_SELECT
+            : `${WORKSPACE_SELECT}, scope_application:applications!requirement_slots_application_id_fkey!inner(branch_id)`
+        )
+        .eq("requirement_kind", "document"),
+      scope,
+      "scope_application.branch_id"
+    ).order("created_at", { ascending: true });
 
     if (error) {
       console.error("[document-workspace service] Failed to load document evidence workspace:", error.message);

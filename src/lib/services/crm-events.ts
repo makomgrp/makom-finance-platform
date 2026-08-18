@@ -1,7 +1,9 @@
 import "server-only";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
+import { getClientById } from "@/lib/services/clients";
 import type {
   ApplicationSource,
+  BranchScope,
   CrmActorKind,
   CrmEntityType,
   CrmEvent,
@@ -79,7 +81,42 @@ export type GetClientCrmEventsResult = { status: "ok"; events: CrmEvent[] } | { 
  * survive events living in their own table, and pretending otherwise would
  * have meant not having an audit trail.
  */
-export async function getClientCrmEvents(clientId: string): Promise<GetClientCrmEventsResult> {
+/**
+ * ============================================================================
+ * MILESTONE 25B-1 — ENTITY ACCESS GATES, EVENT ROWS ARE NOT FILTERED
+ * ============================================================================
+ *
+ * Two different questions, and conflating them would break the dossier:
+ *
+ *   ENTITY ACCESS   may this user see THIS client? -> current clients.branch_id
+ *   HISTORY DISPLAY what may they see about it?    -> ALL of its events
+ *
+ * So this proves access to the CLIENT first, and then returns that client's
+ * COMPLETE history — deliberately WITHOUT filtering individual rows by
+ * crm_events.branch_id.
+ *
+ * WHY: after a branch transfer, every pre-transfer event is stamped with the
+ * SOURCE branch. Filtering rows by their own branch would hand the destination
+ * branch a dossier whose history begins mid-story, which is both misleading and
+ * useless for continuity. History belongs to the dossier; the dossier's current
+ * ownership decides who may open it.
+ *
+ * crm_events.branch_id therefore remains permanent AUDIT ATTRIBUTION — the
+ * record of which branch owned an action, used for reporting — and is never a
+ * dossier-feed visibility filter.
+ */
+export async function getClientCrmEvents(
+  scope: BranchScope,
+  clientId: string
+): Promise<GetClientCrmEventsResult> {
+  // Gate on the ENTITY. An inaccessible client yields an empty history rather
+  // than a distinguishable error — the feed must not become an existence
+  // oracle for clients in other branches.
+  const clientResult = await getClientById(scope, clientId);
+  if (clientResult.status !== "ok") {
+    return { status: "ok", events: [] };
+  }
+
   try {
     const supabase = getSupabaseServerClient();
     const { data, error } = await supabase

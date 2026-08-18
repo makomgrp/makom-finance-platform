@@ -14,14 +14,15 @@ import {
 import type {
   ApplicationAnalysisRecord,
   ApplicationAnalysisResult,
+  BranchScope,
   CriterionEvaluation,
   HumanReviewOutcome,
-  LocalizedText,
   LoanCriterionActualValue,
   LoanCriterionExpectedValue,
   LoanCriterionFieldSource,
   LoanCriterionSeverity,
   LoanCriterionType,
+  LocalizedText,
   PersistedCriterionEvaluation,
   PreliminaryRecommendation,
   RequirementSlot,
@@ -91,14 +92,17 @@ export type AnalyzeApplicationResult =
  * criterion_results, and never changes the Application's own status —
  * this is a preliminary, internal recommendation, not a final decision.
  */
-export async function analyzeApplication(applicationId: string): Promise<AnalyzeApplicationResult> {
-  const applicationResult = await getApplicationById(applicationId);
+export async function analyzeApplication(
+  scope: BranchScope,
+  applicationId: string
+): Promise<AnalyzeApplicationResult> {
+  const applicationResult = await getApplicationById(scope, applicationId);
   if (applicationResult.status !== "ok") {
     return { status: "error", code: "APPLICATION_NOT_FOUND" };
   }
   const application = applicationResult.application;
 
-  const clientResult = await getClientById(application.clientId);
+  const clientResult = await getClientById(scope, application.clientId);
   if (clientResult.status !== "ok") {
     return { status: "error", code: "CLIENT_NOT_FOUND" };
   }
@@ -110,7 +114,7 @@ export async function analyzeApplication(applicationId: string): Promise<Analyze
   }
   const loanCriteria = criteriaResult.loanCriteria;
 
-  const slotsResult = await getRequirementSlotsByApplicationId(applicationId);
+  const slotsResult = await getRequirementSlotsByApplicationId(scope, applicationId);
   if (slotsResult.status !== "ok") {
     return { status: "error", code: "SLOTS_LOAD_FAILED" };
   }
@@ -282,7 +286,7 @@ export type GetApplicationAnalysisHistoryResult =
 /** Loads every analysis run for one Application, newest first — the full
  * historical explanation, using the (application_id, generated_at desc)
  * index verified live in this milestone (V9). */
-export async function getApplicationAnalysisHistory(applicationId: string): Promise<GetApplicationAnalysisHistoryResult> {
+export async function getApplicationAnalysisHistory(scope: BranchScope, applicationId: string): Promise<GetApplicationAnalysisHistoryResult> {
   try {
     const supabase = getSupabaseServerClient();
     const { data, error } = await supabase
@@ -316,7 +320,7 @@ export type GetLatestApplicationAnalysisResult =
  * outcome — matches this codebase's established "no match is legitimate
  * ok" precedent (see clients.ts#findClientByIdentification), not an
  * error. */
-export async function getLatestApplicationAnalysis(applicationId: string): Promise<GetLatestApplicationAnalysisResult> {
+export async function getLatestApplicationAnalysis(scope: BranchScope, applicationId: string): Promise<GetLatestApplicationAnalysisResult> {
   try {
     const supabase = getSupabaseServerClient();
     const { data, error } = await supabase

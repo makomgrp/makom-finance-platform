@@ -212,7 +212,7 @@ export async function createSolicitudApplication(
     return { status: "error", code: "INVALID_INPUT" };
   }
 
-  const clientResult = await getClientById(input.clientId);
+  const clientResult = await getClientById(auth.profile.branchScope, input.clientId);
   if (clientResult.status !== "ok") {
     return { status: "error", code: "CLIENT_NOT_FOUND" };
   }

@@ -1,7 +1,15 @@
 import "server-only";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
+import { applyBranchScope, isEmptyScope, withScopedParent } from "@/lib/services/branch-scope-query";
 import { REQUIREMENT_SLOT_STATUS_TRANSITIONS } from "@/lib/config/requirement-slot";
-import type { LocalizedText, RequirementKind, RequirementSlot, RequirementSlotSource, RequirementSlotStatus } from "@/types";
+import type {
+  BranchScope,
+  LocalizedText,
+  RequirementKind,
+  RequirementSlot,
+  RequirementSlotSource,
+  RequirementSlotStatus,
+} from "@/types";
 
 /**
  * Server-only service for the Requirement Engine's execution layer
@@ -47,6 +55,12 @@ const REQUIREMENT_SLOT_SELECT =
   "id, application_id, requirement_template_id, code, name, description, requirement_kind, required, display_order, status, status_changed_at, status_changed_by_profile_id, status_changed_source, created_at, " +
   "status_changed_by:profiles!requirement_slots_status_changed_by_profile_id_fkey(full_name)";
 
+/** MILESTONE 25B-1 — slots derive their branch from their application via an
+ * `!inner` join, so a slot whose application is out of scope disappears rather
+ * than returning with a null application. */
+const SLOT_APPLICATION_SCOPE_EMBED =
+  "scope_application:applications!requirement_slots_application_id_fkey!inner(branch_id)";
+
 function toRequirementSlot(row: RequirementSlotRow): RequirementSlot {
   return {
     id: row.id,
@@ -75,14 +89,19 @@ export type GetRequirementSlotsResult =
  * demo data on failure — callers get an explicit "error" status, matching
  * every other service in this app. */
 export async function getRequirementSlotsByApplicationId(
+  scope: BranchScope,
   applicationId: string
 ): Promise<GetRequirementSlotsResult> {
   try {
     const supabase = getSupabaseServerClient();
-    const { data, error } = await supabase
-      .from("requirement_slots")
-      .select(REQUIREMENT_SLOT_SELECT)
-      .eq("application_id", applicationId)
+    const { data, error } = await applyBranchScope(
+      supabase
+        .from("requirement_slots")
+        .select(withScopedParent(REQUIREMENT_SLOT_SELECT, scope, SLOT_APPLICATION_SCOPE_EMBED))
+        .eq("application_id", applicationId),
+      scope,
+      "scope_application.branch_id"
+    )
       .order("display_order", { ascending: true });
 
     if (error) {
@@ -179,11 +198,33 @@ export async function createRequirementSlotsForApplication(
     return { status: "error", code: "INSERT_FAILED" };
   }
 
-  const result = await getRequirementSlotsByApplicationId(applicationId);
-  if (result.status !== "ok") {
+  // MILESTONE 25B-1 — this is a READ-BACK OF THIS FUNCTION'S OWN INSERT, not a
+  // user-facing query, so it deliberately does NOT go through the scoped
+  // reader. Passing a scope here would be theatre: the rows were created by the
+  // line above, for an application this function was handed, and the caller has
+  // already been authorized to create it.
+  //
+  // The branch boundary for CREATING an application belongs at the mutation
+  // layer and is Milestone 25B-2's job. Routing this through a scoped read
+  // would also break legitimately: an application created for a branch the
+  // actor cannot read would return zero slots and report INSERT_FAILED after a
+  // successful insert.
+  const { data: created, error: readBackError } = await supabase
+    .from("requirement_slots")
+    .select(REQUIREMENT_SLOT_SELECT)
+    .eq("application_id", applicationId)
+    .order("display_order", { ascending: true });
+
+  if (readBackError) {
+    console.error(
+      "[requirement-slots service] Failed to read back inserted requirement slots:",
+      readBackError.message
+    );
     return { status: "error", code: "INSERT_FAILED" };
   }
-  return { status: "ok", requirementSlots: result.requirementSlots };
+
+  const createdRows = (created ?? []) as unknown as RequirementSlotRow[];
+  return { status: "ok", requirementSlots: createdRows.map(toRequirementSlot) };
 }
 
 export type SetRequirementSlotStatusResult =
@@ -308,14 +349,27 @@ export type GetDocumentSlotsAwaitingReviewCountResult =
  * read in this app (see src/lib/services/documents.ts#
  * getPendingDocumentCount, the legacy function this replaces).
  */
-export async function getDocumentSlotsAwaitingReviewCount(): Promise<GetDocumentSlotsAwaitingReviewCountResult> {
+export async function getDocumentSlotsAwaitingReviewCount(
+  scope: BranchScope
+): Promise<GetDocumentSlotsAwaitingReviewCountResult> {
+  // A COUNT LEAKS. An unscoped dashboard figure would tell a branch user how
+  // much work exists elsewhere in ODL without showing a single row.
+  if (isEmptyScope(scope)) return { status: "ok", count: 0 };
+
   try {
     const supabase = getSupabaseServerClient();
-    const { count, error } = await supabase
-      .from("requirement_slots")
-      .select("id", { count: "exact", head: true })
-      .eq("requirement_kind", "document")
-      .in("status", ["submitted", "under_review"]);
+    const { count, error } = await applyBranchScope(
+      supabase
+        .from("requirement_slots")
+        .select(withScopedParent("id", scope, SLOT_APPLICATION_SCOPE_EMBED), {
+          count: "exact",
+          head: true,
+        })
+        .eq("requirement_kind", "document")
+        .in("status", ["submitted", "under_review"]),
+      scope,
+      "scope_application.branch_id"
+    );
 
     if (error) {
       console.error(
@@ -363,13 +417,21 @@ export type GetDocumentSlotCompletionCountsResult =
  * from the returned map — callers must treat a missing key as "0 of 0",
  * not as an error.
  */
-export async function getDocumentSlotCompletionCounts(): Promise<GetDocumentSlotCompletionCountsResult> {
+export async function getDocumentSlotCompletionCounts(
+  scope: BranchScope
+): Promise<GetDocumentSlotCompletionCountsResult> {
+  if (isEmptyScope(scope)) return { status: "ok", counts: {} };
+
   try {
     const supabase = getSupabaseServerClient();
-    const { data, error } = await supabase
-      .from("requirement_slots")
-      .select("application_id, status")
-      .eq("requirement_kind", "document");
+    const { data, error } = await applyBranchScope(
+      supabase
+        .from("requirement_slots")
+        .select(withScopedParent("application_id, status", scope, SLOT_APPLICATION_SCOPE_EMBED))
+        .eq("requirement_kind", "document"),
+      scope,
+      "scope_application.branch_id"
+    );
 
     if (error) {
       console.error(
@@ -380,8 +442,9 @@ export async function getDocumentSlotCompletionCounts(): Promise<GetDocumentSlot
     }
 
     const counts: DocumentSlotCompletionCounts = {};
-    for (const row of data ?? []) {
-      const bucket = (counts[row.application_id as string] ??= { completed: 0, total: 0 });
+    const rows = (data ?? []) as unknown as { application_id: string; status: string }[];
+    for (const row of rows) {
+      const bucket = (counts[row.application_id] ??= { completed: 0, total: 0 });
       bucket.total += 1;
       if (row.status === "satisfied" || row.status === "waived") {
         bucket.completed += 1;
