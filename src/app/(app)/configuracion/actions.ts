@@ -19,6 +19,18 @@ import {
   revokeStaffCapability,
 } from "@/lib/services/capability-grants";
 import {
+  createBranch,
+  setBranchActive,
+  updateBranch,
+  type BranchInput,
+} from "@/lib/services/branches";
+import {
+  assignProfileBranch,
+  removeProfileBranch,
+  setProfileBranchScopeMode,
+  setProfilePrimaryBranch,
+} from "@/lib/services/branch-memberships";
+import {
   isDelegatableCapability,
   type DelegatableCapability,
 } from "@/lib/auth/capabilities";
@@ -35,6 +47,7 @@ import { SUPPORTED_LANGUAGE_VALUES } from "@/lib/config/language";
 import { PRODUCT_STATUS_ORDER } from "@/lib/config/product";
 import { REQUIREMENT_KIND_ORDER, REQUIREMENT_STATUS_ORDER } from "@/lib/config/requirement";
 import type {
+  BranchScopeMode,
   LocalizedText,
   Product,
   SupportedLanguage,
@@ -881,5 +894,319 @@ export async function revokeStaffUserCapability(
     return { status: "error", code: result.code };
   }
 
+  return { status: "success" };
+}
+
+/* ============================================================================
+ * MILESTONE 25A — BRANCH ADMINISTRATION
+ * ============================================================================
+ *
+ * THREE CAPABILITIES, DELIBERATELY NOT ONE:
+ *
+ *   branch:create  creating a branch defines ODL's organizational structure.
+ *                  ADMINISTRADOR-ONLY AND NON-DELEGATABLE — a branch nobody is
+ *                  yet a member of lies outside every delegated manager's
+ *                  scope, so delegating its creation could only ever be useless
+ *                  (they could not touch it) or an escalation (if creation
+ *                  assigned them to it).
+ *   branch:manage  operating EXISTING branches and staff memberships, strictly
+ *                  inside the actor's own branch scope. DELEGATABLE — Damion
+ *                  travels, Randol runs operations, and neither needs Randol to
+ *                  become an administrador.
+ *   user:manage_permissions
+ *                  changing someone's branch SCOPE MODE. See the scope-mode
+ *                  action below for why this capability and not branch:manage.
+ *
+ * MILESTONE 25A ENFORCES NO BRANCH ISOLATION on client or application data.
+ * These actions administer branches and staff scope; nothing here filters
+ * operational reads or branch-checks operational mutations. That is 25B.
+ *
+ * DEFENCE IN DEPTH: requireCapability() below is the caller-authorization
+ * boundary; the RPCs independently enforce B1-B6 using roles, identity and
+ * membership alone. Neither layer is decorative.
+ * ========================================================================== */
+
+const MAX_BRANCH_TEXT = 200;
+const BRANCH_CODE_PATTERN = /^[A-Z0-9-]{2,12}$/;
+
+export interface BranchActionInput {
+  code: string;
+  name: string;
+  province: string;
+  city?: string;
+  address?: string;
+  phone?: string;
+  email?: string;
+  isHeadquarters: boolean;
+}
+
+export type BranchActionResult =
+  | { status: "success"; branchId: string }
+  | {
+      status: "error";
+      code:
+        | "INVALID_INPUT"
+        | "UNAUTHENTICATED"
+        | "FORBIDDEN"
+        | "DUPLICATE_CODE"
+        | "NOT_FOUND"
+        | "MUTATION_FAILED";
+    };
+
+/** Shared shape validation. The database re-checks the code format
+ * (branches_code_format_check) and uniqueness (branches_code_key) — this exists
+ * so a bad value returns INVALID_INPUT instead of a raw constraint violation,
+ * the same posture every other action in this file takes. */
+function normalizeBranchInput(input: BranchActionInput): BranchInput | null {
+  const code = isNonEmptyString(input.code) ? input.code.trim().toUpperCase() : "";
+  const name = isNonEmptyString(input.name) ? input.name.trim() : "";
+  const province = isNonEmptyString(input.province) ? input.province.trim() : "";
+
+  if (!BRANCH_CODE_PATTERN.test(code)) return null;
+  if (!name || name.length > MAX_BRANCH_TEXT) return null;
+  if (!province || province.length > MAX_BRANCH_TEXT) return null;
+  if (typeof input.isHeadquarters !== "boolean") return null;
+
+  for (const optional of [input.city, input.address, input.phone, input.email]) {
+    if (optional !== undefined && optional.length > MAX_BRANCH_TEXT) return null;
+  }
+
+  return {
+    code,
+    name,
+    province,
+    city: input.city?.trim() || undefined,
+    address: input.address?.trim() || undefined,
+    phone: input.phone?.trim() || undefined,
+    email: input.email?.trim() || undefined,
+    isHeadquarters: input.isHeadquarters,
+  };
+}
+
+/**
+ * Creates a branch. Requires `branch:create` — administrador-only and
+ * non-delegatable — and the RPC independently hard-codes `actor.role =
+ * 'administrador'`.
+ *
+ * NO MEMBERSHIP IS CREATED FOR THE ACTOR, deliberately. If creating a branch
+ * assigned the creator to it, branch administration would become a
+ * scope-expansion mechanism, which B6 exists to prevent.
+ */
+export async function createBranchAction(
+  input: BranchActionInput
+): Promise<BranchActionResult> {
+  const auth = await requireCapability("branch:create");
+  if (auth.status === "denied") {
+    return { status: "error", code: auth.code };
+  }
+
+  const normalized = normalizeBranchInput(input);
+  if (!normalized) {
+    return { status: "error", code: "INVALID_INPUT" };
+  }
+
+  const result = await createBranch(normalized, auth.profile.id);
+  if (result.status !== "ok") {
+    return { status: "error", code: result.code };
+  }
+  return { status: "success", branchId: result.branchId };
+}
+
+/**
+ * Edits an existing branch. `branch:manage`, plus the RPC's own B1/B6 check
+ * that the branch is inside the actor's branch scope — so a delegated manager
+ * edits only the branches they already belong to.
+ *
+ * The audit event records CHANGED FIELD NAMES ONLY. A branch's phone, e-mail
+ * and address are contact data that change over time, and crm_events is
+ * append-only with no delete path — copying values in would make them
+ * permanently uncorrectable.
+ */
+export async function updateBranchAction(
+  branchId: string,
+  input: BranchActionInput
+): Promise<BranchActionResult> {
+  const auth = await requireCapability("branch:manage");
+  if (auth.status === "denied") {
+    return { status: "error", code: auth.code };
+  }
+
+  if (!isNonEmptyString(branchId) || !UUID_PATTERN.test(branchId)) {
+    return { status: "error", code: "INVALID_INPUT" };
+  }
+  const normalized = normalizeBranchInput(input);
+  if (!normalized) {
+    return { status: "error", code: "INVALID_INPUT" };
+  }
+
+  const result = await updateBranch(branchId, normalized, auth.profile.id);
+  if (result.status !== "ok") {
+    return { status: "error", code: result.code };
+  }
+  return { status: "success", branchId: result.branchId };
+}
+
+/**
+ * Activates or deactivates a branch — the only "removal" this product has.
+ * Branches are permanent FK targets on historical clients and applications, so
+ * there is no delete path and none may be added.
+ */
+export async function setBranchActiveAction(
+  branchId: string,
+  active: boolean
+): Promise<BranchActionResult> {
+  const auth = await requireCapability("branch:manage");
+  if (auth.status === "denied") {
+    return { status: "error", code: auth.code };
+  }
+
+  if (!isNonEmptyString(branchId) || !UUID_PATTERN.test(branchId)) {
+    return { status: "error", code: "INVALID_INPUT" };
+  }
+  if (typeof active !== "boolean") {
+    return { status: "error", code: "INVALID_INPUT" };
+  }
+
+  const result = await setBranchActive(branchId, active, auth.profile.id);
+  if (result.status !== "ok") {
+    return { status: "error", code: result.code };
+  }
+  return { status: "success", branchId: result.branchId };
+}
+
+export type BranchMembershipActionResult =
+  | { status: "success" }
+  | {
+      status: "error";
+      code:
+        | "INVALID_INPUT"
+        | "UNAUTHENTICATED"
+        | "FORBIDDEN"
+        | "PROFILE_NOT_FOUND"
+        | "MUTATION_FAILED";
+    };
+
+/**
+ * Assigns a staff member to a branch. `branch:manage`.
+ *
+ * B1/B2/B3/B5/B6 are enforced in the RPC, not duplicated here: the destination
+ * must be inside the actor's scope, the target's existing memberships must be a
+ * subset of it, nobody may modify their own, and only an administrador may
+ * touch an administrador. Stating them once, where they cannot be bypassed, is
+ * the same discipline Milestone 24 used for A1-A8.
+ */
+export async function assignProfileBranchAction(
+  profileId: string,
+  branchId: string,
+  isPrimary: boolean
+): Promise<BranchMembershipActionResult> {
+  const auth = await requireCapability("branch:manage");
+  if (auth.status === "denied") {
+    return { status: "error", code: auth.code };
+  }
+
+  if (!isNonEmptyString(profileId) || !UUID_PATTERN.test(profileId)) {
+    return { status: "error", code: "INVALID_INPUT" };
+  }
+  if (!isNonEmptyString(branchId) || !UUID_PATTERN.test(branchId)) {
+    return { status: "error", code: "INVALID_INPUT" };
+  }
+  if (typeof isPrimary !== "boolean") {
+    return { status: "error", code: "INVALID_INPUT" };
+  }
+
+  const result = await assignProfileBranch(profileId, branchId, isPrimary, auth.profile.id);
+  if (result.status !== "ok") {
+    return { status: "error", code: result.code };
+  }
+  return { status: "success" };
+}
+
+/** Removes a staff member from a branch. Same guards as assignment. */
+export async function removeProfileBranchAction(
+  profileId: string,
+  branchId: string
+): Promise<BranchMembershipActionResult> {
+  const auth = await requireCapability("branch:manage");
+  if (auth.status === "denied") {
+    return { status: "error", code: auth.code };
+  }
+
+  if (!isNonEmptyString(profileId) || !UUID_PATTERN.test(profileId)) {
+    return { status: "error", code: "INVALID_INPUT" };
+  }
+  if (!isNonEmptyString(branchId) || !UUID_PATTERN.test(branchId)) {
+    return { status: "error", code: "INVALID_INPUT" };
+  }
+
+  const result = await removeProfileBranch(profileId, branchId, auth.profile.id);
+  if (result.status !== "ok") {
+    return { status: "error", code: result.code };
+  }
+  return { status: "success" };
+}
+
+/** Marks an existing membership as primary. Requires the membership to exist —
+ * enforced in the RPC. */
+export async function setProfilePrimaryBranchAction(
+  profileId: string,
+  branchId: string
+): Promise<BranchMembershipActionResult> {
+  const auth = await requireCapability("branch:manage");
+  if (auth.status === "denied") {
+    return { status: "error", code: auth.code };
+  }
+
+  if (!isNonEmptyString(profileId) || !UUID_PATTERN.test(profileId)) {
+    return { status: "error", code: "INVALID_INPUT" };
+  }
+  if (!isNonEmptyString(branchId) || !UUID_PATTERN.test(branchId)) {
+    return { status: "error", code: "INVALID_INPUT" };
+  }
+
+  const result = await setProfilePrimaryBranch(profileId, branchId, auth.profile.id);
+  if (result.status !== "ok") {
+    return { status: "error", code: result.code };
+  }
+  return { status: "success" };
+}
+
+/**
+ * Sets a staff member's branch SCOPE MODE — 'branch' or 'national'.
+ *
+ * GUARDED BY `user:manage_permissions`, NOT `branch:manage`, and the choice
+ * matters. National reach is the widest thing anyone can be given, and
+ * `branch:manage` is DELEGATABLE — gating scope mode with it would mean a
+ * delegated manager could hand out organization-wide data access, which is
+ * precisely what "delegating an action must never delegate scope" forbids.
+ *
+ * No new capability was invented for this. `user:manage_permissions` already
+ * means "change how much authority this person has", is administrador-only, and
+ * is already non-delegatable in both TypeScript and the database — exactly the
+ * properties this operation needs (B4).
+ *
+ * The RPC independently hard-codes `actor.role = 'administrador'`, so even a
+ * mis-wired capability check here could not widen anyone's reach.
+ */
+export async function setProfileBranchScopeModeAction(
+  profileId: string,
+  mode: BranchScopeMode
+): Promise<BranchMembershipActionResult> {
+  const auth = await requireCapability("user:manage_permissions");
+  if (auth.status === "denied") {
+    return { status: "error", code: auth.code };
+  }
+
+  if (!isNonEmptyString(profileId) || !UUID_PATTERN.test(profileId)) {
+    return { status: "error", code: "INVALID_INPUT" };
+  }
+  if (mode !== "branch" && mode !== "national") {
+    return { status: "error", code: "INVALID_INPUT" };
+  }
+
+  const result = await setProfileBranchScopeMode(profileId, mode, auth.profile.id);
+  if (result.status !== "ok") {
+    return { status: "error", code: result.code };
+  }
   return { status: "success" };
 }

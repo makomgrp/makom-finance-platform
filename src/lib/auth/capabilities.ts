@@ -215,6 +215,73 @@ export type Capability =
    */
   | "user:manage_permissions"
 
+  // --- Branch administration (Milestone 25A) -----------------------------
+  /**
+   * ============================================================================
+   * MILESTONE 25A — THE THIRD AUTHORIZATION AXIS
+   * ============================================================================
+   *
+   * ODL is becoming a national platform with branches across Panama. That adds
+   * a question capabilities alone cannot answer:
+   *
+   *   ROLE        what kind of work may this person perform?
+   *   CAPABILITY  what additional actions may this person perform?
+   *   BRANCH SCOPE on WHICH branch's data may they perform them?
+   *
+   * These stay three independent concepts. A capability is never a branch, and
+   * branch reach is never a capability — see branch_scope_mode below.
+   *
+   * NATIONAL REACH IS NOT IN THIS UNION, DELIBERATELY. `profiles.branch_scope_mode`
+   * ('branch' | 'national') is a SCOPE property set only by an administrador. If
+   * national access were a capability it would be grantable through
+   * profile_capability_grants, which would let branch reach be widened by a
+   * mechanism designed for action permissions. The whole point of the split is
+   * that delegating an ACTION never delegates DATA SCOPE.
+   */
+  /**
+   * Create a new organizational branch. ADMINISTRADOR-ONLY AND NON-DELEGATABLE.
+   *
+   * SEPARATE FROM branch:manage FOR A CONCRETE REASON, not for tidiness. A newly
+   * created branch has no memberships, so it sits outside every delegated
+   * manager's scope. That leaves only two possibilities and both are wrong: if
+   * creation auto-assigned the creator, `branch:manage` would become a
+   * SCOPE-EXPANSION mechanism (create a branch, be added to it, widen your own
+   * reach) — exactly what B6 forbids; and if it did not, a delegated manager
+   * would be granted an act with no reachable consequence.
+   *
+   * The branch list IS ODL's organizational structure. Defining the organization
+   * is an ownership act; operating it is a management act — the same line
+   * Milestone 24 drew between `user:manage_permissions` and `user:invite`.
+   *
+   * Excluded from DELEGATABLE_CAPABILITIES and from
+   * profile_capability_grants_capability_check, so it cannot be delegated even
+   * by mistake. create_branch additionally hard-codes `actor.role =
+   * 'administrador'` rather than testing for this capability.
+   */
+  | "branch:create"
+  /**
+   * Administer EXISTING branches: edit detail, activate/deactivate, and manage
+   * staff branch memberships and primary branch — all strictly inside the
+   * actor's own server-resolved branch scope (B1/B2/B6).
+   *
+   * DELEGATABLE. Damion travels; Randol runs day-to-day operations and must be
+   * able to administer the branches he is responsible for WITHOUT becoming an
+   * administrador. Granting this confers no additional branch scope: a gerente
+   * scoped to {Panamá, David} may administer Panamá and David and nothing else.
+   */
+  | "branch:manage"
+  /**
+   * Transfer a client's home branch, and an application's responsible branch.
+   * DELEGATABLE, and deliberately NOT held by `gerente` by role: a transfer
+   * moves data ACROSS an authorization boundary, which Milestone 24 established
+   * should be delegated explicitly per user rather than conferred by job title.
+   *
+   * The capability is defined in Milestone 25A so the vocabulary is complete and
+   * stable; the transfer OPERATIONS themselves ship in 25B alongside the
+   * branch-scoped mutation layer they depend on.
+   */
+  | "branch:transfer"
+
   // --- System configuration ----------------------------------------------
   /** Create/edit/reorder//status Products. Administrator-only in Milestone 16. */
   | "product:manage"
@@ -276,6 +343,9 @@ export const ROLE_CAPABILITIES = {
     "user:set_active",
     "user:set_role",
     "user:manage_permissions",
+    "branch:create",
+    "branch:manage",
+    "branch:transfer",
   ],
 
   /**
@@ -384,7 +454,8 @@ export function hasCapability(role: UserRole, capability: Capability): boolean {
  * their base role. Everything else is reachable exclusively by holding the
  * role that carries it.
  *
- * `user:manage_permissions` IS DELIBERATELY ABSENT and must never be added.
+ * `user:manage_permissions` and `branch:create` ARE DELIBERATELY ABSENT and
+ * must never be added.
  * It is the privilege-management boundary: if it were delegatable, a delegated
  * manager could grant themselves anything, and every other protection in this
  * milestone would be decoration. The database enforces the same exclusion
@@ -398,14 +469,26 @@ export function hasCapability(role: UserRole, capability: Capability): boolean {
  * feature, not an oversight. It duplicates a LIST OF STRINGS, never
  * ROLE_CAPABILITIES, which remains defined exactly once.
  *
+ * `branch:create` is absent for the reason given on that capability: a branch
+ * nobody is yet a member of lies outside every delegated manager's scope, so
+ * delegating its creation could only ever be useless or an escalation.
+ *
  * Business capabilities are absent on purpose. Milestone 24 delegates STAFF
  * ADMINISTRATION, not lending authority; making `application:set_status`
  * delegatable would be a credit-policy decision wearing a permissions costume.
+ * Milestone 25A adds BRANCH ADMINISTRATION on the same principle — never
+ * branch SCOPE, which is `profiles.branch_scope_mode` and administrador-only.
  */
 export const DELEGATABLE_CAPABILITIES = [
   "user:invite",
   "user:set_active",
   "user:set_role",
+  // Milestone 25A. Delegating branch ADMINISTRATION never delegates branch
+  // SCOPE: a holder acts only inside their own memberships (B1/B6), and
+  // `branch:create` is deliberately absent so this can never become a way to
+  // manufacture new scope.
+  "branch:manage",
+  "branch:transfer",
 ] as const satisfies readonly Capability[];
 
 export type DelegatableCapability = (typeof DELEGATABLE_CAPABILITIES)[number];

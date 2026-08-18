@@ -2,7 +2,7 @@ import "server-only";
 import { cache } from "react";
 import { createAuthenticatedServerClient } from "@/lib/supabase/server-authenticated";
 import { resolveEffectiveCapabilities, type Capability } from "@/lib/auth/capabilities";
-import type { SupportedLanguage, UserRole } from "@/types";
+import type { BranchScope, BranchScopeMode, SupportedLanguage, UserRole } from "@/types";
 
 /**
  * ============================================================================
@@ -66,6 +66,26 @@ export interface Profile {
    * tampering with the copy in the browser changes nothing.
    */
   capabilities: Capability[];
+  /**
+   * MILESTONE 25A — the SERVER-RESOLVED branch scope: which branches this
+   * person may act on.
+   *
+   * THE THIRD AUTHORIZATION AXIS. Role answers "what kind of work", capabilities
+   * answer "which actions", and this answers "on whose data". The three stay
+   * independent — a capability is never a branch, and branch reach is never a
+   * capability.
+   *
+   * RESOLVED BUT NOT YET ENFORCED. Milestone 25A deliberately applies this to
+   * nothing: no read is filtered and no mutation is branch-checked, so the CRM
+   * behaves exactly as it did in Milestone 24. It is resolved here now so that
+   * Milestone 25B is a pure enforcement change rather than enforcement plus
+   * plumbing.
+   *
+   * Safe to send to the browser for the same reason `capabilities` is: it is a
+   * policy statement the client can only read, and every mutation is re-checked
+   * server-side against a freshly resolved Profile.
+   */
+  branchScope: BranchScope;
 }
 
 interface ProfileRow {
@@ -76,6 +96,7 @@ interface ProfileRow {
   preferred_language: string;
   avatar_url: string | null;
   active: boolean;
+  branch_scope_mode: string;
 }
 
 /**
@@ -112,7 +133,7 @@ export const getCurrentProfile = cache(async (): Promise<Profile | null> => {
 
   const { data, error: profileError } = await supabase
     .from("profiles")
-    .select("id, full_name, email, role, preferred_language, avatar_url, active")
+    .select("id, full_name, email, role, preferred_language, avatar_url, active, branch_scope_mode")
     .eq("auth_user_id", authData.user.id)
     .maybeSingle();
 
@@ -166,6 +187,38 @@ export const getCurrentProfile = cache(async (): Promise<Profile | null> => {
     grantedCapabilities = (grantRows ?? []).map((grant) => (grant as { capability: string }).capability);
   }
 
+  // MILESTONE 25A — branch scope, read through the SAME authenticated
+  // (RLS-scoped) client as the profile and the capability grants.
+  // profile_branch_memberships carries one policy allowing a signed-in user to
+  // read only their OWN rows, mirroring profiles_select_own. Resolving your own
+  // scope must never require privilege escalation.
+  //
+  // FAILS CLOSED TO AN EMPTY SCOPE, NEVER OPEN TO NATIONAL. If this read
+  // errors, the user is treated as reaching no branches at all. Defaulting the
+  // other way would turn a database hiccup into organization-wide access.
+  //
+  // 'national' short-circuits the membership list entirely: it means "every
+  // active branch, including ones created tomorrow", which an enumerated array
+  // could not express without a backfill on every branch creation.
+  const scopeMode = (row.branch_scope_mode as BranchScopeMode) ?? "branch";
+  let branchIds: string[] = [];
+
+  if (scopeMode === "branch") {
+    const { data: membershipRows, error: membershipsError } = await supabase
+      .from("profile_branch_memberships")
+      .select("branch_id")
+      .eq("profile_id", row.id);
+
+    if (membershipsError) {
+      console.error(
+        "[getCurrentProfile] branch membership query failed; falling back to an EMPTY branch scope:",
+        membershipsError.message
+      );
+    } else {
+      branchIds = (membershipRows ?? []).map((m) => (m as { branch_id: string }).branch_id);
+    }
+  }
+
   return {
     id: row.id,
     fullName: row.full_name,
@@ -175,5 +228,6 @@ export const getCurrentProfile = cache(async (): Promise<Profile | null> => {
     avatarUrl: row.avatar_url,
     active: row.active,
     capabilities: resolveEffectiveCapabilities(row.role as UserRole, grantedCapabilities),
+    branchScope: { mode: scopeMode, branchIds },
   };
 });

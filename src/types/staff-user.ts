@@ -1,4 +1,5 @@
 import type { SupportedLanguage, UserRole } from "@/types/user";
+import type { BranchScopeMode } from "@/types/branch";
 
 /**
  * ============================================================================
@@ -48,6 +49,12 @@ export interface StaffUser {
    * in yet, and is deliberately excluded from the Chat directory.
    */
   authLinked: boolean;
+  /**
+   * MILESTONE 25A — how far this person's branch reach extends. Shown in
+   * Usuarios y roles so an administrator can see at a glance who is national
+   * without opening each profile. Changed only by an administrador (B4).
+   */
+  branchScopeMode: BranchScopeMode;
 }
 
 /**

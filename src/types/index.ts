@@ -2,6 +2,7 @@ export * from "./user";
 export * from "./company";
 export * from "./client";
 export * from "./crm-event";
+export * from "./branch";
 export * from "./staff-user";
 export * from "./document-record";
 export * from "./internal-note";

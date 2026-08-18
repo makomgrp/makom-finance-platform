@@ -507,7 +507,8 @@
       "users": "Usuarios y roles",
       "products": "Productos",
       "applicationStatuses": "Estados de solicitudes",
-      "documentTypes": "Tipos de documentos"
+      "documentTypes": "Tipos de documentos",
+      "branches": "Sucursales"
     },
     "profile": {
       "title": "Perfil del usuario",
@@ -715,6 +716,90 @@
     "documentTypes": {
       "title": "Tipos de documentos",
       "description": "Requisitos documentales oficiales solicitados a los clientes."
+    },
+    "branches": {
+      "title": "Sucursales",
+      "create": "Nueva sucursal",
+      "active": "Activa",
+      "inactive": "Inactiva",
+      "headquarters": "Casa matriz",
+      "deactivate": "Desactivar",
+      "reactivate": "Reactivar",
+      "emptyTitle": "No hay sucursales configuradas.",
+      "emptyDescription": "Cuando ODL defina sus sucursales, un administrador podrá crearlas aquí. No se crean sucursales de ejemplo.",
+      "loadErrorTitle": "No se pudieron cargar las sucursales",
+      "loadErrorDescription": "Revise la conexión e intente nuevamente.",
+      "columns": {
+        "code": "Código",
+        "name": "Nombre",
+        "province": "Provincia",
+        "city": "Ciudad",
+        "status": "Estado",
+        "staff": "Personal"
+      },
+      "form": {
+        "titleNew": "Nueva sucursal",
+        "titleEdit": "Editar sucursal",
+        "description": "El código identifica la sucursal en el sistema y no debe cambiar con frecuencia. El nombre es solo para mostrar.",
+        "code": "Código",
+        "codeHint": "2 a 12 caracteres: letras mayúsculas, números o guiones.",
+        "name": "Nombre",
+        "province": "Provincia",
+        "city": "Ciudad",
+        "address": "Dirección",
+        "phone": "Teléfono",
+        "email": "Correo electrónico",
+        "isHeadquarters": "Casa matriz",
+        "isHeadquartersHint": "Solo una sucursal puede ser la casa matriz.",
+        "save": "Guardar",
+        "saving": "Guardando…",
+        "validation": {
+          "code": "El código debe tener entre 2 y 12 caracteres (mayúsculas, números o guiones).",
+          "name": "Ingrese el nombre de la sucursal.",
+          "province": "Ingrese la provincia."
+        }
+      },
+      "toasts": {
+        "created": "Sucursal creada.",
+        "updated": "Sucursal actualizada.",
+        "deactivated": "Se desactivó la sucursal {name}.",
+        "reactivated": "Se reactivó la sucursal {name}.",
+        "duplicateCode": "Ya existe una sucursal con ese código.",
+        "forbidden": "No tiene permiso para realizar esta acción sobre esta sucursal.",
+        "invalidInput": "Revise los datos ingresados.",
+        "error": "No se pudo guardar la sucursal."
+      },
+      "scope": {
+        "trigger": "Sucursales",
+        "title": "Alcance de sucursales",
+        "description": "Sucursales sobre las que {name} podrá trabajar.",
+        "mode": "Alcance",
+        "modeHint": "El alcance nacional cubre todas las sucursales, incluidas las que se creen después. Solo un administrador puede asignarlo.",
+        "modes": {
+          "branch": "Por sucursal",
+          "national": "Nacional"
+        },
+        "assigned": "Sucursales asignadas",
+        "none": "Sin sucursales asignadas.",
+        "nationalNotice": "Esta persona tiene alcance nacional: cubre todas las sucursales, por lo que no se asignan sucursales individuales.",
+        "primary": "Sucursal principal",
+        "makePrimary": "Hacer principal",
+        "remove": "Quitar",
+        "assign": "Asignar",
+        "selectBranch": "Seleccionar sucursal",
+        "allAssigned": "Ya está asignado a todas las sucursales activas.",
+        "noBranchesConfigured": "Todavía no hay sucursales configuradas.",
+        "close": "Cerrar",
+        "toasts": {
+          "assigned": "Sucursal asignada.",
+          "removed": "Sucursal retirada.",
+          "primarySet": "Sucursal principal actualizada.",
+          "setNational": "Se asignó alcance nacional.",
+          "setBranch": "Se asignó alcance por sucursal.",
+          "forbidden": "No tiene permiso para modificar el alcance de sucursales de esta persona.",
+          "error": "No se pudo actualizar el alcance de sucursales."
+        }
+      }
     }
   },
   "chat": {

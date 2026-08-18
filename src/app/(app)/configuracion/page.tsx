@@ -3,13 +3,17 @@ import { PageHeader } from "@/components/shared/page-header";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ProfileSection } from "@/components/settings/profile-section";
 import { UsersSection } from "@/components/settings/users-section";
+import { BranchesSection } from "@/components/settings/branches-section";
 import { CatalogSection } from "@/components/settings/catalog-section";
 import { ProductsSection } from "@/components/settings/products-section";
 import { APPLICATION_STATUS_BADGE_CLASS, APPLICATION_STATUS_ORDER } from "@/lib/config/application";
 import { DOCUMENT_TYPE_ORDER } from "@/lib/config/document";
 import { getProfiles } from "@/lib/services/profiles";
 import { getAllCapabilityGrants } from "@/lib/services/capability-grants";
+import { getBranches } from "@/lib/services/branches";
+import { getAllBranchMemberships } from "@/lib/services/branch-memberships";
 import type { DelegatableCapability } from "@/lib/auth/capabilities";
+import type { BranchMembership } from "@/types";
 import { getAllProducts } from "@/lib/services/products";
 
 /**
@@ -42,9 +46,11 @@ export default async function ConfiguracionPage() {
   // MILESTONE 24 — grants for the whole directory in ONE read, rather than a
   // query per row. The table holds only delegated exceptions (never the base
   // role matrix), so it stays small by nature.
-  const [profilesResult, grantsResult] = await Promise.all([
+  const [profilesResult, grantsResult, branchesResult, membershipsResult] = await Promise.all([
     getProfiles(),
     getAllCapabilityGrants(),
+    getBranches(),
+    getAllBranchMemberships(),
   ]);
 
   // A failed grants read degrades to "no delegated extras shown" rather than
@@ -56,6 +62,19 @@ export default async function ConfiguracionPage() {
       (grantsByProfileId[grant.profileId] ??= []).push(grant.capability);
     }
   }
+  // MILESTONE 25A. Branch memberships for the whole directory in one read.
+  // A failed read degrades to "no branch scope shown" rather than failing the
+  // Settings page — the same fail-closed direction getCurrentProfile() takes.
+  const branches = branchesResult.status === "ok" ? branchesResult.branches : [];
+  const memberships: BranchMembership[] =
+    membershipsResult.status === "ok" ? membershipsResult.memberships : [];
+
+  const staffCountByBranchId: Record<string, number> = {};
+  for (const membership of memberships) {
+    staffCountByBranchId[membership.branchId] =
+      (staffCountByBranchId[membership.branchId] ?? 0) + 1;
+  }
+
   const productsResult = await getAllProducts();
 
   return (
@@ -66,6 +85,7 @@ export default async function ConfiguracionPage() {
         <TabsList className="flex-wrap">
           <TabsTrigger value="perfil">{t("settings.tabs.profile")}</TabsTrigger>
           <TabsTrigger value="usuarios">{t("settings.tabs.users")}</TabsTrigger>
+          <TabsTrigger value="sucursales">{t("settings.tabs.branches")}</TabsTrigger>
           <TabsTrigger value="productos">{t("settings.tabs.products")}</TabsTrigger>
           <TabsTrigger value="estados">{t("settings.tabs.applicationStatuses")}</TabsTrigger>
           <TabsTrigger value="documentos">{t("settings.tabs.documentTypes")}</TabsTrigger>
@@ -78,8 +98,18 @@ export default async function ConfiguracionPage() {
         <TabsContent value="usuarios" className="mt-4">
           <UsersSection
             grantsByProfileId={grantsByProfileId}
+            branches={branches}
+            branchMemberships={memberships}
             users={profilesResult.status === "ok" ? profilesResult.users : []}
             hasError={profilesResult.status === "error"}
+          />
+        </TabsContent>
+
+        <TabsContent value="sucursales" className="mt-4">
+          <BranchesSection
+            branches={branches}
+            staffCountByBranchId={staffCountByBranchId}
+            hasError={branchesResult.status === "error"}
           />
         </TabsContent>
 

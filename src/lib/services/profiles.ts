@@ -1,7 +1,14 @@
 import "server-only";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { getInitials } from "@/lib/format";
-import type { AssignableAdvisor, ChatColleague, StaffUser, SupportedLanguage, UserRole } from "@/types";
+import type {
+  AssignableAdvisor,
+  BranchScopeMode,
+  ChatColleague,
+  StaffUser,
+  SupportedLanguage,
+  UserRole,
+} from "@/types";
 
 /**
  * ============================================================================
@@ -35,9 +42,11 @@ interface StaffProfileRow {
   preferred_language: string;
   active: boolean;
   auth_user_id: string | null;
+  branch_scope_mode: string;
 }
 
-const STAFF_PROFILE_SELECT = "id, full_name, email, role, preferred_language, active, auth_user_id";
+const STAFF_PROFILE_SELECT =
+  "id, full_name, email, role, preferred_language, active, auth_user_id, branch_scope_mode";
 
 function toStaffUser(row: StaffProfileRow): StaffUser {
   return {
@@ -49,6 +58,7 @@ function toStaffUser(row: StaffProfileRow): StaffUser {
     active: row.active,
     preferredLanguage: row.preferred_language as SupportedLanguage,
     authLinked: row.auth_user_id !== null,
+    branchScopeMode: (row.branch_scope_mode as BranchScopeMode) ?? "branch",
   };
 }
 

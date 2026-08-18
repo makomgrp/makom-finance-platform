@@ -507,7 +507,8 @@
       "users": "Users and roles",
       "products": "Products",
       "applicationStatuses": "Application statuses",
-      "documentTypes": "Document types"
+      "documentTypes": "Document types",
+      "branches": "Branches"
     },
     "profile": {
       "title": "User profile",
@@ -715,6 +716,90 @@
     "documentTypes": {
       "title": "Document types",
       "description": "Official document requirements requested from clients."
+    },
+    "branches": {
+      "title": "Branches",
+      "create": "New branch",
+      "active": "Active",
+      "inactive": "Inactive",
+      "headquarters": "Headquarters",
+      "deactivate": "Deactivate",
+      "reactivate": "Reactivate",
+      "emptyTitle": "No branches configured.",
+      "emptyDescription": "Once ODL defines its branches, an administrator can create them here. No example branches are created.",
+      "loadErrorTitle": "Branches could not be loaded",
+      "loadErrorDescription": "Check the connection and try again.",
+      "columns": {
+        "code": "Code",
+        "name": "Name",
+        "province": "Province",
+        "city": "City",
+        "status": "Status",
+        "staff": "Staff"
+      },
+      "form": {
+        "titleNew": "New branch",
+        "titleEdit": "Edit branch",
+        "description": "The code identifies the branch in the system and should rarely change. The name is display only.",
+        "code": "Code",
+        "codeHint": "2 to 12 characters: uppercase letters, numbers or hyphens.",
+        "name": "Name",
+        "province": "Province",
+        "city": "City",
+        "address": "Address",
+        "phone": "Phone",
+        "email": "Email",
+        "isHeadquarters": "Headquarters",
+        "isHeadquartersHint": "Only one branch can be the headquarters.",
+        "save": "Save",
+        "saving": "Saving…",
+        "validation": {
+          "code": "The code must be 2 to 12 characters (uppercase letters, numbers or hyphens).",
+          "name": "Enter the branch name.",
+          "province": "Enter the province."
+        }
+      },
+      "toasts": {
+        "created": "Branch created.",
+        "updated": "Branch updated.",
+        "deactivated": "Branch {name} was deactivated.",
+        "reactivated": "Branch {name} was reactivated.",
+        "duplicateCode": "A branch with that code already exists.",
+        "forbidden": "You do not have permission to perform this action on this branch.",
+        "invalidInput": "Check the values you entered.",
+        "error": "The branch could not be saved."
+      },
+      "scope": {
+        "trigger": "Branches",
+        "title": "Branch scope",
+        "description": "Branches {name} will be able to work on.",
+        "mode": "Scope",
+        "modeHint": "National scope covers every branch, including ones created later. Only an administrator can assign it.",
+        "modes": {
+          "branch": "By branch",
+          "national": "National"
+        },
+        "assigned": "Assigned branches",
+        "none": "No branches assigned.",
+        "nationalNotice": "This person has national scope: it covers every branch, so individual branches are not assigned.",
+        "primary": "Primary branch",
+        "makePrimary": "Make primary",
+        "remove": "Remove",
+        "assign": "Assign",
+        "selectBranch": "Select branch",
+        "allAssigned": "Already assigned to every active branch.",
+        "noBranchesConfigured": "No branches are configured yet.",
+        "close": "Close",
+        "toasts": {
+          "assigned": "Branch assigned.",
+          "removed": "Branch removed.",
+          "primarySet": "Primary branch updated.",
+          "setNational": "National scope assigned.",
+          "setBranch": "Branch scope assigned.",
+          "forbidden": "You do not have permission to change this person’s branch scope.",
+          "error": "The branch scope could not be updated."
+        }
+      }
     }
   },
   "chat": {

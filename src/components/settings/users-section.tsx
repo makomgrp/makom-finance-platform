@@ -4,7 +4,15 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
-import { AlertTriangle, MailWarning, Power, RotateCcw, Send, SlidersHorizontal } from "lucide-react";
+import {
+  AlertTriangle,
+  Building2,
+  MailWarning,
+  Power,
+  RotateCcw,
+  Send,
+  SlidersHorizontal,
+} from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -26,6 +34,7 @@ import { StatusBadge } from "@/components/shared/status-badge";
 import { EmptyState } from "@/components/shared/empty-state";
 import { InviteUserDialog } from "@/components/settings/invite-user-dialog";
 import { UserPermissionsDialog } from "@/components/settings/user-permissions-dialog";
+import { UserBranchesDialog } from "@/components/settings/user-branches-dialog";
 import {
   resendStaffInvitation,
   setStaffUserActive,
@@ -37,7 +46,7 @@ import { useCurrentProfile } from "@/lib/auth/current-profile-context";
 import { LANGUAGE_CONFIG } from "@/lib/config/language";
 import { USER_ROLE_VALUES } from "@/lib/config/user-role";
 import type { DelegatableCapability } from "@/lib/auth/capabilities";
-import type { StaffUser, UserRole } from "@/types";
+import type { Branch, BranchMembership, StaffUser, UserRole } from "@/types";
 
 /**
  * Settings > Users (Milestone 21) — real staff administration.
@@ -76,12 +85,25 @@ interface UsersSectionProps {
   /** Milestone 24 — delegated capabilities per profile id, resolved
    * server-side. A profile with no entry simply has no delegated extras. */
   grantsByProfileId: Record<string, DelegatableCapability[]>;
+  /** Milestone 25A — every branch, for the scope dialog's option list. Empty
+   * until ODL's real branches are configured; the dialog says so rather than
+   * offering invented options. */
+  branches: Branch[];
+  /** Milestone 25A — every staff branch membership, resolved server-side in one
+   * read rather than a query per row. */
+  branchMemberships: BranchMembership[];
   /** True when the Supabase read failed — shows an explicit error state
    * instead of silently falling back to any other data source. */
   hasError: boolean;
 }
 
-export function UsersSection({ users, grantsByProfileId, hasError }: UsersSectionProps) {
+export function UsersSection({
+  users,
+  grantsByProfileId,
+  branches,
+  branchMemberships,
+  hasError,
+}: UsersSectionProps) {
   const t = useTranslations();
   const router = useRouter();
   // MILESTONE 24 — one gate per operation, replacing the single `user:manage`.
@@ -92,12 +114,19 @@ export function UsersSection({ users, grantsByProfileId, hasError }: UsersSectio
   const canSetUserActive = useCapability("user:set_active");
   // Administrador only — never delegatable, in TypeScript or in the database.
   const canManagePermissions = useCapability("user:manage_permissions");
+  // Milestone 25A — branch scope is a THIRD axis, not a capability. The
+  // dialog behind this gate edits memberships (branch:manage) and, separately,
+  // scope mode (user:manage_permissions) — delegating the former must never
+  // hand out the latter.
+  const canManageBranches = useCapability("branch:manage");
   /** Whether ANY row-level control is available to this viewer. Drives the
    * actions column header, which should not appear as an empty column. */
-  const canUseAnyRowAction = canInviteUsers || canSetUserActive || canManagePermissions;
+  const canUseAnyRowAction =
+    canInviteUsers || canSetUserActive || canManagePermissions || canManageBranches;
   const currentProfile = useCurrentProfile();
   const [busyProfileId, setBusyProfileId] = useState<string | null>(null);
   const [permissionsUser, setPermissionsUser] = useState<StaffUser | null>(null);
+  const [branchesUser, setBranchesUser] = useState<StaffUser | null>(null);
 
   const handleRoleChange = async (user: StaffUser, role: UserRole) => {
     if (role === user.role) return;
@@ -261,6 +290,15 @@ export function UsersSection({ users, grantsByProfileId, hasError }: UsersSectio
                               className="bg-warning/10 text-warning border-warning/20"
                             />
                           )}
+                          {/* Milestone 25A — national reach is the widest scope
+                              anyone can hold, so it is visible at a glance
+                              rather than hidden one dialog deep. */}
+                          {user.branchScopeMode === "national" && (
+                            <StatusBadge
+                              label={t("settings.branches.scope.modes.national")}
+                              className="border-primary/20 bg-primary/10 text-primary"
+                            />
+                          )}
                         </div>
                       </TableCell>
                       {canUseAnyRowAction && (
@@ -314,6 +352,20 @@ export function UsersSection({ users, grantsByProfileId, hasError }: UsersSectio
                                 {t("settings.users.permissions.trigger")}
                               </Button>
                             )}
+                            {/* Milestone 25A — B3: never offered on one's own
+                                row, because the database refuses every
+                                self-modification of branch scope. */}
+                            {(canManageBranches || canManagePermissions) && !isSelf && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                disabled={isBusy}
+                                onClick={() => setBranchesUser(user)}
+                              >
+                                <Building2 className="size-3.5" />
+                                {t("settings.branches.scope.trigger")}
+                              </Button>
+                            )}
                               </Button>
                             )}
                           </div>
@@ -324,6 +376,19 @@ export function UsersSection({ users, grantsByProfileId, hasError }: UsersSectio
                 })}
               </TableBody>
             </Table>
+
+            {branchesUser && (
+              <UserBranchesDialog
+                key={branchesUser.id}
+                user={branchesUser}
+                scopeMode={branchesUser.branchScopeMode}
+                memberships={branchMemberships}
+                branches={branches}
+                open={branchesUser !== null}
+                onOpenChange={(value) => !value && setBranchesUser(null)}
+                onChanged={() => router.refresh()}
+              />
+            )}
 
             {permissionsUser && (
               <UserPermissionsDialog
