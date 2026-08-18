@@ -17,6 +17,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { LocaleSwitcher } from "@/components/shared/locale-switcher";
 import { useCurrentProfile } from "@/lib/auth/current-profile-context";
+import { BranchContextSelector } from "@/components/layout/branch-context-selector";
+import type { BranchContextOption } from "@/types";
 import { signOutAction } from "@/lib/auth/actions";
 import { getSectionTitleKey } from "./nav-config";
 import { MobileNav } from "./mobile-nav";
@@ -50,9 +52,14 @@ interface TopbarProps {
    * badge is simply not rendered in that case, the same as a genuine
    * zero, rather than asserting a count we don't actually know. */
   activeAlertsCount: number | null;
+  /** MILESTONE 25C-1 — selector options resolved server-side from the caller's
+   * AUTHORIZED scope. Empty renders no selector at all. */
+  branchOptions: BranchContextOption[];
+  /** Wording only — "all branches" vs "all my branches". Never filtering. */
+  branchScopeIsNational: boolean;
 }
 
-export function Topbar({ activeAlertsCount }: TopbarProps) {
+export function Topbar({ activeAlertsCount, branchOptions, branchScopeIsNational }: TopbarProps) {
   const pathname = usePathname();
   const router = useRouter();
   // Milestone 5A: real authenticated identity, resolved once server-side
@@ -84,9 +91,17 @@ export function Topbar({ activeAlertsCount }: TopbarProps) {
     <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b border-border bg-background px-4 md:px-6">
       <MobileNav />
 
-      <h1 className="text-base font-semibold text-foreground md:text-lg">
+      {/* MILESTONE 25C-1 — the title truncates before the branch context does.
+          On a narrow screen "which office am I looking at?" matters more than a
+          heading the user just tapped to get here. */}
+      <h1 className="truncate text-base font-semibold text-foreground md:text-lg">
         {t(getSectionTitleKey(pathname))}
       </h1>
+
+      {/* CONTENT CONTEXT, not an account control — which is why it sits beside
+          the title rather than in the right-hand cluster with locale, alerts
+          and the user menu. Renders nothing for an employee with no branch. */}
+      <BranchContextSelector options={branchOptions} isNational={branchScopeIsNational} />
 
       <div className="ml-auto flex items-center gap-2 md:gap-3">
         <LocaleSwitcher />

@@ -1,5 +1,6 @@
 import { getTranslations } from "next-intl/server";
 import { EMPTY_BRANCH_SCOPE } from "@/lib/services/branch-scope-query";
+import { resolveBranchViewScope } from "@/lib/services/branch-view-context";
 import { getCurrentProfile } from "@/lib/auth/get-current-profile";
 import { PageHeader } from "@/components/shared/page-header";
 import { ClientsTable } from "@/components/clients/clients-table";
@@ -7,7 +8,7 @@ import { getApplications } from "@/lib/services/applications";
 import { getClients } from "@/lib/services/clients";
 import { getApplicationCreatableProducts } from "@/lib/services/products";
 
-export default async function ClientsPage() {
+export default async function ClientsPage({ searchParams }: { searchParams: Promise<{ sucursal?: string }> }) {
   const t = await getTranslations("clients");
 
   // Milestone 14C: the client list itself now comes from the real Client
@@ -22,7 +23,18 @@ export default async function ClientsPage() {
   // scoped read. Services never resolve scope themselves, and the client never
   // supplies it. The (app) layout has already guaranteed an active profile.
   const profile = await getCurrentProfile();
-  const scope = profile?.branchScope ?? EMPTY_BRANCH_SCOPE;
+  // MILESTONE 25C-1 — VIEW CONTEXT. `scope` below is no longer the caller's
+  // authorized scope directly: it is the INTERSECTION of that scope with the
+  // branch they are currently viewing. resolveBranchViewScope() can only ever
+  // narrow — an unreachable, inactive, unknown or stale `?sucursal=` silently
+  // falls back to their authorized default, with no error and no signal about
+  // whether that branch exists. Everything downstream keeps receiving one
+  // server-resolved BranchScope and is unchanged.
+  const { sucursal } = await searchParams;
+  const { viewScope: scope } = await resolveBranchViewScope(
+    profile?.branchScope ?? EMPTY_BRANCH_SCOPE,
+    sucursal
+  );
   const [clientsResult, applicationsResult, productsResult] = await Promise.all([
     getClients(scope),
     getApplications(scope),

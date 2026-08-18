@@ -96,9 +96,65 @@ export interface BranchMembership {
  *
  * MILESTONE 25A RESOLVES THIS BUT ENFORCES NOTHING WITH IT. It exists now so
  * that 25B is a pure enforcement change rather than enforcement plus plumbing.
+ *
+ * ============================================================================
+ * MILESTONE 25C-1 — WHY `mode` IS WIDER THAN `BranchScopeMode`
+ * ============================================================================
+ *
+ * There are now TWO kinds of scope flowing through this system, and the
+ * difference is the whole security model:
+ *
+ *   AUTHORIZED SCOPE — what this person may reach. Produced ONLY by
+ *     getCurrentProfile(), only ever 'national' or 'branch', because those are
+ *     the only two values `profiles.branch_scope_mode` can hold and the only
+ *     two an administrador role can resolve to.
+ *
+ *   VIEW SCOPE — what they are currently LOOKING at. Always a subset of their
+ *     authorized scope, produced ONLY by resolveBranchViewScope(), and able to
+ *     take one extra value: 'unassigned'.
+ *
+ * Both are carried by this one interface so that all ~25 scoped service
+ * functions keep a single parameter type — widening the type here rather than
+ * forking it avoids a signature change across the entire read layer, which
+ * would have been a far larger and more dangerous diff than the property it
+ * buys.
+ *
+ * 'unassigned' IS NOT AN AUTHORIZATION. It cannot be stored, cannot be granted,
+ * and cannot be reached by a branch-scoped user: `BranchScopeMode` (the DB
+ * column's type) deliberately does NOT include it, so getCurrentProfile() is
+ * structurally incapable of producing it, and resolveBranchViewScope() only
+ * returns it when the AUTHORIZED scope is already national. It is a filter that
+ * narrows national reach down to the records nobody owns yet.
  */
 export interface BranchScope {
-  mode: BranchScopeMode;
-  /** Empty when mode is 'national'. */
+  mode: BranchViewMode;
+  /** Empty when mode is 'national' or 'unassigned'. */
   branchIds: string[];
+}
+
+/**
+ * MILESTONE 25C-1 — the modes a VIEW may take.
+ *
+ * `BranchScopeMode` (above) stays exactly as it was: the two values
+ * `profiles.branch_scope_mode` accepts, and therefore the only two an
+ * AUTHORIZED scope can ever hold. This adds the third value only a VIEW can
+ * have. Keeping them as two named types is what makes "unassigned is not
+ * grantable" a fact the compiler helps enforce rather than a comment.
+ */
+export type BranchViewMode = BranchScopeMode | "unassigned";
+
+/**
+ * One entry in the topbar branch selector.
+ *
+ * `code` — never the UUID — is what reaches the URL. It is already unique and
+ * constrained to `^[A-Z0-9-]{2,12}$`, so it is short, legible in a shared link,
+ * and meaningless as a credential: it is resolved back to a branch server-side,
+ * against the caller's own authorized scope, on every request.
+ */
+export interface BranchContextOption {
+  /** `branches.code`, or one of the reserved UI tokens. */
+  value: string;
+  /** Display label. For real branches this is `branches.name`. */
+  label: string;
+  kind: "all" | "unassigned" | "branch";
 }

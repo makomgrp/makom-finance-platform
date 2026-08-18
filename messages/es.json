@@ -106,7 +106,8 @@
       "approvedApplications": "Solicitudes aprobadas",
       "notEligibleApplications": "Solicitudes que no aplican"
     },
-    "statusDistribution": "Solicitudes por estado"
+    "statusDistribution": "Solicitudes por estado",
+    "contextTitle": "Panel — {branch}"
   },
   "clients": {
     "title": "Clientes",
@@ -999,5 +1000,14 @@
     "error": "No se pudo transferir",
     "errorDestination": "La sucursal destino no está disponible",
     "errorNotFound": "No se encontró el registro"
+  },
+  "branchContext": {
+    "allBranches": "Todas las sucursales",
+    "allMyBranches": "Todas mis sucursales",
+    "unassigned": "Sin asignar",
+    "branch": "Sucursal",
+    "label": "Sucursal: {branch}",
+    "srSelect": "Cambiar sucursal",
+    "noBranchAssigned": "No tienes una sucursal asignada. Comunícate con tu administrador."
   }
 }

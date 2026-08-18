@@ -106,7 +106,8 @@
       "approvedApplications": "Approved applications",
       "notEligibleApplications": "Not eligible applications"
     },
-    "statusDistribution": "Applications by status"
+    "statusDistribution": "Applications by status",
+    "contextTitle": "Dashboard — {branch}"
   },
   "clients": {
     "title": "Clients",
@@ -999,5 +1000,14 @@
     "error": "Could not transfer",
     "errorDestination": "The destination branch is not available",
     "errorNotFound": "Record not found"
+  },
+  "branchContext": {
+    "allBranches": "All branches",
+    "allMyBranches": "All my branches",
+    "unassigned": "Unassigned",
+    "branch": "Branch",
+    "label": "Branch: {branch}",
+    "srSelect": "Change branch",
+    "noBranchAssigned": "You don't have a branch assigned. Contact your administrator."
   }
 }

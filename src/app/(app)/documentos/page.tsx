@@ -1,18 +1,30 @@
 import { getTranslations } from "next-intl/server";
 import { EMPTY_BRANCH_SCOPE } from "@/lib/services/branch-scope-query";
+import { resolveBranchViewScope } from "@/lib/services/branch-view-context";
 import { getCurrentProfile } from "@/lib/auth/get-current-profile";
 import { PageHeader } from "@/components/shared/page-header";
 import { DocumentsTable } from "@/components/documents/documents-table";
 import { getDocumentEvidenceWorkspace } from "@/lib/services/document-workspace";
 
-export default async function DocumentosPage() {
+export default async function DocumentosPage({ searchParams }: { searchParams: Promise<{ sucursal?: string }> }) {
   const t = await getTranslations("documentsModule");
   // Milestone 14E: each row's client display (and Dossier link) is now
   // resolved server-side via document-workspace.ts's own embedded join —
   // no separate getClients() fetch needed here anymore.
   // MILESTONE 25B-1 — scope resolved server-side, passed explicitly.
   const profile = await getCurrentProfile();
-  const scope = profile?.branchScope ?? EMPTY_BRANCH_SCOPE;
+  // MILESTONE 25C-1 — VIEW CONTEXT. `scope` below is no longer the caller's
+  // authorized scope directly: it is the INTERSECTION of that scope with the
+  // branch they are currently viewing. resolveBranchViewScope() can only ever
+  // narrow — an unreachable, inactive, unknown or stale `?sucursal=` silently
+  // falls back to their authorized default, with no error and no signal about
+  // whether that branch exists. Everything downstream keeps receiving one
+  // server-resolved BranchScope and is unchanged.
+  const { sucursal } = await searchParams;
+  const { viewScope: scope } = await resolveBranchViewScope(
+    profile?.branchScope ?? EMPTY_BRANCH_SCOPE,
+    sucursal
+  );
   const result = await getDocumentEvidenceWorkspace(scope);
 
   return (

@@ -3,6 +3,8 @@ import { redirect } from "next/navigation";
 import { AppShell } from "@/components/layout/app-shell";
 import { getCurrentProfile } from "@/lib/auth/get-current-profile";
 import { getActiveAlertsCount } from "@/lib/services/alerts";
+import { getBranchContextOptions } from "@/lib/services/branch-view-context";
+import { isNationalScope } from "@/lib/services/branch-scope-query";
 import { CurrentProfileProvider } from "@/lib/auth/current-profile-context";
 
 /**
@@ -66,9 +68,27 @@ export default async function AuthenticatedLayout({ children }: { children: Reac
   // non-null here (the redirect above guarantees it).
   const activeAlertsCount = await getActiveAlertsCount(profile.branchScope);
 
+  // MILESTONE 25C-1 — the branch selector's options, resolved HERE for the same
+  // reason the alert count is: the topbar lives in this layout, and Next.js
+  // layouts do not receive searchParams. Options depend only on the caller's
+  // AUTHORIZED scope, never on the requested context, so resolving them here is
+  // both correct and stable across navigation. The selector reads the currently
+  // selected value from the URL itself, client-side, purely for display — the
+  // authoritative resolution happens per page, on the server.
+  //
+  // A branch outside this person's reach is never in this list, so its NAME
+  // never reaches the browser.
+  const branchOptions = await getBranchContextOptions(profile.branchScope);
+
   return (
     <CurrentProfileProvider profile={profile}>
-      <AppShell activeAlertsCount={activeAlertsCount}>{children}</AppShell>
+      <AppShell
+        activeAlertsCount={activeAlertsCount}
+        branchOptions={branchOptions}
+        branchScopeIsNational={isNationalScope(profile.branchScope)}
+      >
+        {children}
+      </AppShell>
     </CurrentProfileProvider>
   );
 }

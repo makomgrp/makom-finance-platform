@@ -74,6 +74,17 @@ export function isNationalScope(scope: BranchScope): boolean {
 }
 
 /**
+ * MILESTONE 25C-1 — true when this is the UNASSIGNED view.
+ *
+ * Only ever true for a VIEW scope produced by resolveBranchViewScope() from a
+ * national authorized scope. An authorized scope can never be in this mode, so
+ * callers that hold `auth.profile.branchScope` will always get false.
+ */
+export function isUnassignedScope(scope: BranchScope): boolean {
+  return scope.mode === "unassigned";
+}
+
+/**
  * Applies branch scope to a PostgREST query builder.
  *
  * `column` allows scoping through an embedded relation — e.g.
@@ -97,7 +108,17 @@ export function applyBranchScope<T>(query: T, scope: BranchScope, column = "bran
   const builder = query as unknown as {
     in: (column: string, values: readonly string[]) => T;
     eq: (column: string, value: string) => T;
+    is: (column: string, value: null) => T;
   };
+
+  // MILESTONE 25C-1 — the UNASSIGNED view: records that have entered ODL but
+  // have not been routed to a branch yet. This is the ONLY predicate in the
+  // system that deliberately selects NULL ownership, and it is reachable only
+  // through resolveBranchViewScope() from an already-national authorized scope
+  // (see the BranchScope doc comment). It is a filter, never a grant.
+  if (scope.mode === "unassigned") {
+    return builder.is(column, null);
+  }
 
   if (scope.branchIds.length === 0) {
     // Provably false. NEVER `.in(column, [])` — see the header.
