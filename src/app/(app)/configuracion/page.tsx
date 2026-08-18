@@ -8,6 +8,8 @@ import { ProductsSection } from "@/components/settings/products-section";
 import { APPLICATION_STATUS_BADGE_CLASS, APPLICATION_STATUS_ORDER } from "@/lib/config/application";
 import { DOCUMENT_TYPE_ORDER } from "@/lib/config/document";
 import { getProfiles } from "@/lib/services/profiles";
+import { getAllCapabilityGrants } from "@/lib/services/capability-grants";
+import type { DelegatableCapability } from "@/lib/auth/capabilities";
 import { getAllProducts } from "@/lib/services/products";
 
 /**
@@ -37,7 +39,23 @@ import { getAllProducts } from "@/lib/services/products";
 
 export default async function ConfiguracionPage() {
   const t = await getTranslations();
-  const profilesResult = await getProfiles();
+  // MILESTONE 24 — grants for the whole directory in ONE read, rather than a
+  // query per row. The table holds only delegated exceptions (never the base
+  // role matrix), so it stays small by nature.
+  const [profilesResult, grantsResult] = await Promise.all([
+    getProfiles(),
+    getAllCapabilityGrants(),
+  ]);
+
+  // A failed grants read degrades to "no delegated extras shown" rather than
+  // failing the whole Settings page — the same fail-closed direction
+  // getCurrentProfile() takes when resolving a user's own capabilities.
+  const grantsByProfileId: Record<string, DelegatableCapability[]> = {};
+  if (grantsResult.status === "ok") {
+    for (const grant of grantsResult.grants) {
+      (grantsByProfileId[grant.profileId] ??= []).push(grant.capability);
+    }
+  }
   const productsResult = await getAllProducts();
 
   return (
@@ -59,6 +77,7 @@ export default async function ConfiguracionPage() {
 
         <TabsContent value="usuarios" className="mt-4">
           <UsersSection
+            grantsByProfileId={grantsByProfileId}
             users={profilesResult.status === "ok" ? profilesResult.users : []}
             hasError={profilesResult.status === "error"}
           />

@@ -568,7 +568,38 @@
         "activeError": "No se pudo cambiar el estado. Intente nuevamente.",
         "cannotDeactivateSelf": "No puede desactivar su propio perfil.",
         "resent": "Invitación reenviada a {email}.",
-        "resendError": "No se pudo reenviar la invitación. Intente nuevamente."
+        "resendError": "No se pudo reenviar la invitación. Intente nuevamente.",
+        "lastAdministrator": "No se puede desactivar ni cambiar el rol del último administrador activo. El sistema siempre debe tener al menos un administrador."
+      },
+      "permissions": {
+        "trigger": "Permisos",
+        "title": "Permisos adicionales",
+        "description": "Permisos que {name} tendrá además de los de su rol base.",
+        "baseRole": "Rol base",
+        "additional": "Permisos adicionales",
+        "close": "Cerrar",
+        "notApplicableAdmin": "Un administrador ya posee todos los permisos del sistema. No es necesario asignarle permisos adicionales.",
+        "roleChangeWarning": "Si cambia el rol base de esta persona, se le retirarán automáticamente todos sus permisos adicionales.",
+        "capabilities": {
+          "user:invite": {
+            "label": "Invitar usuarios",
+            "description": "Puede invitar nuevos empleados y reenviar invitaciones pendientes."
+          },
+          "user:set_active": {
+            "label": "Activar y desactivar usuarios",
+            "description": "Puede dar de alta y de baja a empleados. No puede modificar a un administrador."
+          },
+          "user:set_role": {
+            "label": "Cambiar el rol de un usuario",
+            "description": "Puede cambiar el rol base de otros empleados. No puede asignar el rol de administrador ni modificar a un administrador."
+          }
+        },
+        "toasts": {
+          "granted": "Se otorgó el permiso «{permission}».",
+          "revoked": "Se retiró el permiso «{permission}».",
+          "error": "No se pudo cambiar el permiso.",
+          "forbidden": "Solo un administrador puede gestionar permisos adicionales."
+        }
       }
     },
     "products": {

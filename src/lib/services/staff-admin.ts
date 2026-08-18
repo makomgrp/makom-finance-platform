@@ -18,11 +18,27 @@ import type { SupportedLanguage, UserRole } from "@/types";
  * A direct `supabase.from("profiles").update(...)` would fail at the
  * database, by design. If you are here to add one, the answer is another RPC.
  *
- * DEFENCE IN DEPTH: each RPC independently verifies that the actor is an
- * active administrador. The canonical authorization is still
- * requireCapability("user:manage") in the Server Action — but these
- * functions can grant the administrador role, so a single mistake in the
- * action layer must not become a privilege-escalation hole.
+ * DEFENCE IN DEPTH, RESHAPED BY MILESTONE 24. These RPCs used to require the
+ * actor to be an active administrador. That blanket rule made delegation
+ * impossible — it rejected a gerente holding `user:invite` before the request
+ * reached any business logic — so Milestone 24 replaced it with the split the
+ * rest of this codebase already uses:
+ *
+ *   requireCapability(...)  -> CALLER AUTHORIZATION, in the Server Action.
+ *                              "May this person perform this operation?"
+ *   the RPCs                -> TARGET / DOMAIN INVARIANTS (A1-A8).
+ *                              "Is this specific target change legitimate?"
+ *
+ * The RPCs now verify only that the actor is an ACTIVE PROFILE, and then
+ * enforce the escalation rules that matter: nobody may modify an administrador
+ * unless they are one, nobody may create or promote an administrador unless
+ * they are one, and nobody may change their own role or active status. Those
+ * are expressible with roles and identity alone, so no capability knowledge
+ * leaks into PostgreSQL and ROLE_CAPABILITIES stays defined exactly once.
+ *
+ * Permission grants are the exception and deliberately stricter:
+ * grant_staff_capability / revoke_staff_capability still hard-code
+ * `actor.role = 'administrador'`. See src/lib/services/capability-grants.ts.
  *
  * AUTH IS SEPARATE. Creating the Supabase Auth account is NOT done here —
  * see src/lib/services/auth-admin.ts. The two systems cannot share a
@@ -140,7 +156,17 @@ export async function linkStaffProfileAuth(
 
 export type UpdateStaffRoleResult =
   | { status: "ok" }
-  | { status: "error"; code: "PROFILE_NOT_FOUND" | "FORBIDDEN" | "INVALID_INPUT" | "UPDATE_FAILED" };
+  | {
+      status: "error";
+      code:
+        | "PROFILE_NOT_FOUND"
+        | "FORBIDDEN"
+        | "INVALID_INPUT"
+        /** Milestone 24A — the target is the last ACTIVE administrador, so
+         * demoting them would leave the platform with none. */
+        | "LAST_ADMINISTRATOR"
+        | "UPDATE_FAILED";
+    };
 
 /** Changes a staff member's role. A same-role write succeeds and records no
  * event. Writes `user_role_changed` with the true previous value, read under
@@ -159,6 +185,10 @@ export async function updateStaffRole(
   if (outcome.errorCode) {
     if (outcome.errorCode === "42501") return { status: "error", code: "FORBIDDEN" };
     if (outcome.errorCode === "22023") return { status: "error", code: "INVALID_INPUT" };
+    // 55000 = object_not_in_prerequisite_state. Deliberately distinct from
+    // FORBIDDEN: the caller IS allowed to change roles and the arguments ARE
+    // valid — the system simply cannot be left without an administrador.
+    if (outcome.errorCode === "55000") return { status: "error", code: "LAST_ADMINISTRATOR" };
     return { status: "error", code: "UPDATE_FAILED" };
   }
   if (!outcome.profileId) return { status: "error", code: "PROFILE_NOT_FOUND" };
@@ -170,7 +200,14 @@ export type SetStaffActiveStatusResult =
   | { status: "ok" }
   | {
       status: "error";
-      code: "PROFILE_NOT_FOUND" | "FORBIDDEN" | "CANNOT_DEACTIVATE_SELF" | "UPDATE_FAILED";
+      code:
+        | "PROFILE_NOT_FOUND"
+        | "FORBIDDEN"
+        | "CANNOT_DEACTIVATE_SELF"
+        /** Milestone 24A — deactivating this profile would leave zero active
+         * administradores, a state nothing in the product could recover from. */
+        | "LAST_ADMINISTRATOR"
+        | "UPDATE_FAILED";
     };
 
 /**
@@ -183,8 +220,10 @@ export type SetStaffActiveStatusResult =
  * /login and every guarded Server Action refuses. The row and all its audit
  * attribution are retained permanently.
  *
- * The RPC refuses self-deactivation, which would otherwise let the last
- * administrator lock themselves out with no in-product way back.
+ * The RPC refuses self-deactivation, which would otherwise let an
+ * administrator lock themselves out with no in-product way back — and, as of
+ * Milestone 24A, refuses ANY deactivation that would leave zero active
+ * administradores, including one administrador deactivating another.
  */
 export async function setStaffActiveStatus(
   profileId: string,
@@ -200,6 +239,10 @@ export async function setStaffActiveStatus(
   if (outcome.errorCode) {
     if (outcome.errorCode === "42501") return { status: "error", code: "FORBIDDEN" };
     if (outcome.errorCode === "22023") return { status: "error", code: "CANNOT_DEACTIVATE_SELF" };
+    // 55000 = object_not_in_prerequisite_state (Milestone 24A). The caller is a
+    // legitimate administrador and the arguments are valid — the platform just
+    // cannot be left with zero active administradores.
+    if (outcome.errorCode === "55000") return { status: "error", code: "LAST_ADMINISTRATOR" };
     return { status: "error", code: "UPDATE_FAILED" };
   }
   if (!outcome.profileId) return { status: "error", code: "PROFILE_NOT_FOUND" };

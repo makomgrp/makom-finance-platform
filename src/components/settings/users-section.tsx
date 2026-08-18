@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
-import { AlertTriangle, MailWarning, Power, RotateCcw, Send } from "lucide-react";
+import { AlertTriangle, MailWarning, Power, RotateCcw, Send, SlidersHorizontal } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -25,15 +25,18 @@ import {
 import { StatusBadge } from "@/components/shared/status-badge";
 import { EmptyState } from "@/components/shared/empty-state";
 import { InviteUserDialog } from "@/components/settings/invite-user-dialog";
+import { UserPermissionsDialog } from "@/components/settings/user-permissions-dialog";
 import {
   resendStaffInvitation,
   setStaffUserActive,
   setStaffUserRole,
 } from "@/app/(app)/configuracion/actions";
 import { useCapability } from "@/lib/auth/use-capability";
+import { canActOnStaffTarget } from "@/lib/auth/capabilities";
 import { useCurrentProfile } from "@/lib/auth/current-profile-context";
 import { LANGUAGE_CONFIG } from "@/lib/config/language";
 import { USER_ROLE_VALUES } from "@/lib/config/user-role";
+import type { DelegatableCapability } from "@/lib/auth/capabilities";
 import type { StaffUser, UserRole } from "@/types";
 
 /**
@@ -45,9 +48,18 @@ import type { StaffUser, UserRole } from "@/types";
  * every user invited from here, since new profiles never get a legacy_id.
  * `StaffUser.id` is now `profiles.id` and no row is filtered.
  *
- * THREE ADMINISTRATIVE ACTIONS, all gated on `user:manage` (administrador
- * only) and all enforced server-side by their Server Action's
- * requireCapability(): invite, change role, deactivate/reactivate.
+ * FOUR ADMINISTRATIVE ACTIONS AS OF MILESTONE 24, each gated on its OWN
+ * capability rather than a single `user:manage`: invite/resend
+ * (`user:invite`), change role (`user:set_role`), deactivate/reactivate
+ * (`user:set_active`), and manage additional permissions
+ * (`user:manage_permissions`). All four are enforced server-side by their
+ * Server Action's requireCapability().
+ *
+ * The first three are DELEGATABLE — an administrador may grant them to an
+ * individual, so a gerente can run staff operations without becoming an
+ * administrador. The fourth never is: it is the privilege boundary, held by
+ * administrador alone and refused by a database CHECK constraint if anyone
+ * tries to delegate it.
  *
  * THERE IS NO DELETE, deliberately. Milestone 21's approved policy is
  * deactivate-only: `active = false` already blocks CRM access completely
@@ -61,17 +73,31 @@ import type { StaffUser, UserRole } from "@/types";
 
 interface UsersSectionProps {
   users: StaffUser[];
+  /** Milestone 24 — delegated capabilities per profile id, resolved
+   * server-side. A profile with no entry simply has no delegated extras. */
+  grantsByProfileId: Record<string, DelegatableCapability[]>;
   /** True when the Supabase read failed — shows an explicit error state
    * instead of silently falling back to any other data source. */
   hasError: boolean;
 }
 
-export function UsersSection({ users, hasError }: UsersSectionProps) {
+export function UsersSection({ users, grantsByProfileId, hasError }: UsersSectionProps) {
   const t = useTranslations();
   const router = useRouter();
-  const canManageUsers = useCapability("user:manage");
+  // MILESTONE 24 — one gate per operation, replacing the single `user:manage`.
+  // Each is independently delegatable to an individual, so a gerente holding
+  // only `user:invite` sees the invite and resend controls and nothing else.
+  const canInviteUsers = useCapability("user:invite");
+  const canSetUserRole = useCapability("user:set_role");
+  const canSetUserActive = useCapability("user:set_active");
+  // Administrador only — never delegatable, in TypeScript or in the database.
+  const canManagePermissions = useCapability("user:manage_permissions");
+  /** Whether ANY row-level control is available to this viewer. Drives the
+   * actions column header, which should not appear as an empty column. */
+  const canUseAnyRowAction = canInviteUsers || canSetUserActive || canManagePermissions;
   const currentProfile = useCurrentProfile();
   const [busyProfileId, setBusyProfileId] = useState<string | null>(null);
+  const [permissionsUser, setPermissionsUser] = useState<StaffUser | null>(null);
 
   const handleRoleChange = async (user: StaffUser, role: UserRole) => {
     if (role === user.role) return;
@@ -80,7 +106,13 @@ export function UsersSection({ users, hasError }: UsersSectionProps) {
     setBusyProfileId(null);
 
     if (result.status !== "success") {
-      toast.error(t("settings.users.toasts.roleError"));
+      toast.error(
+        t(
+          result.code === "LAST_ADMINISTRATOR"
+            ? "settings.users.toasts.lastAdministrator"
+            : "settings.users.toasts.roleError"
+        )
+      );
       return;
     }
     toast.success(
@@ -99,7 +131,9 @@ export function UsersSection({ users, hasError }: UsersSectionProps) {
         t(
           result.code === "CANNOT_DEACTIVATE_SELF"
             ? "settings.users.toasts.cannotDeactivateSelf"
-            : "settings.users.toasts.activeError"
+            : result.code === "LAST_ADMINISTRATOR"
+              ? "settings.users.toasts.lastAdministrator"
+              : "settings.users.toasts.activeError"
         )
       );
       return;
@@ -129,7 +163,7 @@ export function UsersSection({ users, hasError }: UsersSectionProps) {
     <Card>
       <CardHeader className="flex-row items-center justify-between space-y-0">
         <CardTitle>{t("settings.users.title")}</CardTitle>
-        {canManageUsers && <InviteUserDialog onInvited={() => router.refresh()} />}
+        {canInviteUsers && <InviteUserDialog onInvited={() => router.refresh()} />}
       </CardHeader>
       <CardContent>
         {hasError ? (
@@ -148,7 +182,7 @@ export function UsersSection({ users, hasError }: UsersSectionProps) {
                   <TableHead>{t("settings.users.columns.role")}</TableHead>
                   <TableHead>{t("settings.users.columns.language")}</TableHead>
                   <TableHead>{t("settings.users.columns.status")}</TableHead>
-                  {canManageUsers && (
+                  {canUseAnyRowAction && (
                     <TableHead className="text-right">{t("common.actions")}</TableHead>
                   )}
                 </TableRow>
@@ -157,13 +191,22 @@ export function UsersSection({ users, hasError }: UsersSectionProps) {
                 {users.map((user) => {
                   const isBusy = busyProfileId === user.id;
                   const isSelf = user.id === currentProfile.id;
+                  /* A1 mirrored in the UI: only an administrador may act on an
+                     administrador. The RPCs enforce this regardless — hiding
+                     the control just avoids offering an action that would be
+                     refused. */
+                  /* A1 mirrored from the database as a UI courtesy: never
+                     offer a control the RPC would refuse. See
+                     canActOnStaffTarget — this is target protection, not
+                     caller authorization. */
+                  const isProtectedTarget = !canActOnStaffTarget(currentProfile.role, user.role);
 
                   return (
                     <TableRow key={user.id}>
                       <TableCell className="font-medium text-foreground">{user.fullName}</TableCell>
                       <TableCell className="text-muted-foreground">{user.email}</TableCell>
                       <TableCell className="text-muted-foreground">
-                        {canManageUsers ? (
+                        {canSetUserRole && !isSelf && !isProtectedTarget ? (
                           <Select
                             value={user.role}
                             onValueChange={(value) =>
@@ -220,10 +263,10 @@ export function UsersSection({ users, hasError }: UsersSectionProps) {
                           )}
                         </div>
                       </TableCell>
-                      {canManageUsers && (
+                      {canUseAnyRowAction && (
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
-                            {!user.authLinked && (
+                            {canInviteUsers && !user.authLinked && (
                               <Button
                                 variant="outline"
                                 size="sm"
@@ -238,7 +281,7 @@ export function UsersSection({ users, hasError }: UsersSectionProps) {
                                 the last administrator must not be able to
                                 lock themselves out. Hidden here as a
                                 courtesy; the database is the enforcement. */}
-                            {!isSelf && (
+                            {canSetUserActive && !isSelf && !isProtectedTarget && (
                               <Button
                                 variant="outline"
                                 size="sm"
@@ -256,6 +299,21 @@ export function UsersSection({ users, hasError }: UsersSectionProps) {
                                     {t("settings.users.reactivate")}
                                   </>
                                 )}
+                            {/* Milestone 24 — administrador only. Never shown
+                                for one's own row: A5 refuses self-grant at the
+                                database, and offering the control would imply
+                                otherwise. */}
+                            {canManagePermissions && !isSelf && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                disabled={isBusy}
+                                onClick={() => setPermissionsUser(user)}
+                              >
+                                <SlidersHorizontal className="size-3.5" />
+                                {t("settings.users.permissions.trigger")}
+                              </Button>
+                            )}
                               </Button>
                             )}
                           </div>
@@ -266,6 +324,17 @@ export function UsersSection({ users, hasError }: UsersSectionProps) {
                 })}
               </TableBody>
             </Table>
+
+            {permissionsUser && (
+              <UserPermissionsDialog
+                key={permissionsUser.id}
+                user={permissionsUser}
+                grantedCapabilities={grantsByProfileId[permissionsUser.id] ?? []}
+                open={permissionsUser !== null}
+                onOpenChange={(value) => !value && setPermissionsUser(null)}
+                onChanged={() => router.refresh()}
+              />
+            )}
 
             {users.some((user) => !user.authLinked) && (
               <p className="mt-3 flex items-start gap-2 text-xs text-muted-foreground">

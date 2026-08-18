@@ -1,6 +1,7 @@
 import "server-only";
 import { cache } from "react";
 import { createAuthenticatedServerClient } from "@/lib/supabase/server-authenticated";
+import { resolveEffectiveCapabilities, type Capability } from "@/lib/auth/capabilities";
 import type { SupportedLanguage, UserRole } from "@/types";
 
 /**
@@ -50,6 +51,21 @@ export interface Profile {
   preferredLanguage: SupportedLanguage;
   avatarUrl: string | null;
   active: boolean;
+  /**
+   * MILESTONE 24 — the SERVER-RESOLVED effective capability set:
+   * ROLE_CAPABILITIES[role] UNION this profile's persisted per-user grants.
+   *
+   * This is what requireCapability() enforces and what useCapability() reads.
+   * It is computed here and nowhere else, so a hidden button and a rejected
+   * Server Action can never disagree.
+   *
+   * SAFE TO SEND TO THE BROWSER. It is a policy list, not a secret — the
+   * static ROLE_CAPABILITIES matrix already ships to the client — and the
+   * client can only READ it. Every mutation is still re-authorized
+   * server-side against this same field on a freshly resolved Profile, so
+   * tampering with the copy in the browser changes nothing.
+   */
+  capabilities: Capability[];
 }
 
 interface ProfileRow {
@@ -123,6 +139,33 @@ export const getCurrentProfile = cache(async (): Promise<Profile | null> => {
     return null;
   }
 
+  // MILESTONE 24 — per-user grants, read through the SAME authenticated
+  // (RLS-scoped) client as the profile itself. profile_capability_grants
+  // carries one policy allowing a signed-in user to read only their OWN rows,
+  // mirroring profiles_select_own. No admin client, no privilege escalation to
+  // resolve one's own permissions.
+  //
+  // FAILS CLOSED TO BASE ROLE, NEVER OPEN. If this read errors, the user keeps
+  // exactly the capabilities their role grants and loses only delegated
+  // extras. Throwing would take authorization down for a user whose base role
+  // is perfectly valid; defaulting to "assume the grants" would be an
+  // escalation on a database hiccup. Degrading to the role matrix is the only
+  // safe direction.
+  let grantedCapabilities: string[] = [];
+  const { data: grantRows, error: grantsError } = await supabase
+    .from("profile_capability_grants")
+    .select("capability")
+    .eq("profile_id", row.id);
+
+  if (grantsError) {
+    console.error(
+      "[getCurrentProfile] capability grants query failed; falling back to base role capabilities:",
+      grantsError.message
+    );
+  } else {
+    grantedCapabilities = (grantRows ?? []).map((grant) => (grant as { capability: string }).capability);
+  }
+
   return {
     id: row.id,
     fullName: row.full_name,
@@ -131,5 +174,6 @@ export const getCurrentProfile = cache(async (): Promise<Profile | null> => {
     preferredLanguage: row.preferred_language as SupportedLanguage,
     avatarUrl: row.avatar_url,
     active: row.active,
+    capabilities: resolveEffectiveCapabilities(row.role as UserRole, grantedCapabilities),
   };
 });

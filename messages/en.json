@@ -568,7 +568,38 @@
         "activeError": "Could not change the status. Please try again.",
         "cannotDeactivateSelf": "You cannot deactivate your own profile.",
         "resent": "Invitation resent to {email}.",
-        "resendError": "Could not resend the invitation. Please try again."
+        "resendError": "Could not resend the invitation. Please try again.",
+        "lastAdministrator": "The last active administrator cannot be deactivated or have their role changed. The system must always have at least one administrator."
+      },
+      "permissions": {
+        "trigger": "Permissions",
+        "title": "Additional permissions",
+        "description": "Permissions {name} will have in addition to those of their base role.",
+        "baseRole": "Base role",
+        "additional": "Additional permissions",
+        "close": "Close",
+        "notApplicableAdmin": "An administrator already holds every permission in the system. No additional permissions are needed.",
+        "roleChangeWarning": "If you change this person’s base role, all of their additional permissions will be removed automatically.",
+        "capabilities": {
+          "user:invite": {
+            "label": "Invite users",
+            "description": "Can invite new employees and resend pending invitations."
+          },
+          "user:set_active": {
+            "label": "Activate and deactivate users",
+            "description": "Can activate and deactivate employees. Cannot modify an administrator."
+          },
+          "user:set_role": {
+            "label": "Change a user’s role",
+            "description": "Can change other employees’ base role. Cannot assign the administrator role or modify an administrator."
+          }
+        },
+        "toasts": {
+          "granted": "The “{permission}” permission was granted.",
+          "revoked": "The “{permission}” permission was removed.",
+          "error": "The permission could not be changed.",
+          "forbidden": "Only an administrator can manage additional permissions."
+        }
       }
     },
     "products": {

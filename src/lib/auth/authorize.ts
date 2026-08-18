@@ -1,6 +1,6 @@
 import "server-only";
 import { getCurrentProfile, type Profile } from "@/lib/auth/get-current-profile";
-import { hasCapability, type Capability } from "@/lib/auth/capabilities";
+import { hasEffectiveCapability, type Capability } from "@/lib/auth/capabilities";
 
 /**
  * ============================================================================
@@ -89,11 +89,14 @@ export async function requireCapability(capability: Capability): Promise<Authori
     return { status: "denied", code: "UNAUTHENTICATED" };
   }
 
-  if (!hasCapability(profile.role, capability)) {
+  // MILESTONE 24: checked against the EFFECTIVE set (role matrix UNION this
+  // user's persisted grants), resolved server-side by getCurrentProfile().
+  // Never against profile.role — that would ignore every delegation.
+  if (!hasEffectiveCapability(profile.capabilities, capability)) {
     // Logged with role + capability for operability; the CALLER is told only
     // "FORBIDDEN" — never which capability was missing or who holds it.
     console.error(
-      `[authorize] denied: role "${profile.role}" lacks capability "${capability}".`
+      `[authorize] denied: role "${profile.role}" lacks capability "${capability}" (base role and delegated grants both checked).`
     );
     return { status: "denied", code: "FORBIDDEN" };
   }

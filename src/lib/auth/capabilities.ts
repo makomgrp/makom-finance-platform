@@ -162,24 +162,58 @@ export type Capability =
 
   // --- Staff administration ----------------------------------------------
   /**
-   * Invite a staff member, change their role, and deactivate/reactivate
-   * them (Milestone 21). ADMINISTRADOR-ONLY, and deliberately a single
-   * capability rather than three: invite / role / active would all be
-   * granted to exactly the same one role, so splitting them would be three
-   * names for one grant. Mirrors `product:manage` and
-   * `requirement_template:manage`, the existing single-role configuration
-   * capabilities.
+   * ============================================================================
+   * MILESTONE 24 — `user:manage` WAS SPLIT INTO THE FOUR BELOW
+   * ============================================================================
    *
-   * `gerente` does NOT hold it despite holding every operational
-   * capability — the Milestone 16 boundary is operations vs. configuration,
-   * and administering who may act at all is further from operations than
-   * either product or template management. It is also the one capability
-   * whose holder can grant itself anything else.
+   * Milestone 21 shipped a single `user:manage` covering invite, resend, role
+   * change and deactivation. That was correct while administrador was the only
+   * holder, and became the blocker the moment ODL needed delegation: Damion
+   * travels, Randol runs operations, and "let Randol invite a new hire" was
+   * inseparable from "let Randol change anyone's role to administrador" and
+   * "let Randol deactivate Damion".
    *
-   * There is deliberately no user:delete. Milestone 21's approved policy is
-   * deactivate-only; see the migration header.
+   * The split is by CONSEQUENCE, not by button. Invite and resend stay one
+   * capability because resend is the documented recovery path for a failed
+   * invitation, not a separate authority. Role change and activation are
+   * separate because each can remove someone's ability to work, in different
+   * ways. Permission management is separate because it is the privilege
+   * boundary itself.
+   *
+   * `user:invite`, `user:set_active` and `user:set_role` are DELEGATABLE — an
+   * administrador may grant them to an individual through
+   * profile_capability_grants. `user:manage_permissions` is NOT, and the
+   * database refuses to store it (profile_capability_grants_capability_check).
+   * That single asymmetry is what makes delegation safe: a delegated manager
+   * can run staff operations and can never widen anyone's authority, including
+   * their own.
+   *
+   * NOTE ON ROLES: none of the first three is granted to `gerente` BY ROLE.
+   * Delegation is deliberately per-user and explicit — being a gerente does not
+   * make someone a staff administrator; being trusted by the administrador
+   * does. See ROLE_CAPABILITIES below.
    */
-  | "user:manage"
+  /** Invite a new staff member, and resend a pending invitation. */
+  | "user:invite"
+  /** Activate or deactivate a staff member — the whole offboarding path. */
+  | "user:set_active"
+  /** Change another staff member's BASE ROLE. Never one's own (A3), and never
+   * to or from administrador unless the actor is themselves an administrador
+   * (A1/A2) — both enforced in the database, not only here. */
+  | "user:set_role"
+  /**
+   * Grant or revoke another user's additional per-user capabilities.
+   *
+   * ADMINISTRADOR-ONLY AND NON-DELEGATABLE. This is the privilege-management
+   * boundary the whole milestone rests on. It is withheld from
+   * profile_capability_grants by a database CHECK constraint, so it cannot be
+   * delegated even by mistake, and grant_staff_capability/
+   * revoke_staff_capability additionally hard-code `actor.role =
+   * 'administrador'` rather than testing for this capability — a role rule the
+   * database can state exactly, and the one guard that must never depend on
+   * anything delegable.
+   */
+  | "user:manage_permissions"
 
   // --- System configuration ----------------------------------------------
   /** Create/edit/reorder//status Products. Administrator-only in Milestone 16. */
@@ -238,7 +272,10 @@ export const ROLE_CAPABILITIES = {
     "requirement_slot:set_status",
     "product:manage",
     "requirement_template:manage",
-    "user:manage",
+    "user:invite",
+    "user:set_active",
+    "user:set_role",
+    "user:manage_permissions",
   ],
 
   /**
@@ -319,8 +356,14 @@ export const ROLE_CAPABILITIES = {
 } satisfies Record<UserRole, Capability[]>;
 
 /**
- * The single predicate every authorization decision in this app resolves
- * to — server enforcement and UI affordances alike.
+ * BASE role capabilities only — the role matrix, nothing else.
+ *
+ * Since Milestone 24 this is NO LONGER the predicate authorization resolves
+ * to. It is one INPUT to resolveEffectiveCapabilities() below. Application
+ * code must not call it to decide whether an operation is permitted: doing so
+ * would ignore every per-user grant and silently re-create the role-only model
+ * this milestone replaced. Use requireCapability() (server) or useCapability()
+ * (UI), both of which read the resolved effective set.
  *
  * Fails closed on an unrecognized role: a `profiles.role` value outside the
  * five canonical ones (only reachable today via direct database edit, and
@@ -330,4 +373,142 @@ export const ROLE_CAPABILITIES = {
 export function hasCapability(role: UserRole, capability: Capability): boolean {
   const granted = ROLE_CAPABILITIES[role] as readonly Capability[] | undefined;
   return granted?.includes(capability) ?? false;
+}
+
+/**
+ * ============================================================================
+ * MILESTONE 24 — THE DELEGATABLE SET
+ * ============================================================================
+ *
+ * The ONLY capabilities an administrador may grant to an individual on top of
+ * their base role. Everything else is reachable exclusively by holding the
+ * role that carries it.
+ *
+ * `user:manage_permissions` IS DELIBERATELY ABSENT and must never be added.
+ * It is the privilege-management boundary: if it were delegatable, a delegated
+ * manager could grant themselves anything, and every other protection in this
+ * milestone would be decoration. The database enforces the same exclusion
+ * independently via profile_capability_grants_capability_check — this constant
+ * is the convenience copy, the CHECK constraint is the guarantee.
+ *
+ * DELIBERATE DUPLICATION, DOCUMENTED: these three strings also appear in that
+ * CHECK constraint. This is the same pattern crm_events_event_type_check
+ * already uses for the event vocabulary — a security allow-list is worth
+ * stating in both layers, and the friction of a migration to widen it is a
+ * feature, not an oversight. It duplicates a LIST OF STRINGS, never
+ * ROLE_CAPABILITIES, which remains defined exactly once.
+ *
+ * Business capabilities are absent on purpose. Milestone 24 delegates STAFF
+ * ADMINISTRATION, not lending authority; making `application:set_status`
+ * delegatable would be a credit-policy decision wearing a permissions costume.
+ */
+export const DELEGATABLE_CAPABILITIES = [
+  "user:invite",
+  "user:set_active",
+  "user:set_role",
+] as const satisfies readonly Capability[];
+
+export type DelegatableCapability = (typeof DELEGATABLE_CAPABILITIES)[number];
+
+/** Type guard for an untrusted string — used at both the Server Action
+ * boundary and when reading persisted grants back out of the database. */
+export function isDelegatableCapability(value: unknown): value is DelegatableCapability {
+  return (
+    typeof value === "string" &&
+    (DELEGATABLE_CAPABILITIES as readonly string[]).includes(value)
+  );
+}
+
+/**
+ * ============================================================================
+ * EFFECTIVE CAPABILITIES — THE ONE PLACE THE UNION HAPPENS
+ * ============================================================================
+ *
+ *   effective = ROLE_CAPABILITIES[role]  UNION  persisted grants for the user
+ *
+ * ADDITIVE ONLY. There is no deny list, no negative override, no subtraction
+ * and no role replacement — deliberately. A three-valued "does deny beat grant,
+ * does either beat the role" resolution in the security core would be a
+ * permanent source of reasoning errors, for a problem ODL does not have: if a
+ * gerente should not be able to do something, do not grant it.
+ *
+ * PURE. No I/O, no database, no session. It takes a role and a list of strings
+ * and returns a set, so it can be exhaustively asserted for every role in the
+ * verification gate without a running application.
+ *
+ * UNKNOWN STRINGS ARE IGNORED, NEVER THROWN ON. A grant row could name a
+ * capability that has since been renamed or retired (the database CHECK
+ * constraint and this union are maintained in separate migrations). Failing
+ * closed on the individual row — dropping it — keeps a stale grant from
+ * escalating anything, while failing LOUDLY would take down authorization for
+ * a user whose base role is perfectly valid. Non-delegatable strings are
+ * filtered out here too, so even a row inserted by some future path that
+ * bypassed the CHECK cannot widen authority beyond the delegatable set.
+ */
+export function resolveEffectiveCapabilities(
+  role: UserRole,
+  grantedCapabilities: readonly string[]
+): Capability[] {
+  const base = (ROLE_CAPABILITIES[role] as readonly Capability[] | undefined) ?? [];
+  const effective = new Set<Capability>(base);
+
+  for (const granted of grantedCapabilities) {
+    // Both filters matter: isDelegatableCapability rejects anything outside the
+    // allow-list (including user:manage_permissions), which also makes every
+    // survivor a valid Capability.
+    if (isDelegatableCapability(granted)) {
+      effective.add(granted);
+    }
+  }
+
+  return [...effective];
+}
+
+/**
+ * The single predicate every authorization decision in this app resolves to —
+ * server enforcement (requireCapability) and UI affordances (useCapability)
+ * alike, both reading the SAME server-resolved set off the current Profile.
+ *
+ * Takes the already-resolved effective set rather than a role, so there is no
+ * way to accidentally authorize against base capabilities alone.
+ */
+export function hasEffectiveCapability(
+  capabilities: readonly Capability[],
+  capability: Capability
+): boolean {
+  return capabilities.includes(capability);
+}
+
+/**
+ * ============================================================================
+ * TARGET PROTECTION (A1) — NOT CALLER AUTHORIZATION
+ * ============================================================================
+ *
+ * "May this viewer act on a staff member with THIS role?" — a different
+ * question from "may this viewer perform this operation at all", which is what
+ * capabilities answer and what requireCapability() enforces.
+ *
+ * The rule: an administrador may only be modified by an administrador. It is
+ * expressed in ROLES rather than capabilities on purpose, because it is about
+ * role hierarchy — there is no capability that means "outranks an
+ * administrador", and inventing one would be a lie about what is being
+ * checked. The database states the identical rule in create_staff_profile,
+ * link_staff_profile_auth, update_staff_role and set_staff_active_status.
+ *
+ * WHY THIS LIVES HERE rather than as an inline `role === "administrador"` in a
+ * component: the architectural rule at the top of this file forbids scattering
+ * role comparisons through the codebase, and it is right to. One named,
+ * documented predicate is greppable, testable and cannot drift; five inline
+ * comparisons in five components cannot.
+ *
+ * UI COURTESY, NOT ENFORCEMENT. Callers use this to avoid rendering a control
+ * that the database would refuse. The RPCs remain authoritative — if this
+ * function were deleted tomorrow, nothing would become permitted.
+ *
+ * Mirrors the Milestone 23 discipline exactly: "who may perform an operation"
+ * stays separate from "which population may be the target of it".
+ */
+export function canActOnStaffTarget(viewerRole: UserRole, targetRole: UserRole): boolean {
+  if (targetRole !== "administrador") return true;
+  return viewerRole === "administrador";
 }

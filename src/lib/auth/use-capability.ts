@@ -1,7 +1,7 @@
 "use client";
 
 import { useCurrentProfile } from "@/lib/auth/current-profile-context";
-import { hasCapability, type Capability } from "@/lib/auth/capabilities";
+import { hasEffectiveCapability, type Capability } from "@/lib/auth/capabilities";
 
 /**
  * Client-side read of the SAME canonical matrix the server enforces
@@ -15,10 +15,12 @@ import { hasCapability, type Capability } from "@/lib/auth/capabilities";
  * bypassed by editing the DOM, replaying a fetch, or calling the action
  * directly. Never "protect" an operation by hiding its button alone.
  *
- * Reads the role from useCurrentProfile(), which src/app/(app)/layout.tsx
- * resolves server-side once per request — so the role behind this check is
- * the same server-resolved role the action will check, not anything the
- * client asserted about itself.
+ * MILESTONE 24: reads profile.capabilities — the EFFECTIVE set (base role
+ * UNION per-user grants) resolved server-side once per request by
+ * src/app/(app)/layout.tsx via getCurrentProfile(). So a delegated manager
+ * sees exactly the controls their delegation actually permits, and the set
+ * behind this check is the same one the Server Action re-checks — never
+ * anything the client asserted about itself.
  *
  * @example
  *   const canManageProducts = useCapability("product:manage");
@@ -26,5 +28,5 @@ import { hasCapability, type Capability } from "@/lib/auth/capabilities";
  */
 export function useCapability(capability: Capability): boolean {
   const profile = useCurrentProfile();
-  return hasCapability(profile.role, capability);
+  return hasEffectiveCapability(profile.capabilities, capability);
 }

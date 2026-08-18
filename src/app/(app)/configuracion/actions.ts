@@ -14,6 +14,14 @@ import {
 } from "@/lib/services/requirement-templates";
 import { headers } from "next/headers";
 import { requireCapability } from "@/lib/auth/authorize";
+import {
+  grantStaffCapability,
+  revokeStaffCapability,
+} from "@/lib/services/capability-grants";
+import {
+  isDelegatableCapability,
+  type DelegatableCapability,
+} from "@/lib/auth/capabilities";
 import { getProfiles } from "@/lib/services/profiles";
 import {
   createStaffProfile,
@@ -459,7 +467,8 @@ export async function moveRequirementTemplate(
 // MILESTONE 21 — STAFF ADMINISTRATION
 // ============================================================================
 //
-// Four actions, all `user:manage` (administrador only). Same Milestone 16
+// Four actions, each gated on its own Milestone 24 capability
+// (`user:invite` / `user:set_role` / `user:set_active`). Same Milestone 16
 // ordering rule as every action above: requireCapability() FIRST, before any
 // validation or lookup, so an unauthorized caller cannot distinguish
 // DUPLICATE_EMAIL from PROFILE_NOT_FOUND and probe the staff directory.
@@ -529,7 +538,7 @@ export type InviteStaffUserResult =
  * returned by stage 2 is the only authoritative key.
  */
 export async function inviteStaffUser(input: InviteStaffUserInput): Promise<InviteStaffUserResult> {
-  const auth = await requireCapability("user:manage");
+  const auth = await requireCapability("user:invite");
   if (auth.status === "denied") {
     return { status: "error", code: auth.code };
   }
@@ -607,7 +616,7 @@ export type ResendStaffInvitationResult =
  * repeated attempts converge rather than conflict.
  */
 export async function resendStaffInvitation(profileId: string): Promise<ResendStaffInvitationResult> {
-  const auth = await requireCapability("user:manage");
+  const auth = await requireCapability("user:invite");
   if (auth.status === "denied") {
     return { status: "error", code: auth.code };
   }
@@ -660,14 +669,21 @@ export type SetStaffUserRoleResult =
   | { status: "success" }
   | {
       status: "error";
-      code: "INVALID_INPUT" | "UNAUTHENTICATED" | "FORBIDDEN" | "PROFILE_NOT_FOUND" | "UPDATE_FAILED";
+      code:
+        | "INVALID_INPUT"
+        | "UNAUTHENTICATED"
+        | "FORBIDDEN"
+        | "PROFILE_NOT_FOUND"
+        /** Milestone 24A — would leave zero active administradores. */
+        | "LAST_ADMINISTRATOR"
+        | "UPDATE_FAILED";
     };
 
 /** Changes a staff member's role. The role drives the entire Milestone 16
  * capability matrix, so the change is audited (`user_role_changed`) with both
  * the previous and new value, recorded atomically with the update. */
 export async function setStaffUserRole(input: SetStaffUserRoleInput): Promise<SetStaffUserRoleResult> {
-  const auth = await requireCapability("user:manage");
+  const auth = await requireCapability("user:set_role");
   if (auth.status === "denied") {
     return { status: "error", code: auth.code };
   }
@@ -703,6 +719,8 @@ export type SetStaffUserActiveResult =
         | "FORBIDDEN"
         | "PROFILE_NOT_FOUND"
         | "CANNOT_DEACTIVATE_SELF"
+        /** Milestone 24A — would leave zero active administradores. */
+        | "LAST_ADMINISTRATOR"
         | "UPDATE_FAILED";
     };
 
@@ -717,7 +735,7 @@ export type SetStaffUserActiveResult =
 export async function setStaffUserActive(
   input: SetStaffUserActiveInput
 ): Promise<SetStaffUserActiveResult> {
-  const auth = await requireCapability("user:manage");
+  const auth = await requireCapability("user:set_active");
   if (auth.status === "denied") {
     return { status: "error", code: auth.code };
   }
@@ -731,6 +749,135 @@ export async function setStaffUserActive(
 
   const result = await setStaffActiveStatus(input.profileId, input.active, auth.profile.id);
   if (result.status === "error") {
+    return { status: "error", code: result.code };
+  }
+
+  return { status: "success" };
+}
+
+/* ============================================================================
+ * MILESTONE 24 — PER-USER CAPABILITY DELEGATION
+ * ============================================================================
+ *
+ * The two actions below are the ONLY way additional permissions are granted or
+ * revoked, and they are the only actions in this application guarded by
+ * `user:manage_permissions` — a capability held by administrador alone and
+ * excluded from the delegatable allow-list, in TypeScript AND by a database
+ * CHECK constraint.
+ *
+ * That is the line the whole milestone rests on. A gerente holding all three
+ * delegatable staff capabilities can invite, activate, deactivate and re-role
+ * ordinary employees all day, and can never reach these two functions — so
+ * they can never widen anyone's authority, including their own.
+ *
+ * DEFENCE IN DEPTH: requireCapability() below is the caller-authorization
+ * boundary, and the RPCs independently hard-code `actor.role = 'administrador'`
+ * (A6) plus refuse self-grant and self-revoke (A5). Neither layer is decorative
+ * — if the capability check here were ever mis-wired, the database would still
+ * refuse.
+ * ========================================================================== */
+
+export interface StaffCapabilityInput {
+  profileId: string;
+  /** Must be one of DELEGATABLE_CAPABILITIES. Validated here, again by the
+   * RPC, and again by the CHECK constraint. */
+  capability: string;
+}
+
+export type StaffCapabilityResult =
+  | { status: "success" }
+  | {
+      status: "error";
+      code:
+        | "INVALID_INPUT"
+        | "UNAUTHENTICATED"
+        | "FORBIDDEN"
+        | "PROFILE_NOT_FOUND"
+        | "MUTATION_FAILED";
+    };
+
+/** Shared validation for both directions. Deliberately NOT a shared action:
+ * grant and revoke stay two distinct entry points so each is independently
+ * greppable in the guarded-action inventory and neither can be reached by
+ * flipping a boolean. */
+function validateStaffCapabilityInput(input: StaffCapabilityInput): boolean {
+  return (
+    isNonEmptyString(input.profileId) &&
+    UUID_PATTERN.test(input.profileId) &&
+    // Rejects user:manage_permissions and every business capability before the
+    // request reaches the database.
+    isDelegatableCapability(input.capability)
+  );
+}
+
+/**
+ * Grants one delegatable capability to one staff member.
+ *
+ * ORDERING (Milestone 16 rule): requireCapability() is the FIRST statement,
+ * before input validation, so an unauthorized caller cannot distinguish
+ * INVALID_INPUT from PROFILE_NOT_FOUND and probe for staff they may not see.
+ *
+ * SELF-GRANT IS REFUSED BY THE DATABASE (A5), not here. The check is stated
+ * once, in the RPC, where it cannot be bypassed; duplicating it in this layer
+ * would create a second rule to keep in sync. The UI hides the control on
+ * one's own row as a courtesy only.
+ *
+ * Idempotent: granting something already held succeeds, creates no duplicate
+ * row and writes no audit event.
+ */
+export async function grantStaffUserCapability(
+  input: StaffCapabilityInput
+): Promise<StaffCapabilityResult> {
+  const auth = await requireCapability("user:manage_permissions");
+  if (auth.status === "denied") {
+    return { status: "error", code: auth.code };
+  }
+
+  if (!validateStaffCapabilityInput(input)) {
+    return { status: "error", code: "INVALID_INPUT" };
+  }
+
+  const result = await grantStaffCapability(
+    input.profileId,
+    input.capability as DelegatableCapability,
+    auth.profile.id
+  );
+  if (result.status !== "ok") {
+    return { status: "error", code: result.code };
+  }
+
+  return { status: "success" };
+}
+
+/**
+ * Revokes one delegatable capability from one staff member.
+ *
+ * Same guards and same ordering as the grant path. Idempotent: revoking
+ * something not held succeeds and writes no audit event.
+ *
+ * NOTE: this is not the only way a grant disappears. Changing a profile's base
+ * role revokes ALL of its grants atomically inside update_staff_role, each with
+ * its own audit event — an employee moved from gerente to asesor must not
+ * silently retain delegated staff-management authority.
+ */
+export async function revokeStaffUserCapability(
+  input: StaffCapabilityInput
+): Promise<StaffCapabilityResult> {
+  const auth = await requireCapability("user:manage_permissions");
+  if (auth.status === "denied") {
+    return { status: "error", code: auth.code };
+  }
+
+  if (!validateStaffCapabilityInput(input)) {
+    return { status: "error", code: "INVALID_INPUT" };
+  }
+
+  const result = await revokeStaffCapability(
+    input.profileId,
+    input.capability as DelegatableCapability,
+    auth.profile.id
+  );
+  if (result.status !== "ok") {
     return { status: "error", code: result.code };
   }
 
