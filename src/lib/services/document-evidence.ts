@@ -443,29 +443,97 @@ export async function reviewDocumentEvidence(
   return { status: "ok", evidence: toDocumentEvidence(updated) };
 }
 
+/** The narrow projection createSignedEvidenceUrl reads. Only the two storage
+ * fields are used; the embedded relations exist to force the INNER JOINs that
+ * prove the ownership chain resolves, and to give Milestone 25B a
+ * ready-made `application.branch_id` to filter on. */
+interface SignedEvidenceChainRow {
+  storage_bucket: string | null;
+  storage_path: string | null;
+  requirement_slot_id: string | null;
+}
+
 export type CreateSignedEvidenceUrlResult =
   | { status: "ok"; url: string }
-  | { status: "error"; code: "NOT_FOUND" | "SIGN_FAILED" };
+  /** DELIBERATELY ONE ERROR CODE. See the doc comment: a caller must not be
+   * able to distinguish "no such evidence" from "evidence exists but you may
+   * not have it" from "evidence exists but is not attached to a dossier". */
+  | { status: "error"; code: "NOT_FOUND" };
 
 /**
+ * ============================================================================
+ * THE ONLY PLACE A SIGNED DOCUMENT URL IS MINTED (Milestone 25B-S0)
+ * ============================================================================
+ *
  * Short-lived (VIEW_URL_TTL_SECONDS — 90s), freshly minted on every call,
- * never cached or reused. Resolves storage_bucket/storage_path via
- * requirement_slot_id, guarding on it being non-null as defense in depth
- * even though the column is now NOT NULL for every row in the table.
+ * never cached and never reused across callers or authorization contexts.
+ *
+ * ----------------------------------------------------------------------------
+ * OWNERSHIP CHAIN — RESOLVED SERVER-SIDE, FROM THE EVIDENCE ID ONLY
+ * ----------------------------------------------------------------------------
+ * A URL is minted only when the evidence resolves through its COMPLETE chain:
+ *
+ *   dossier_documents.requirement_slot_id
+ *     -> requirement_slots.application_id
+ *       -> applications.client_id
+ *         -> clients.id
+ *
+ * The `!inner` embeds make this an INNER JOIN at every hop, so evidence whose
+ * chain is broken at ANY link — no slot, a slot with no application, an
+ * application with no client — does not come back at all and no URL is
+ * produced. Previously this function looked the row up by id alone and checked
+ * only that `requirement_slot_id` was non-null, which proved the column had a
+ * value but never that the value pointed anywhere real.
+ *
+ * Nothing is taken from the caller except the evidence id. Client id,
+ * application id and branch are never accepted as input, so a caller cannot
+ * assert a context it does not have — the chain is derived from stored data or
+ * the request fails.
+ *
+ * ----------------------------------------------------------------------------
+ * WHAT THIS DOES NOT YET DO, STATED PLAINLY
+ * ----------------------------------------------------------------------------
+ * It does not check whether THIS caller may access THIS dossier, because as of
+ * this milestone the CRM has no per-dossier ownership model: getClientById()
+ * applies no restriction, the /expedientes route has no per-client gate, and
+ * all five roles hold `evidence:read`. There is currently no boundary here to
+ * cross — a caller who can mint a URL for a document can equally open that
+ * dossier and click view.
+ *
+ * That changes the moment Milestone 25B introduces branch ownership. THE SEAM
+ * IS HERE, and it is one filter, not an API rewrite: add a `scope: BranchScope`
+ * parameter and apply it to `application.branch_id` on the join below. The
+ * chain this function now resolves is exactly the chain that filter needs, and
+ * the single NOT_FOUND code already gives the correct non-leaking behaviour for
+ * an out-of-scope document.
+ *
+ * The `documentos` workspace legitimately spans dossiers, which is why the
+ * boundary cannot be a caller-supplied client id — it has to be branch scope.
  */
 export async function createSignedEvidenceUrl(evidenceId: string): Promise<CreateSignedEvidenceUrlResult> {
   const supabase = getSupabaseServerClient();
 
   const { data: row, error: fetchError } = await supabase
     .from("dossier_documents")
-    .select("storage_bucket, storage_path, requirement_slot_id")
+    .select(
+      "storage_bucket, storage_path, requirement_slot_id, " +
+        // MILESTONE 25B ADDS: a branch-scope filter on application.branch_id
+        // here. The chain is already resolved; only the predicate is missing.
+        "requirement_slot:requirement_slots!dossier_documents_requirement_slot_id_fkey!inner(" +
+        "id, application:applications!requirement_slots_application_id_fkey!inner(" +
+        "id, branch_id, client:clients!applications_client_id_fkey!inner(id)))"
+    )
     .eq("id", evidenceId)
     .not("requirement_slot_id", "is", null)
-    .maybeSingle();
+    .maybeSingle<SignedEvidenceChainRow>();
 
+  // EVERY failure returns the same NOT_FOUND. A database error, a broken
+  // chain, a missing row and a failed signature are indistinguishable to the
+  // caller — an authorization result must never double as an existence oracle.
+  // Details go to the server log, never to the response.
   if (fetchError) {
-    console.error("[document-evidence service] Failed to look up evidence for signed URL:", fetchError.message);
-    return { status: "error", code: "SIGN_FAILED" };
+    console.error("[document-evidence service] Failed to resolve evidence chain:", fetchError.message);
+    return { status: "error", code: "NOT_FOUND" };
   }
   if (!row || !row.storage_path || !row.storage_bucket) {
     return { status: "error", code: "NOT_FOUND" };
@@ -477,7 +545,7 @@ export async function createSignedEvidenceUrl(evidenceId: string): Promise<Creat
 
   if (signError || !signed) {
     console.error("[document-evidence service] Failed to create signed evidence URL:", signError?.message);
-    return { status: "error", code: "SIGN_FAILED" };
+    return { status: "error", code: "NOT_FOUND" };
   }
 
   return { status: "ok", url: signed.signedUrl };

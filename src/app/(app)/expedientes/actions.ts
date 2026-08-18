@@ -452,7 +452,14 @@ export type GetRequirementEvidenceViewUrlResult =
   | { status: "success"; url: string }
   | {
       status: "error";
-      code: "INVALID_INPUT" | "UNAUTHENTICATED" | "FORBIDDEN" | "NOT_FOUND" | "SIGN_FAILED";
+      /** MILESTONE 25B-S0: `SIGN_FAILED` was removed and a malformed id now
+       * returns NOT_FOUND rather than INVALID_INPUT. Distinct codes let a
+       * caller tell "this document exists but something went wrong" from "no
+       * such document" — an existence oracle over other people's dossiers.
+       * UNAUTHENTICATED/FORBIDDEN remain distinct because they describe the
+       * CALLER, not the target, and reveal nothing about which documents
+       * exist. */
+      code: "UNAUTHENTICATED" | "FORBIDDEN" | "NOT_FOUND";
     };
 
 /** Mints a short-lived (90s) signed URL for one Evidence item — never a
@@ -470,13 +477,20 @@ export async function getRequirementEvidenceViewUrl(
     return { status: "error", code: auth.code };
   }
 
+  // A malformed id is indistinguishable from an unknown one. Returning
+  // INVALID_INPUT here would confirm that well-formed ids are the ones worth
+  // probing with.
   if (!isNonEmptyString(evidenceId) || !UUID_PATTERN.test(evidenceId)) {
-    return { status: "error", code: "INVALID_INPUT" };
+    return { status: "error", code: "NOT_FOUND" };
   }
 
+  // The service resolves the full evidence -> slot -> application -> client
+  // chain server-side and mints only if every link holds. It accepts nothing
+  // from the caller but the evidence id, so no client-supplied client,
+  // application or branch id can widen what is reachable.
   const result = await createSignedEvidenceUrl(evidenceId);
   if (result.status !== "ok") {
-    return { status: "error", code: result.code };
+    return { status: "error", code: "NOT_FOUND" };
   }
 
   return { status: "success", url: result.url };
