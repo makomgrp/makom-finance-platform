@@ -58,7 +58,16 @@ export interface Application {
   requestedAmount: number;
   /** The client's originally-requested term in months, immutable forever
    * once set. Deliberately distinct from any future approved term. */
-  requestedTermMonths: number;
+  /**
+   * MILESTONE 26B-1A — OPTIONAL, BECAUSE THE CUSTOMER IS NOT ASKED YET.
+   *
+   * Undefined means NOT YET DETERMINED. The public portal deliberately does not
+   * ask for a repayment term on Step 1 (ODL negotiates it later), so a
+   * portal-created application legitimately has none. Undefined is a pending
+   * state, never a default — nothing may substitute a number for it.
+   * Staff-created applications supply a term at creation.
+   */
+  requestedTermMonths?: number;
   createdAt: string;
   /** Populated only when createdSource === "crm_manual". */
   createdByProfileId?: string;

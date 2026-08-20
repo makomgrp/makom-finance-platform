@@ -41,7 +41,7 @@ interface ApplicationRow {
   client_id: string;
   product_id: string;
   requested_amount: number;
-  requested_term_months: number;
+  requested_term_months: number | null;
   created_at: string;
   created_by_profile_id: string | null;
   created_source: string;
@@ -68,7 +68,8 @@ function toApplication(row: ApplicationRow): Application {
     clientId: row.client_id,
     productId: row.product_id,
     requestedAmount: row.requested_amount,
-    requestedTermMonths: row.requested_term_months,
+    // NULL => undefined: "not yet determined" (26B-1A), never zero.
+    requestedTermMonths: row.requested_term_months ?? undefined,
     createdAt: row.created_at,
     createdByProfileId: row.created_by_profile_id ?? undefined,
     createdSource: row.created_source as ApplicationSource,
@@ -263,7 +264,11 @@ export interface CreateApplicationInput {
   clientId: string;
   productId: string;
   requestedAmount: number;
-  requestedTermMonths: number;
+  /**
+   * OPTIONAL since 26B-1A. Omit entirely when the term has not been agreed —
+   * the portal does not ask for one. Never pass a placeholder.
+   */
+  requestedTermMonths?: number;
   source: ApplicationSource;
   /** Only valid (and only used) when source === "crm_manual" — see
    * applications_created_by_source_check. */
@@ -302,7 +307,19 @@ export async function createApplication(input: CreateApplicationInput): Promise<
   if (input.actorProfileId !== null && input.source !== "crm_manual") {
     return { status: "error", code: "INVALID_ACTOR" };
   }
-  if (!(input.requestedAmount > 0) || !(input.requestedTermMonths > 0 && input.requestedTermMonths <= 360)) {
+  if (!(input.requestedAmount > 0)) {
+    return { status: "error", code: "INVALID_INPUT" };
+  }
+  // A term is OPTIONAL but, when supplied, must still be in range — mirroring
+  // applications_requested_term_months_check, which now reads
+  // "IS NULL OR (1..360)". Absent and invalid are different things: absent is a
+  // legitimate pending state, 400 months is a bad input.
+  if (
+    input.requestedTermMonths !== undefined &&
+    !(Number.isInteger(input.requestedTermMonths) &&
+      input.requestedTermMonths > 0 &&
+      input.requestedTermMonths <= 360)
+  ) {
     return { status: "error", code: "INVALID_INPUT" };
   }
 
@@ -314,7 +331,7 @@ export async function createApplication(input: CreateApplicationInput): Promise<
       client_id: input.clientId,
       product_id: input.productId,
       requested_amount: input.requestedAmount,
-      requested_term_months: input.requestedTermMonths,
+      requested_term_months: input.requestedTermMonths ?? null,
       created_by_profile_id: input.actorProfileId,
       created_source: input.source,
     })

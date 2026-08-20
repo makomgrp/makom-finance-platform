@@ -34,24 +34,24 @@ export type PortalStepOneFieldErrorCode =
   | "INVALID_EMAIL"
   | "INVALID_IDENTIFICATION_TYPE"
   | "INVALID_PRODUCT"
-  | "INVALID_NUMBER"
   | "OUT_OF_RANGE";
 
 export type PortalStepOneField =
-  | "firstName"
-  | "lastName"
+  | "fullName"
   | "phone"
   | "email"
   | "identificationType"
   | "identificationNumber"
   | "productCode"
-  | "requestedAmount"
-  | "requestedTermMonths";
+  | "requestedAmount";
 
 export interface NormalizedPortalStepOne {
-  firstName: string;
-  lastName: string;
-  /** What the intake actually stores. Rebuilt from the two parts above. */
+  /**
+   * ONE field, matching the approved Step 1 (26B-1A) and the one column the
+   * intake actually has. The earlier first-name/last-name split was a UI
+   * invention that had to be joined on the way in and guessed apart on the way
+   * out — two lossy conversions in service of a question ODL never asked.
+   */
   fullName: string;
   phone: string;
   email: string;
@@ -60,7 +60,6 @@ export interface NormalizedPortalStepOne {
   /** The public N/D/V/E code. The action resolves it to a real Product. */
   productCode: string;
   requestedAmount: number;
-  requestedTermMonths: number;
 }
 
 export type PortalStepOneValidationResult =
@@ -72,9 +71,8 @@ const MAX_EMAIL = 254;
 const MAX_PHONE = 30;
 const MAX_IDENTIFICATION = 50;
 
-/** Overflow guards against numeric(12,2) and the term CHECK, not lending policy. */
+/** Overflow guard against numeric(12,2), not lending policy. */
 const MAX_AMOUNT = 99_999_999.99;
-const MAX_TERM_MONTHS = 360;
 
 /**
  * Deliberately permissive: one @, something either side, a dot in the domain.
@@ -117,18 +115,14 @@ export function validatePortalStepOne(
   activeProductCodes: ReadonlySet<string>
 ): PortalStepOneValidationResult {
   if (typeof body !== "object" || body === null) {
-    return { status: "error", fieldErrors: { firstName: "REQUIRED" } };
+    return { status: "error", fieldErrors: { fullName: "REQUIRED" } };
   }
   const input = body as Record<string, unknown>;
   const fieldErrors: Partial<Record<PortalStepOneField, PortalStepOneFieldErrorCode>> = {};
 
-  const firstName = readString(input, "firstName");
-  if (!firstName) fieldErrors.firstName = "REQUIRED";
-  else if (firstName.length > MAX_NAME) fieldErrors.firstName = "TOO_LONG";
-
-  const lastName = readString(input, "lastName");
-  if (!lastName) fieldErrors.lastName = "REQUIRED";
-  else if (lastName.length > MAX_NAME) fieldErrors.lastName = "TOO_LONG";
+  const fullName = readString(input, "fullName");
+  if (!fullName) fieldErrors.fullName = "REQUIRED";
+  else if (fullName.length > MAX_NAME) fieldErrors.fullName = "TOO_LONG";
 
   const phone = readString(input, "phone");
   if (!phone) fieldErrors.phone = "REQUIRED";
@@ -163,14 +157,6 @@ export function validatePortalStepOne(
     fieldErrors.requestedAmount = "OUT_OF_RANGE";
   }
 
-  const requestedTermMonths = readNumber(input, "requestedTermMonths");
-  if (requestedTermMonths === undefined) fieldErrors.requestedTermMonths = "REQUIRED";
-  else if (!Number.isInteger(requestedTermMonths)) {
-    fieldErrors.requestedTermMonths = "INVALID_NUMBER";
-  } else if (requestedTermMonths <= 0 || requestedTermMonths > MAX_TERM_MONTHS) {
-    fieldErrors.requestedTermMonths = "OUT_OF_RANGE";
-  }
-
   if (Object.keys(fieldErrors).length > 0) {
     return { status: "error", fieldErrors };
   }
@@ -178,35 +164,13 @@ export function validatePortalStepOne(
   return {
     status: "ok",
     value: {
-      firstName,
-      lastName,
-      // The intake schema has ONE name column, so the two inputs are joined
-      // here rather than the table being reshaped. Splitting the name in the
-      // UI is a courtesy to the customer, not a new data model.
-      fullName: `${firstName} ${lastName}`,
+      fullName,
       phone,
       email,
       identificationType: identificationType as "cedula" | "pasaporte",
       identificationNumber,
       productCode,
       requestedAmount: requestedAmount!,
-      requestedTermMonths: requestedTermMonths!,
     },
   };
-}
-
-/**
- * Best-effort split of a stored full name back into two inputs for prefill.
- *
- * FIRST WORD, THEN THE REST — because Spanish names commonly carry two
- * surnames ("Ana Gómez Pérez"), and putting "Gómez Pérez" in the surname field
- * is right far more often than the alternative. It is a display convenience
- * only: whatever the customer confirms is what gets saved, and the stored name
- * is never rewritten by this function.
- */
-export function splitFullName(fullName: string | undefined): { firstName: string; lastName: string } {
-  const parts = (fullName ?? "").trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return { firstName: "", lastName: "" };
-  if (parts.length === 1) return { firstName: parts[0], lastName: "" };
-  return { firstName: parts[0], lastName: parts.slice(1).join(" ") };
 }

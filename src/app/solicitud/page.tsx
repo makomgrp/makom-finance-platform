@@ -63,15 +63,13 @@ export default async function PortalStepOnePage({
     : "";
 
   const initialValues: StepOneInitialValues = {
-    firstName: "",
-    lastName: "",
+    fullName: "",
     phone: "",
     email: "",
     identificationType: "cedula",
     identificationNumber: "",
     productCode: preselectedCode,
     requestedAmount: "",
-    requestedTermMonths: "",
   };
 
   return (

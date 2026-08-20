@@ -75,7 +75,11 @@ export function ProductChoiceGroup({
       <legend className="text-base font-semibold text-foreground">{t("productLegend")}</legend>
       <p className="mt-1 mb-3 text-sm text-muted-foreground">{t("productHelp")}</p>
 
-      <div className="grid gap-2.5">
+      {/* 2x2 on anything tablet-width and up, stacked below. Four cards in one
+          column on a desktop monitor pushes the primary action off-screen and
+          makes a short form feel long; two columns keeps the whole choice —
+          and the Continue button — visible at once. */}
+      <div className="grid gap-2.5 sm:grid-cols-2">
         {products.map((product) => {
           const isSelected = value === product.applicationCode;
           const description =
@@ -85,7 +89,7 @@ export function ProductChoiceGroup({
             <label
               key={product.id}
               className={cn(
-                "group relative flex cursor-pointer items-start gap-3 rounded-xl border bg-card p-4 transition-all",
+                "group relative flex h-full cursor-pointer items-start gap-3 rounded-xl border bg-card p-4 transition-all",
                 // The whole card reacts to keyboard focus on the hidden input,
                 // so a keyboard user sees exactly what a mouse user hovers.
                 "has-[:focus-visible]:border-ring has-[:focus-visible]:ring-3 has-[:focus-visible]:ring-ring/40",

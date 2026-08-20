@@ -56,15 +56,13 @@ export type PortalStepOneActionResult =
   | { status: "error"; code: "PRODUCT_LOCKED" | "INTAKE_NOT_FOUND" | "SAVE_FAILED" };
 
 export interface PortalStepOnePayload {
-  firstName: string;
-  lastName: string;
+  fullName: string;
   phone: string;
   email: string;
   identificationType: string;
   identificationNumber: string;
   productCode: string;
   requestedAmount: string;
-  requestedTermMonths: string;
   /** Stable per form instance — the double-click guard. */
   submissionId: string;
   /**

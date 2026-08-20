@@ -111,7 +111,8 @@ export interface PortalSnapshot {
     productCode: string;
     productName: LocalizedText;
     requestedAmount: number;
-    requestedTermMonths: number;
+    /** Absent until ODL and the applicant agree a term (26B-1A). */
+    requestedTermMonths?: number;
   };
 
   /** Masked only — see this module's header. */

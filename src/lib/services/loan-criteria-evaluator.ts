@@ -90,7 +90,8 @@ export function calculateAge(birthDateIso: string | undefined, asOf: Date = new 
  * database level. */
 export interface ApplicationFacts {
   applicationRequestedAmount: number;
-  applicationRequestedTermMonths: number;
+  /** Undefined when the term has not been agreed yet (26B-1A). */
+  applicationRequestedTermMonths?: number;
   clientMonthlySalary: number;
   /** null when the client's birth date is missing, malformed, or in the
    * future — see calculateAge. */
@@ -132,7 +133,16 @@ function resolveScalarFact(fieldSource: LoanCriterionFieldSource, facts: Applica
     case "application_requested_amount":
       return { available: true, type: "number", value: facts.applicationRequestedAmount };
     case "application_requested_term_months":
-      return { available: true, type: "number", value: facts.applicationRequestedTermMonths };
+      // MILESTONE 26B-1A — a term that has not been agreed yet is UNAVAILABLE,
+      // not zero. Reported through the same `available: false` channel
+      // `client_age` already uses for a missing birth date, so every criterion
+      // operator handles it by the rules that already exist: a
+      // `required_field_present` check correctly fails, and a numeric
+      // minimum/maximum cannot silently compare against a fabricated 0 and
+      // "pass" an application nobody has set a term for.
+      return facts.applicationRequestedTermMonths === undefined
+        ? { available: false }
+        : { available: true, type: "number", value: facts.applicationRequestedTermMonths };
     case "client_monthly_salary":
       return { available: true, type: "number", value: facts.clientMonthlySalary };
     case "client_age":

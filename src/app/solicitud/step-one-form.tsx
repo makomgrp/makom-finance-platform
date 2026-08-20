@@ -45,15 +45,13 @@ import type { PortalStepOneField, PortalStepOneFieldErrorCode } from "@/lib/vali
  */
 
 export interface StepOneInitialValues {
-  firstName: string;
-  lastName: string;
+  fullName: string;
   phone: string;
   email: string;
   identificationType: "cedula" | "pasaporte";
   identificationNumber: string;
   productCode: string;
   requestedAmount: string;
-  requestedTermMonths: string;
 }
 
 interface StepOneFormProps {
@@ -121,15 +119,13 @@ export function StepOneForm({
 
     try {
       const result = await submitPortalStepOne({
-        firstName: values.firstName,
-        lastName: values.lastName,
+        fullName: values.fullName,
         phone: values.phone,
         email: values.email,
         identificationType: values.identificationType,
         identificationNumber: values.identificationNumber,
         productCode: values.productCode,
         requestedAmount: values.requestedAmount,
-        requestedTermMonths: values.requestedTermMonths,
         submissionId: submissionIdRef.current,
         continuationToken,
         website: honeypot,
@@ -172,6 +168,8 @@ export function StepOneForm({
         <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-[1.75rem]">
           {t("title")}
         </h1>
+        {/* One short line. A longer welcome paragraph is the fastest way to make
+            a two-minute form feel like a commitment. */}
         <p className="text-[0.9375rem] leading-relaxed text-muted-foreground">{t("subtitle")}</p>
       </header>
 
@@ -212,66 +210,25 @@ export function StepOneForm({
             {t("identityLegend")}
           </legend>
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            <PortalField
-              id={`${baseId}-firstName`}
-              label={t("firstName")}
-              error={errorFor("firstName")}
-              required
-            >
-              {(props) => (
-                <Input
-                  {...props}
-                  value={values.firstName}
-                  onChange={(e) => set("firstName", e.target.value)}
-                  autoComplete="given-name"
-                  autoCapitalize="words"
-                  className="h-11"
-                />
-              )}
-            </PortalField>
-
-            <PortalField
-              id={`${baseId}-lastName`}
-              label={t("lastName")}
-              error={errorFor("lastName")}
-              required
-            >
-              {(props) => (
-                <Input
-                  {...props}
-                  value={values.lastName}
-                  onChange={(e) => set("lastName", e.target.value)}
-                  autoComplete="family-name"
-                  autoCapitalize="words"
-                  className="h-11"
-                />
-              )}
-            </PortalField>
-          </div>
+          <PortalField
+            id={`${baseId}-fullName`}
+            label={t("fullName")}
+            error={errorFor("fullName")}
+            required
+          >
+            {(props) => (
+              <Input
+                {...props}
+                value={values.fullName}
+                onChange={(e) => set("fullName", e.target.value)}
+                autoComplete="name"
+                autoCapitalize="words"
+                className="h-11"
+              />
+            )}
+          </PortalField>
 
           <div className="grid gap-4 sm:grid-cols-2">
-            <PortalField
-              id={`${baseId}-phone`}
-              label={t("phone")}
-              hint={t("phoneHint")}
-              error={errorFor("phone")}
-              required
-            >
-              {(props) => (
-                <Input
-                  {...props}
-                  // `tel` opens the phone keypad rather than a full keyboard.
-                  type="tel"
-                  inputMode="tel"
-                  value={values.phone}
-                  onChange={(e) => set("phone", e.target.value)}
-                  autoComplete="tel"
-                  className="h-11"
-                />
-              )}
-            </PortalField>
-
             <PortalField
               id={`${baseId}-email`}
               label={t("email")}
@@ -289,6 +246,27 @@ export function StepOneForm({
                   autoComplete="email"
                   autoCapitalize="none"
                   spellCheck={false}
+                  className="h-11"
+                />
+              )}
+            </PortalField>
+
+            <PortalField
+              id={`${baseId}-phone`}
+              label={t("phone")}
+              hint={t("phoneHint")}
+              error={errorFor("phone")}
+              required
+            >
+              {(props) => (
+                <Input
+                  {...props}
+                  // `tel` opens the phone keypad rather than a full keyboard.
+                  type="tel"
+                  inputMode="tel"
+                  value={values.phone}
+                  onChange={(e) => set("phone", e.target.value)}
+                  autoComplete="tel"
                   className="h-11"
                 />
               )}
@@ -338,7 +316,38 @@ export function StepOneForm({
               )}
             </PortalField>
           </div>
+          <PortalField
+            id={`${baseId}-requestedAmount`}
+            label={t("requestedAmount")}
+            hint={t("requestedAmountHint")}
+            error={errorFor("requestedAmount")}
+            required
+          >
+            {(props) => (
+              <div className="relative">
+                <span
+                  aria-hidden="true"
+                  className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-sm text-muted-foreground"
+                >
+                  $
+                </span>
+                <Input
+                  {...props}
+                  // `decimal` not `numeric`: amounts can carry cents.
+                  inputMode="decimal"
+                  value={values.requestedAmount}
+                  onChange={(e) => set("requestedAmount", e.target.value)}
+                  className="h-11 pl-7"
+                />
+              </div>
+            )}
+          </PortalField>
         </fieldset>
+
+        {/* A real rule, not just whitespace: Step 1 asks two different kinds of
+            question — who you are, and what you want — and the separation is
+            what stops the screen reading as one long undifferentiated list. */}
+        <hr className="border-border" />
 
         {/* ---- Product -------------------------------------------------- */}
         <ProductChoiceGroup
@@ -348,60 +357,6 @@ export function StepOneForm({
           errorMessage={errorFor("productCode")}
           errorId={`${baseId}-productCode-error`}
         />
-
-        {/* ---- Loan basics ---------------------------------------------- */}
-        <fieldset className="flex min-w-0 flex-col gap-4">
-          <legend className="mb-1 text-base font-semibold text-foreground">
-            {t("loanLegend")}
-          </legend>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <PortalField
-              id={`${baseId}-requestedAmount`}
-              label={t("requestedAmount")}
-              hint={t("requestedAmountHint")}
-              error={errorFor("requestedAmount")}
-              required
-            >
-              {(props) => (
-                <div className="relative">
-                  <span
-                    aria-hidden="true"
-                    className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-sm text-muted-foreground"
-                  >
-                    $
-                  </span>
-                  <Input
-                    {...props}
-                    // `decimal` not `numeric`: amounts can carry cents.
-                    inputMode="decimal"
-                    value={values.requestedAmount}
-                    onChange={(e) => set("requestedAmount", e.target.value)}
-                    className="h-11 pl-7"
-                  />
-                </div>
-              )}
-            </PortalField>
-
-            <PortalField
-              id={`${baseId}-requestedTermMonths`}
-              label={t("requestedTermMonths")}
-              hint={t("requestedTermMonthsHint")}
-              error={errorFor("requestedTermMonths")}
-              required
-            >
-              {(props) => (
-                <Input
-                  {...props}
-                  inputMode="numeric"
-                  value={values.requestedTermMonths}
-                  onChange={(e) => set("requestedTermMonths", e.target.value)}
-                  className="h-11"
-                />
-              )}
-            </PortalField>
-          </div>
-        </fieldset>
 
         {/* Honeypot. Off-screen rather than display:none, which some bots
             detect; hidden from assistive tech and skipped by tab order, so no

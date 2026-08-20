@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { getAllProducts } from "@/lib/services/products";
 import { resolveContinuationToken } from "@/lib/services/continuation-tokens";
 import { getApplicationIntakeById } from "@/lib/services/application-intakes";
-import { splitFullName } from "@/lib/validation/portal-step-one";
 import { StepOneForm, type StepOneInitialValues } from "../../step-one-form";
 
 /**
@@ -85,8 +84,6 @@ export default async function PortalContinuePage({
           }))
       : [];
 
-  const { firstName, lastName } = splitFullName(intake.applicantFullName);
-
   // Only a product still in the active catalog is preselected. A lead created
   // against a product ODL has since retired must not silently keep it.
   // The intake stores the internal product SLUG (the vocabulary the 15B engine
@@ -102,16 +99,19 @@ export default async function PortalContinuePage({
       : "";
 
   const initialValues: StepOneInitialValues = {
-    firstName,
-    lastName,
+    // The stored name is shown exactly as stored. 26B-1A collapsed Step 1 to a
+    // single name field, which also removed the lossy join-on-save /
+    // guess-apart-on-load round trip the two-field version needed.
+    fullName: intake.applicantFullName ?? "",
     phone: intake.applicantPhone ?? "",
     email: intake.applicantEmail ?? "",
     identificationType: intake.applicantIdentificationType ?? "cedula",
     identificationNumber: intake.applicantIdentificationNumber ?? "",
     productCode,
     requestedAmount: intake.requestedAmount != null ? String(intake.requestedAmount) : "",
-    requestedTermMonths:
-      intake.requestedTermMonths != null ? String(intake.requestedTermMonths) : "",
+    // A term the customer is never shown is deliberately not carried into the
+    // form. Any value an earlier channel captured stays on the intake row —
+    // see applyStepOneToIntake, which does not write that column at all.
   };
 
   // The banner is shown only when the customer's OWN details actually arrived.

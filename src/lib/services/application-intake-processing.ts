@@ -59,8 +59,10 @@ import type { ApplicationIntake, ApplicationIntakeReviewReason, ApplicationSourc
 export type IntakeMissingRequirement =
   | "product"
   | "requested_amount"
-  | "requested_term_months"
   | "client_data";
+// NOTE (26B-1A): "requested_term_months" was removed from this list. A missing
+// term no longer holds an application back — see the gate in
+// runApplicationCreationStep for why.
 
 export type ProcessApplicationIntakeResult =
   | { status: "processed"; applicationId: string }
@@ -379,14 +381,24 @@ async function runApplicationCreationStep(intake: ApplicationIntake): Promise<Pr
   // decides.
   const productCode = claimedIntake.requestedProductCode;
   const requestedAmount = claimedIntake.requestedAmount;
+
+  // MILESTONE 26B-1A — A MISSING TERM NO LONGER BLOCKS ANYTHING.
+  //
+  // The term used to be required here only because
+  // applications.requested_term_months was NOT NULL. That constraint is gone
+  // (see 20260820090216), because ODL does not ask customers to choose a
+  // repayment term when they apply — it is agreed later with an advisor.
+  //
+  // So the term is simply carried through as whatever the intake holds:
+  // a number when some channel supplied one, and undefined when nobody has
+  // decided yet. Nothing is substituted for absence.
   const requestedTermMonths = claimedIntake.requestedTermMonths;
 
   const missing: IntakeMissingRequirement[] = [];
   if (!productCode) missing.push("product");
   if (!(requestedAmount && requestedAmount > 0)) missing.push("requested_amount");
-  if (!(requestedTermMonths && requestedTermMonths > 0)) missing.push("requested_term_months");
 
-  if (!productCode || !requestedAmount || !requestedTermMonths || missing.length > 0) {
+  if (!productCode || !requestedAmount || missing.length > 0) {
     // Hand the claim back. This attempt created nothing, and the moment the
     // customer supplies the missing piece their very next request must be able
     // to claim this intake — not wait out the stale-claim window.

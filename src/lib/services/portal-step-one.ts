@@ -111,7 +111,13 @@ async function applyStepOneToIntake(
       applicant_phone: input.phone,
       requested_product_code: input.productCode,
       requested_amount: input.requestedAmount,
-      requested_term_months: input.requestedTermMonths,
+      // MILESTONE 26B-1A — requested_term_months is DELIBERATELY ABSENT.
+      //
+      // Step 1 no longer asks for a term, and omitting the column from this
+      // UPDATE is the point: writing `null` here would ERASE a term that an
+      // earlier channel legitimately captured (the long website form still
+      // collects one) every time the customer edited their name. A field the
+      // portal stopped showing must not become a field the portal deletes.
       current_step: "loan_selection",
       last_activity_at: new Date().toISOString(),
     })
@@ -156,7 +162,7 @@ export async function savePortalStepOne(
       applicantPhone: input.phone,
       requestedProductCode: input.productCode,
       requestedAmount: input.requestedAmount,
-      requestedTermMonths: input.requestedTermMonths,
+      // No term: a brand-new portal lead has not been asked for one.
     });
 
     if (created.status === "ok") {
