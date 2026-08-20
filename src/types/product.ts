@@ -21,6 +21,16 @@ export interface Product {
   /** Stable, human-assigned, machine-referenceable key — practically
    * immutable by convention, not enforced. See the migration comment. */
   code: string;
+  /**
+   * MILESTONE 26A-1 — the official one-letter code that ends every ODL
+   * application number (N / D / V / E).
+   *
+   * DISTINCT FROM `code`, which is an internal slug ("payroll_deduction").
+   * This is the identifier customers and the ODL website see, so it is what
+   * public URLs and the portal's product choice are keyed on. Optional because
+   * a product ODL adds later may not carry one.
+   */
+  applicationCode?: string;
   name: LocalizedText;
   shortDescription?: LocalizedText;
   status: ProductStatus;

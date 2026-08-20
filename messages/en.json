@@ -1040,5 +1040,87 @@
     "label": "Branch: {branch}",
     "srSelect": "Change branch",
     "noBranchAssigned": "You don't have a branch assigned. Contact your administrator."
+  },
+  "portal": {
+    "meta": {
+      "title": "Loan application | ODL Finance Corporation",
+      "description": "Complete your loan application with ODL Finance Corporation securely."
+    },
+    "header": {
+      "brandName": "ODL",
+      "brandSuffix": "Finance Corporation",
+      "homeLabel": "Go to the start of the application",
+      "secure": "Secure connection",
+      "secureDetail": "Your information is protected."
+    },
+    "progress": {
+      "label": "Application progress",
+      "stepOf": "Step {current} of {total}",
+      "step1": "Your details",
+      "step2": "Information",
+      "step3": "Documents",
+      "review": "Review and submit",
+      "statusCurrent": "Current step",
+      "statusUpcoming": "Not available yet"
+    },
+    "step1": {
+      "title": "Let's start with your details",
+      "subtitle": "We only need the basics to get started. It takes less than two minutes.",
+      "prefilledTitle": "We already have some of your details",
+      "prefilledBody": "Review them and correct anything that needs it.",
+      "identityLegend": "Your personal details",
+      "loanLegend": "The loan you need",
+      "firstName": "First name",
+      "lastName": "Last name",
+      "phone": "Phone",
+      "phoneHint": "Where we can reach you.",
+      "email": "Email",
+      "emailHint": "We'll send you the link to continue later.",
+      "identificationType": "Document type",
+      "identificationNumber": "Document number",
+      "cedula": "Cédula",
+      "pasaporte": "Passport",
+      "requestedAmount": "How much do you need?",
+      "requestedAmountHint": "Amount in dollars. You can adjust it later.",
+      "requestedTermMonths": "Over how many months?",
+      "requestedTermMonthsHint": "Estimated term. You can adjust it later.",
+      "productLegend": "What kind of loan are you looking for?",
+      "productHelp": "Choose one option. You can discuss it with us later.",
+      "productSelected": "Selected",
+      "continue": "Continue",
+      "continueSaving": "Saving…",
+      "required": "Required",
+      "errorSummary": "Please check the highlighted fields."
+    },
+    "errors": {
+      "REQUIRED": "This field is required.",
+      "TOO_LONG": "This text is too long.",
+      "INVALID_EMAIL": "Enter a valid email address.",
+      "INVALID_IDENTIFICATION_TYPE": "Select a document type.",
+      "INVALID_PRODUCT": "Select one of the available loans.",
+      "INVALID_NUMBER": "Enter a valid number.",
+      "OUT_OF_RANGE": "This value is out of range.",
+      "PRODUCT_LOCKED": "Your application was already created with a different loan type. Contact us to change it.",
+      "SAVE_FAILED": "We couldn't save your details. Please try again in a moment.",
+      "INTAKE_NOT_FOUND": "We couldn't find your application. Please start again from the beginning.",
+      "NEEDS_REVIEW": "We received your details. An ODL advisor will review your application and contact you."
+    },
+    "resume": {
+      "notFoundTitle": "This link isn't valid",
+      "notFoundBody": "Please check that you opened the most recent link we sent you.",
+      "expiredTitle": "This link has expired",
+      "expiredBody": "For security, links expire. Contact us and we'll send you a new one.",
+      "revokedTitle": "This link is no longer active",
+      "revokedBody": "A more recent link was generated. Please use the latest one we sent you.",
+      "startOver": "Start an application"
+    },
+    "devBoundary": {
+      "badge": "Development environment",
+      "title": "Step 2 is not built yet",
+      "body": "Your Step 1 details were saved successfully. This screen is a temporary development boundary, not a finished customer screen.",
+      "leadSaved": "Your application was saved as a draft.",
+      "applicationCreated": "Your formal application was created.",
+      "back": "Back to Step 1"
+    }
   }
 }

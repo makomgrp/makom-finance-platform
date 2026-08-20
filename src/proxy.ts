@@ -29,9 +29,23 @@ const PUBLIC_PATHS = [
   "/auth/callback",
   // Milestone 15C: the public website loan-application form. Genuinely
   // public — a prospective applicant has no CRM session, and this is the
-  // whole point of the page.
-  "/solicitud",
+  // whole point of the page. Moved to /solicitud-clasico by 26B-1, which
+  // gave /solicitud to the customer portal.
+  "/solicitud-clasico",
 ];
+
+// MILESTONE 26B-1 — the public customer portal.
+//
+// A PREFIX rather than an exact path, because the portal is a multi-page flow:
+// /solicitud, /solicitud/continuar/<token> and every later step share one
+// public boundary. Listing each page separately would mean a future step
+// silently redirecting customers to /login the day it is added.
+//
+// Safe as a prefix precisely because nothing authenticated lives under it: the
+// CRM's own application screens are /solicitudes (plural), a different path
+// that this check does not match — `startsWith("/solicitud/")` requires the
+// trailing slash, and "/solicitudes" does not contain it at that position.
+const PORTAL_PATH = "/solicitud";
 
 // Milestone 15C: every public-facing API route lives under this prefix,
 // so future public channel adapters (this app's own future website
@@ -43,7 +57,12 @@ const PUBLIC_PATHS = [
 const PUBLIC_API_PREFIX = "/api/public/";
 
 function isPublicPath(pathname: string): boolean {
-  return PUBLIC_PATHS.some((path) => pathname === path) || pathname.startsWith(PUBLIC_API_PREFIX);
+  return (
+    PUBLIC_PATHS.some((path) => pathname === path) ||
+    pathname === PORTAL_PATH ||
+    pathname.startsWith(`${PORTAL_PATH}/`) ||
+    pathname.startsWith(PUBLIC_API_PREFIX)
+  );
 }
 
 export async function proxy(request: NextRequest) {

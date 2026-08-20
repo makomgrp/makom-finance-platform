@@ -19,6 +19,7 @@ import type { LocalizedText, Product, ProductStatus } from "@/types";
 interface ProductRow {
   id: string;
   code: string;
+  application_code: string | null;
   name: Record<string, string>;
   short_description: Record<string, string> | null;
   status: string;
@@ -30,13 +31,14 @@ interface ProductRow {
 }
 
 const PRODUCT_SELECT =
-  "id, code, name, short_description, status, display_order, status_changed_at, status_changed_by_profile_id, created_at, " +
+  "id, code, application_code, name, short_description, status, display_order, status_changed_at, status_changed_by_profile_id, created_at, " +
   "status_changed_by:profiles!products_status_changed_by_profile_id_fkey(full_name)";
 
 function toProduct(row: ProductRow): Product {
   return {
     id: row.id,
     code: row.code,
+    applicationCode: row.application_code ?? undefined,
     name: row.name as LocalizedText,
     shortDescription: (row.short_description as LocalizedText | null) ?? undefined,
     status: row.status as ProductStatus,

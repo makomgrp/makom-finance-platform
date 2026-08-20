@@ -1040,5 +1040,87 @@
     "label": "Sucursal: {branch}",
     "srSelect": "Cambiar sucursal",
     "noBranchAssigned": "No tienes una sucursal asignada. Comunícate con tu administrador."
+  },
+  "portal": {
+    "meta": {
+      "title": "Solicitud de préstamo | ODL Finance Corporation",
+      "description": "Completa tu solicitud de préstamo con ODL Finance Corporation de forma segura."
+    },
+    "header": {
+      "brandName": "ODL",
+      "brandSuffix": "Finance Corporation",
+      "homeLabel": "Ir al inicio de la solicitud",
+      "secure": "Conexión segura",
+      "secureDetail": "Tu información está protegida."
+    },
+    "progress": {
+      "label": "Progreso de la solicitud",
+      "stepOf": "Paso {current} de {total}",
+      "step1": "Tus datos",
+      "step2": "Información",
+      "step3": "Documentos",
+      "review": "Revisar y enviar",
+      "statusCurrent": "Paso actual",
+      "statusUpcoming": "Aún no disponible"
+    },
+    "step1": {
+      "title": "Empecemos con tus datos",
+      "subtitle": "Solo necesitamos lo básico para comenzar. Toma menos de dos minutos.",
+      "prefilledTitle": "Ya tenemos algunos datos tuyos",
+      "prefilledBody": "Revísalos y corrige lo que haga falta.",
+      "identityLegend": "Tus datos personales",
+      "loanLegend": "El préstamo que necesitas",
+      "firstName": "Nombre",
+      "lastName": "Apellido",
+      "phone": "Teléfono",
+      "phoneHint": "Donde podamos contactarte.",
+      "email": "Correo electrónico",
+      "emailHint": "Te enviaremos el enlace para continuar después.",
+      "identificationType": "Tipo de documento",
+      "identificationNumber": "Número de documento",
+      "cedula": "Cédula",
+      "pasaporte": "Pasaporte",
+      "requestedAmount": "¿Cuánto necesitas?",
+      "requestedAmountHint": "Monto en dólares. Puedes ajustarlo más adelante.",
+      "requestedTermMonths": "¿En cuántos meses?",
+      "requestedTermMonthsHint": "Plazo estimado. Puedes ajustarlo más adelante.",
+      "productLegend": "¿Qué tipo de préstamo buscas?",
+      "productHelp": "Elige una opción. Podrás conversarlo con nosotros más adelante.",
+      "productSelected": "Seleccionado",
+      "continue": "Continuar",
+      "continueSaving": "Guardando…",
+      "required": "Obligatorio",
+      "errorSummary": "Revisa los campos marcados."
+    },
+    "errors": {
+      "REQUIRED": "Este campo es obligatorio.",
+      "TOO_LONG": "El texto es demasiado largo.",
+      "INVALID_EMAIL": "Escribe un correo electrónico válido.",
+      "INVALID_IDENTIFICATION_TYPE": "Selecciona un tipo de documento.",
+      "INVALID_PRODUCT": "Selecciona uno de los préstamos disponibles.",
+      "INVALID_NUMBER": "Escribe un número válido.",
+      "OUT_OF_RANGE": "El valor está fuera del rango permitido.",
+      "PRODUCT_LOCKED": "Tu solicitud ya fue creada con otro tipo de préstamo. Contáctanos para cambiarlo.",
+      "SAVE_FAILED": "No pudimos guardar tus datos. Intenta de nuevo en un momento.",
+      "INTAKE_NOT_FOUND": "No encontramos tu solicitud. Comienza de nuevo desde el inicio.",
+      "NEEDS_REVIEW": "Recibimos tus datos. Un asesor de ODL revisará tu solicitud y te contactará."
+    },
+    "resume": {
+      "notFoundTitle": "Este enlace no es válido",
+      "notFoundBody": "Revisa que hayas abierto el enlace más reciente que te enviamos.",
+      "expiredTitle": "Este enlace ya venció",
+      "expiredBody": "Por seguridad, los enlaces caducan. Escríbenos y te enviaremos uno nuevo.",
+      "revokedTitle": "Este enlace ya no está activo",
+      "revokedBody": "Se generó un enlace más reciente. Usa el último que te enviamos.",
+      "startOver": "Comenzar una solicitud"
+    },
+    "devBoundary": {
+      "badge": "Entorno de desarrollo",
+      "title": "Paso 2 aún no está construido",
+      "body": "Tus datos del Paso 1 se guardaron correctamente. Esta pantalla es un límite temporal de desarrollo, no una pantalla final para clientes.",
+      "leadSaved": "Se guardó tu solicitud como borrador.",
+      "applicationCreated": "Se creó tu solicitud formal.",
+      "back": "Volver al Paso 1"
+    }
   }
 }

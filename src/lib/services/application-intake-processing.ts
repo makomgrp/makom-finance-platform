@@ -5,6 +5,7 @@ import {
   completeApplicationIntake,
   getApplicationIntakeById,
   markApplicationIntakeNeedsReview,
+  releaseApplicationIntakeProcessingClaim,
 } from "./application-intakes";
 import { matchClientForIntake } from "./client-matching";
 import { createApplication } from "./applications";
@@ -48,9 +49,28 @@ import type { ApplicationIntake, ApplicationIntakeReviewReason, ApplicationSourc
  * why guard 1 alone is not sufficient and guard 2 exists.
  */
 
+/**
+ * MILESTONE 26B-1 — WHAT IS STILL MISSING FROM A DRAFT.
+ *
+ * A closed vocabulary of the things a lead can legitimately not have supplied
+ * YET. Every value here means "the customer has not reached that question",
+ * never "the customer answered wrongly".
+ */
+export type IntakeMissingRequirement =
+  | "product"
+  | "requested_amount"
+  | "requested_term_months"
+  | "client_data";
+
 export type ProcessApplicationIntakeResult =
   | { status: "processed"; applicationId: string }
   | { status: "already_processed"; applicationId: string }
+  /**
+   * MILESTONE 26B-1 — a VALID, live draft that simply is not an Application
+   * yet. Not an error, and deliberately not a status the row records: the
+   * intake stays exactly where it was, ready for the next attempt.
+   */
+  | { status: "awaiting_completion"; missing: IntakeMissingRequirement[] }
   | { status: "needs_review"; reason: ApplicationIntakeReviewReason }
   | { status: "concurrent_processing" }
   | { status: "error"; code: "INTAKE_NOT_FOUND" | "PROCESSING_FAILED" };
@@ -111,6 +131,11 @@ async function runProcessingAttempt(intakeId: string): Promise<ProcessingAttempt
     if (clientResolution.outcome === "needs_review") {
       return routeToNeedsReview(intakeId, clientResolution.reason);
     }
+    if (clientResolution.outcome === "awaiting_completion") {
+      // Still a live draft at status 'received'. Nothing was claimed and
+      // nothing was written, so the next attempt starts cleanly.
+      return { status: "awaiting_completion", missing: clientResolution.missing };
+    }
 
     const claimedForClient = await claimApplicationIntakeForClient(intakeId, clientResolution.clientId);
     if (claimedForClient.status === "error") {
@@ -155,6 +180,7 @@ async function runProcessingAttempt(intakeId: string): Promise<ProcessingAttempt
 
 type ClientResolution =
   | { outcome: "resolved"; clientId: string; wasCreated: boolean }
+  | { outcome: "awaiting_completion"; missing: IntakeMissingRequirement[] }
   | { outcome: "needs_review"; reason: ApplicationIntakeReviewReason };
 
 /**
@@ -229,7 +255,26 @@ async function createClientFromIntake(intake: ApplicationIntake): Promise<Client
     intake.monthlySalary >= 0;
 
   if (!hasAllRequiredFields) {
-    return { outcome: "needs_review", reason: "insufficient_client_data" };
+    // MILESTONE 26B-1 — MISSING IS NOT WRONG.
+    //
+    // Before the portal existed, every intake arrived from a single long form
+    // that either supplied all ten fields or was defective, so "incomplete"
+    // and "needs a human" were the same thing. They no longer are: a portal
+    // lead that has finished Step 1 has a name, an ID, a phone and an email
+    // and legitimately does not yet have a birth date, nationality, address,
+    // position or salary — those are Step 2 questions, and Step 1 is forbidden
+    // from asking them.
+    //
+    // Routing that customer to needs_review would put a queue item on a
+    // reviewer's desk for every person who is merely still typing, and would
+    // mark the lead terminal so their own next step could never process it.
+    // The row stays exactly as it is and the caller learns what is still
+    // outstanding.
+    //
+    // Genuinely BAD data is unaffected: conflicting_client_identity and
+    // low_confidence_client_match still route to needs_review, because those
+    // mean a human has to decide something.
+    return { outcome: "awaiting_completion", missing: ["client_data"] };
   }
 
   const createResult = await createClient({
@@ -313,21 +358,47 @@ async function runApplicationCreationStep(intake: ApplicationIntake): Promise<Pr
 
   const claimedIntake = claimedForProcessing.intake;
 
-  if (!claimedIntake.requestedProductCode) {
-    return routeToNeedsReview(intake.id, "missing_product_code");
-  }
-  if (!(claimedIntake.requestedAmount && claimedIntake.requestedAmount > 0)) {
-    return routeToNeedsReview(intake.id, "missing_requested_amount");
-  }
-  if (!(claimedIntake.requestedTermMonths && claimedIntake.requestedTermMonths > 0)) {
-    return routeToNeedsReview(intake.id, "missing_requested_term_months");
+  // MILESTONE 26B-1 — A LEAD WITHOUT A PRODUCT IS VALID.
+  //
+  // The customer who clicked the ODL website's general "Solicitar un préstamo"
+  // button has not chosen a product because the portal has not asked yet. That
+  // is the normal opening state of the approved flow, not a defect, and the
+  // same is true of an amount and a term that Step 1 has not collected.
+  //
+  // All three are gathered here rather than returned one at a time so the
+  // portal can tell a customer everything that is outstanding at once instead
+  // of one round trip per field.
+  //
+  // NOTE WHAT IS NOT RELAXED: an UNRECOGNISED or INACTIVE product code still
+  // routes to needs_review below. A malformed product is never reinterpreted
+  // as "no product" — that would let a typo silently become a valid draft and
+  // then be quietly assigned whatever product the customer picked later.
+  // Bound to locals rather than re-read from `claimedIntake` below, so the
+  // compiler carries the non-null narrowing all the way to createApplication —
+  // no `!` assertions on values whose presence is exactly what this block
+  // decides.
+  const productCode = claimedIntake.requestedProductCode;
+  const requestedAmount = claimedIntake.requestedAmount;
+  const requestedTermMonths = claimedIntake.requestedTermMonths;
+
+  const missing: IntakeMissingRequirement[] = [];
+  if (!productCode) missing.push("product");
+  if (!(requestedAmount && requestedAmount > 0)) missing.push("requested_amount");
+  if (!(requestedTermMonths && requestedTermMonths > 0)) missing.push("requested_term_months");
+
+  if (!productCode || !requestedAmount || !requestedTermMonths || missing.length > 0) {
+    // Hand the claim back. This attempt created nothing, and the moment the
+    // customer supplies the missing piece their very next request must be able
+    // to claim this intake — not wait out the stale-claim window.
+    await releaseApplicationIntakeProcessingClaim(intake.id);
+    return { status: "awaiting_completion", missing };
   }
 
   const productsResult = await getAllProducts();
   if (productsResult.status === "error") {
     throw new Error(`Failed to load products while processing intake ${intake.id}`);
   }
-  const product = productsResult.products.find((p) => p.code === claimedIntake.requestedProductCode);
+  const product = productsResult.products.find((p) => p.code === productCode);
   if (!product) {
     return routeToNeedsReview(intake.id, "product_not_found");
   }
@@ -338,8 +409,8 @@ async function runApplicationCreationStep(intake: ApplicationIntake): Promise<Pr
   const createResult = await createApplication({
     clientId: claimedIntake.matchedClientId!,
     productId: product.id,
-    requestedAmount: claimedIntake.requestedAmount,
-    requestedTermMonths: claimedIntake.requestedTermMonths,
+    requestedAmount,
+    requestedTermMonths,
     source: INTAKE_CHANNEL_TO_APPLICATION_SOURCE[claimedIntake.channel],
     actorProfileId: null,
   });

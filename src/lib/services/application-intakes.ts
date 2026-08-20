@@ -659,3 +659,48 @@ export async function touchIntakeActivity(
   }
   return { status: "ok" };
 }
+
+export type ReleaseApplicationIntakeProcessingClaimResult =
+  | { status: "ok" }
+  | { status: "error"; code: "UPDATE_FAILED" };
+
+/**
+ * MILESTONE 26B-1 — hand back a processing claim without having created
+ * anything.
+ *
+ * Needed because the portal introduced a THIRD outcome for an Application-
+ * creation attempt. Before 26B-1 an attempt either produced an Application or
+ * routed the intake to needs_review, and both are terminal, so nothing ever had
+ * to release the marker. A portal lead can now legitimately end an attempt with
+ * "not enough information yet" and remain a live draft — and the moment the
+ * customer supplies the missing piece, the very next attempt must be able to
+ * claim it.
+ *
+ * Without this, that customer would wait out
+ * APPLICATION_INTAKE_PROCESSING_CLAIM_STALE_AFTER_MS before their own
+ * application could progress — a stall caused entirely by bookkeeping.
+ *
+ * NARROW ON PURPOSE: it clears the marker and touches nothing else. It cannot
+ * change status, cannot unset created_application_id, and cannot resurrect a
+ * finished intake, because it only ever clears a claim on a row that has not
+ * produced an Application.
+ */
+export async function releaseApplicationIntakeProcessingClaim(
+  intakeId: string
+): Promise<ReleaseApplicationIntakeProcessingClaimResult> {
+  const supabase = getSupabaseServerClient();
+  const { error } = await supabase
+    .from("application_intakes")
+    .update({ processing_claimed_at: null })
+    .eq("id", intakeId)
+    .is("created_application_id", null);
+
+  if (error) {
+    console.error(
+      "[application-intakes service] Failed to release processing claim:",
+      error.message
+    );
+    return { status: "error", code: "UPDATE_FAILED" };
+  }
+  return { status: "ok" };
+}

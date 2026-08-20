@@ -3,6 +3,7 @@ import { createApplicationIntake, getApplicationIntakeBySubmission } from "@/lib
 import { processApplicationIntake } from "@/lib/services/application-intake-processing";
 import { getAllProducts } from "@/lib/services/products";
 import { isHoneypotTriggered, validatePublicApplicationIntake } from "@/lib/validation/public-application-intake";
+import { issueContinuationToken } from "@/lib/services/continuation-tokens";
 
 /**
  * PUBLIC website Application Intake adapter (Milestone 15C). Untrusted
@@ -149,5 +150,43 @@ export async function POST(request: NextRequest) {
     console.error("[public application-intake] Processing failed for intake", intakeId, error);
   }
 
-  return NextResponse.json({ success: true, submissionId: input.submissionId, status: "received" });
+  // MILESTONE 26B-1 — THE PREFILL HANDOFF.
+  //
+  // The ODL website POSTs the customer's basic details here and needs a way to
+  // send that customer onward to the portal with those details ALREADY FILLED.
+  // The obvious approach — appending name, email and cédula to a redirect URL —
+  // is exactly what this returns instead of, because a URL carrying PII ends up
+  // in browser history, server access logs, analytics payloads and the Referer
+  // header of every third-party asset the next page loads.
+  //
+  // So the caller gets an OPAQUE CONTINUATION TOKEN: 256 bits of randomness
+  // that encode nothing about the person. The website redirects to
+  // `${portalOrigin}/solicitud/continuar/${continuationToken}`, the portal
+  // resolves it server-side, and the customer sees their own data without any
+  // of it ever having travelled in a query string.
+  //
+  // REUSED, NOT REINVENTED: this is the 26A-4 token architecture unchanged —
+  // same hashing, same 14-day expiry, same one-live-token-per-intake rotation,
+  // same revocation. There is deliberately no second token system.
+  //
+  // A FAILURE HERE IS NOT A FAILURE OF THE SUBMISSION. The intake is already
+  // durably stored by this point. If the token cannot be minted, the response
+  // simply omits it and the website falls back to sending the customer to
+  // /solicitud, where they fill Step 1 themselves — degraded, not broken.
+  let continuationToken: string | undefined;
+  const issued = await issueContinuationToken(intakeId);
+  if (issued.status === "ok") {
+    continuationToken = issued.issued.token;
+  } else {
+    console.error("[public application-intake] Could not issue a continuation token");
+  }
+
+  return NextResponse.json({
+    success: true,
+    submissionId: input.submissionId,
+    status: "received",
+    // Present on success only. NEVER logged — see continuation-tokens.ts.
+    continuationToken,
+    continuationPath: continuationToken ? `/solicitud/continuar/${continuationToken}` : undefined,
+  });
 }
