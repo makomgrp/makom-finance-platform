@@ -37,6 +37,41 @@ export type RequirementSlotSource = "crm_manual" | "website_form" | "whatsapp" |
  * already resolves to the correct, permanently-fixed product via the
  * template it was copied from.
  */
+/**
+ * MILESTONE 26A-3 — Step 3 configuration vocabularies. Mirror the database
+ * CHECK constraints exactly, so a service cannot construct a value the database
+ * will reject.
+ */
+export type RequirementStage =
+  | "application"
+  | "compliance"
+  | "approval"
+  | "signing"
+  | "disbursement"
+  | "servicing";
+
+/** Who produces the evidence. `external_third_party` is the employer signing a
+ * payroll-deduction authorization — neither the client nor ODL staff. */
+export type RequirementActor =
+  | "client"
+  | "guarantor"
+  | "internal"
+  | "generated"
+  | "external_third_party";
+
+/** Names the question that decides whether a requirement applies. A closed
+ * vocabulary, never an expression — the service answers it. */
+export type RequirementConditionKey =
+  | "has_guarantor"
+  | "collateral_is_vehicle"
+  | "collateral_is_property"
+  | "business_has_tcc"
+  | "loan_purpose_requires_proforma"
+  | "bank_requires_specific_authorization";
+
+/** What a requirement is ABOUT. On a slot, the matching id names which one. */
+export type RequirementSubjectType = "application" | "guarantor" | "collateral";
+
 export interface RequirementSlot {
   id: string;
   /** The application this slot belongs to. Formerly a temporary
@@ -53,6 +88,24 @@ export interface RequirementSlot {
   requirementKind: RequirementKind;
   required: boolean;
   displayOrder: number;
+  /** MILESTONE 26A-3 — how many files satisfy this. 2 for pay slips; 1 for
+   * bank statements because one consolidated PDF is a valid answer. Undefined
+   * means file count is not how this completes. */
+  minFiles?: number;
+  allowsMultipleFiles: boolean;
+  stage: RequirementStage;
+  actor: RequirementActor;
+  /** Undefined means always required. */
+  conditionKey?: RequirementConditionKey;
+  /** Whether the public portal may show this. */
+  applicantVisible: boolean;
+  /** A signed upload proceeds, but the physical original is owed later. */
+  originalRequiredLater: boolean;
+  subjectType: RequirementSubjectType;
+  /** Set only when subjectType is 'guarantor'. */
+  applicationGuarantorId?: string;
+  /** Set only when subjectType is 'collateral'. */
+  applicationCollateralId?: string;
   status: RequirementSlotStatus;
   statusChangedAt?: string;
   /** Populated only when the actor was a real CRM profile

@@ -9,6 +9,10 @@ import type {
   RequirementSlot,
   RequirementSlotSource,
   RequirementSlotStatus,
+  RequirementStage,
+  RequirementActor,
+  RequirementConditionKey,
+  RequirementSubjectType,
 } from "@/types";
 
 /**
@@ -49,10 +53,22 @@ interface RequirementSlotRow {
   status_changed_source: string | null;
   created_at: string;
   status_changed_by: { full_name: string } | null;
+  min_files: number | null;
+  allows_multiple_files: boolean;
+  stage: string;
+  actor: string;
+  condition_key: string | null;
+  applicant_visible: boolean;
+  original_required_later: boolean;
+  subject_type: string;
+  application_guarantor_id: string | null;
+  application_collateral_id: string | null;
 }
 
 const REQUIREMENT_SLOT_SELECT =
   "id, application_id, requirement_template_id, code, name, description, requirement_kind, required, display_order, status, status_changed_at, status_changed_by_profile_id, status_changed_source, created_at, " +
+  // MILESTONE 26A-3 — the snapshotted Step 3 configuration.
+  "min_files, allows_multiple_files, stage, actor, condition_key, applicant_visible, original_required_later, subject_type, application_guarantor_id, application_collateral_id, " +
   "status_changed_by:profiles!requirement_slots_status_changed_by_profile_id_fkey(full_name)";
 
 /** MILESTONE 25B-1 — slots derive their branch from their application via an
@@ -78,6 +94,16 @@ function toRequirementSlot(row: RequirementSlotRow): RequirementSlot {
     statusChangedByFullName: row.status_changed_by?.full_name ?? undefined,
     statusChangedSource: (row.status_changed_source as RequirementSlotSource | null) ?? undefined,
     createdAt: row.created_at,
+    minFiles: row.min_files ?? undefined,
+    allowsMultipleFiles: row.allows_multiple_files,
+    stage: row.stage as RequirementStage,
+    actor: row.actor as RequirementActor,
+    conditionKey: (row.condition_key as RequirementConditionKey | null) ?? undefined,
+    applicantVisible: row.applicant_visible,
+    originalRequiredLater: row.original_required_later,
+    subjectType: row.subject_type as RequirementSubjectType,
+    applicationGuarantorId: row.application_guarantor_id ?? undefined,
+    applicationCollateralId: row.application_collateral_id ?? undefined,
   };
 }
 
@@ -120,6 +146,27 @@ export async function getRequirementSlotsByApplicationId(
   }
 }
 
+/** MILESTONE 26A-3 — the snapshot source shape. Declared explicitly because a
+ * runtime-composed select string leaves PostgREST inferring GenericStringError
+ * instead of a row (the same trap Milestone 25B-1 hit). */
+interface RequirementTemplateSnapshotRow {
+  id: string;
+  code: string;
+  name: Record<string, string>;
+  description: Record<string, string>;
+  requirement_kind: string;
+  required: boolean;
+  display_order: number;
+  min_files: number | null;
+  allows_multiple_files: boolean;
+  stage: string;
+  actor: string;
+  condition_key: string | null;
+  applicant_visible: boolean;
+  original_required_later: boolean;
+  subject_type: string;
+}
+
 export type CreateRequirementSlotsResult =
   | { status: "ok"; requirementSlots: RequirementSlot[] }
   | { status: "error"; code: "NO_ACTIVE_TEMPLATES" | "INSERT_FAILED" };
@@ -148,11 +195,19 @@ export type CreateRequirementSlotsResult =
  * created, slot snapshot failed) is handled — a caller-visible "partial"
  * result plus safe retry, not silently ignored.
  *
- * Idempotent via the same on-conflict-do-nothing discipline used by every
- * dev seed in this schema: calling this twice for the same application
- * never creates duplicate or conflicting slots, matching the
- * unique(application_id, requirement_template_id) constraint — this is
- * exactly what makes the retry-on-partial-failure mitigation above safe.
+ * Idempotent: calling this twice for the same application never creates
+ * duplicate slots. MILESTONE 26A-3 changed HOW — it now reads which templates
+ * already have an application-level slot and inserts only the rest, because the
+ * non-partial unique index the old upsert targeted was replaced by three
+ * partial ones so a requirement can bind to a specific guarantor or collateral
+ * item. requirement_slots_unbound_template_key still backs the guarantee, so a
+ * concurrent double-call fails loudly into the documented safe-retry path
+ * rather than duplicating.
+ *
+ * MILESTONE 26A-3 also narrowed WHAT is snapshotted: only unconditional,
+ * application-level templates. Conditional and subject-bound requirements
+ * materialize later, when their condition is answered and their guarantor or
+ * collateral row exists — see the query below.
  */
 export async function createRequirementSlotsForApplication(
   applicationId: string,
@@ -162,9 +217,34 @@ export async function createRequirementSlotsForApplication(
 
   const { data: templates, error: templatesError } = await supabase
     .from("requirement_templates")
-    .select("id, code, name, description, requirement_kind, required, display_order")
+    .select(
+      "id, code, name, description, requirement_kind, required, display_order, " +
+        // MILESTONE 26A-3 — the new configuration must be SNAPSHOT too, or an
+        // application would freeze its requirement list while silently
+        // inheriting today's min_files and visibility rules forever after.
+        "min_files, allows_multiple_files, stage, actor, condition_key, " +
+        "applicant_visible, original_required_later, subject_type"
+    )
     .eq("product_id", productId)
-    .eq("status", "active");
+    .eq("status", "active")
+    // MILESTONE 26A-3 — ONLY UNCONDITIONAL, APPLICATION-LEVEL REQUIREMENTS
+    // MATERIALIZE AT CREATION.
+    //
+    // A conditional requirement (guarantor documents, TCC, proformas, collateral
+    // papers) has no answer yet at the moment an application is created: nobody
+    // has said whether there is a guarantor. Snapshotting it anyway would put a
+    // permanently-incomplete row into every progress calculation and show the
+    // applicant a document they may never owe.
+    //
+    // Subject-bound requirements additionally CANNOT exist yet: their slot
+    // needs a real application_guarantor_id or application_collateral_id, and
+    // those rows are created later in Step 2.
+    //
+    // Auditability is unaffected — the template catalogue is the permanent
+    // record of what a product can require; slots record what THIS application
+    // was actually asked for.
+    .is("condition_key", null)
+    .eq("subject_type", "application");
 
   if (templatesError) {
     console.error(
@@ -174,28 +254,74 @@ export async function createRequirementSlotsForApplication(
     return { status: "error", code: "INSERT_FAILED" };
   }
 
-  if (!templates || templates.length === 0) {
+  const templateRows = (templates ?? []) as unknown as RequirementTemplateSnapshotRow[];
+
+  if (templateRows.length === 0) {
     return { status: "error", code: "NO_ACTIVE_TEMPLATES" };
   }
 
-  const rowsToInsert = templates.map((template) => ({
-    application_id: applicationId,
-    requirement_template_id: template.id,
-    code: template.code,
-    name: template.name,
-    description: template.description,
-    requirement_kind: template.requirement_kind,
-    required: template.required,
-    display_order: template.display_order,
-  }));
-
-  const { error: insertError } = await supabase
+  // MILESTONE 26A-3 — IDEMPOTENCY WITHOUT onConflict.
+  //
+  // This used upsert(onConflict: "application_id,requirement_template_id"),
+  // which PostgREST can only target through a NON-partial unique index. 26A-3
+  // replaced that index with three partial ones so a requirement can bind to a
+  // specific guarantor or collateral item (an application with two guarantors
+  // needs two slots from one template).
+  //
+  // The retry-safety this function's doc comment promises is preserved by
+  // reading which templates already have an application-level slot and
+  // inserting only the rest. A concurrent double-call still cannot duplicate:
+  // requirement_slots_unbound_template_key rejects the loser, which surfaces as
+  // INSERT_FAILED and the documented "safe to retry" path.
+  const { data: existing, error: existingError } = await supabase
     .from("requirement_slots")
-    .upsert(rowsToInsert, { onConflict: "application_id,requirement_template_id", ignoreDuplicates: true });
+    .select("requirement_template_id")
+    .eq("application_id", applicationId)
+    .is("application_guarantor_id", null)
+    .is("application_collateral_id", null);
 
-  if (insertError) {
-    console.error("[requirement-slots service] Failed to insert requirement slots:", insertError.message);
+  if (existingError) {
+    console.error(
+      "[requirement-slots service] Failed to read existing requirement slots:",
+      existingError.message
+    );
     return { status: "error", code: "INSERT_FAILED" };
+  }
+
+  const alreadySnapshotted = new Set(
+    ((existing ?? []) as { requirement_template_id: string }[]).map(
+      (row) => row.requirement_template_id
+    )
+  );
+
+  const rowsToInsert = templateRows
+    .filter((template) => !alreadySnapshotted.has(template.id))
+    .map((template) => ({
+      application_id: applicationId,
+      requirement_template_id: template.id,
+      code: template.code,
+      name: template.name,
+      description: template.description,
+      requirement_kind: template.requirement_kind,
+      required: template.required,
+      display_order: template.display_order,
+      min_files: template.min_files,
+      allows_multiple_files: template.allows_multiple_files,
+      stage: template.stage,
+      actor: template.actor,
+      condition_key: template.condition_key,
+      applicant_visible: template.applicant_visible,
+      original_required_later: template.original_required_later,
+      subject_type: template.subject_type,
+    }));
+
+  if (rowsToInsert.length > 0) {
+    const { error: insertError } = await supabase.from("requirement_slots").insert(rowsToInsert);
+
+    if (insertError) {
+      console.error("[requirement-slots service] Failed to insert requirement slots:", insertError.message);
+      return { status: "error", code: "INSERT_FAILED" };
+    }
   }
 
   // MILESTONE 25B-1 — this is a READ-BACK OF THIS FUNCTION'S OWN INSERT, not a
@@ -465,4 +591,46 @@ export async function getDocumentSlotCompletionCounts(
     );
     return { status: "error" };
   }
+}
+
+/**
+ * ============================================================================
+ * MILESTONE 26A-3 — FILE-COUNT COMPLETION
+ * ============================================================================
+ *
+ * ADDITIVE. getDocumentSlotCompletionCounts() above is unchanged and remains
+ * STATUS-based (satisfied/waived) — that is the CRM's review verdict, and a
+ * reviewer rejecting a blurry pay slip must be able to reopen a slot no matter
+ * how many files sit under it.
+ *
+ * This answers a different question, the one the applicant's progress bar
+ * needs: HAS THE APPLICANT UPLOADED ENOUGH FILES YET? The two deliberately do
+ * not replace each other. A slot can be file-complete and still awaiting
+ * review; that is a normal, meaningful state and collapsing it would hide it.
+ *
+ * `minFiles === null` means file count is not how this completes (an internal
+ * approval, a phone verification) — such a slot is never file-complete and is
+ * excluded from file-based progress rather than counted as done at zero.
+ */
+export interface RequirementFileCompletion {
+  slotId: string;
+  minFiles: number | null;
+  fileCount: number;
+  /** True once at least `minFiles` files exist. Stays true above that. */
+  isFileComplete: boolean;
+}
+
+export function evaluateFileCompletion(
+  slot: { id: string; minFiles: number | null },
+  fileCount: number
+): RequirementFileCompletion {
+  const minFiles = slot.minFiles;
+  return {
+    slotId: slot.id,
+    minFiles,
+    fileCount,
+    // 0 of 2 -> false. 1 of 2 -> false. 2 of 2 -> true. 3 of 2 -> still true:
+    // extra pay slips are welcome and must never un-complete a requirement.
+    isFileComplete: minFiles === null ? false : fileCount >= minFiles,
+  };
 }

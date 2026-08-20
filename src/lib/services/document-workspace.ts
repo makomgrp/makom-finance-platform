@@ -10,6 +10,10 @@ import type {
   LocalizedText,
   RequirementKind,
   RequirementSlot,
+  RequirementStage,
+  RequirementActor,
+  RequirementConditionKey,
+  RequirementSubjectType,
   RequirementSlotSource,
   RequirementSlotStatus,
 } from "@/types";
@@ -83,6 +87,16 @@ interface WorkspaceSlotRow {
   status_changed_source: string | null;
   created_at: string;
   status_changed_by: { full_name: string } | null;
+  min_files: number | null;
+  allows_multiple_files: boolean;
+  stage: string;
+  actor: string;
+  condition_key: string | null;
+  applicant_visible: boolean;
+  original_required_later: boolean;
+  subject_type: string;
+  application_guarantor_id: string | null;
+  application_collateral_id: string | null;
   application: WorkspaceApplicationRow | null;
   evidence: WorkspaceEvidenceRow[];
 }
@@ -96,6 +110,10 @@ interface WorkspaceSlotRow {
 // schema, no view — PostgREST resolves this as one query.
 const WORKSPACE_SELECT =
   "id, application_id, requirement_template_id, code, name, description, requirement_kind, required, display_order, status, status_changed_at, status_changed_by_profile_id, status_changed_source, created_at, " +
+  // MILESTONE 26A-3 — the snapshotted Step 3 configuration travels with the
+  // slot, so the workspace shows the same requirement the applicant was asked
+  // for rather than today's template settings.
+  "min_files, allows_multiple_files, stage, actor, condition_key, applicant_visible, original_required_later, subject_type, application_guarantor_id, application_collateral_id, " +
   "status_changed_by:profiles!requirement_slots_status_changed_by_profile_id_fkey(full_name), " +
   // MILESTONE 25C-2 — branch origin for a document comes from its APPLICATION,
   // the same chain 25B-1/25B-2 already authorize through. dossier_documents has
@@ -122,6 +140,16 @@ function toRequirementSlot(row: WorkspaceSlotRow): RequirementSlot {
     statusChangedByFullName: row.status_changed_by?.full_name ?? undefined,
     statusChangedSource: (row.status_changed_source as RequirementSlotSource | null) ?? undefined,
     createdAt: row.created_at,
+    minFiles: row.min_files ?? undefined,
+    allowsMultipleFiles: row.allows_multiple_files,
+    stage: row.stage as RequirementStage,
+    actor: row.actor as RequirementActor,
+    conditionKey: (row.condition_key as RequirementConditionKey | null) ?? undefined,
+    applicantVisible: row.applicant_visible,
+    originalRequiredLater: row.original_required_later,
+    subjectType: row.subject_type as RequirementSubjectType,
+    applicationGuarantorId: row.application_guarantor_id ?? undefined,
+    applicationCollateralId: row.application_collateral_id ?? undefined,
   };
 }
 
