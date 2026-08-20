@@ -93,8 +93,13 @@ export function ProductChoiceGroup({
                 // The whole card reacts to keyboard focus on the hidden input,
                 // so a keyboard user sees exactly what a mouse user hovers.
                 "has-[:focus-visible]:border-ring has-[:focus-visible]:ring-3 has-[:focus-visible]:ring-ring/40",
+                // 26B-2: selection made unmistakable without shouting. FOUR
+                // independent signals, so it never depends on colour alone:
+                // the ODL-blue border, the light blue tint, the ring, and the
+                // filled check in the radio. Border WIDTH stays constant so
+                // choosing an option does not nudge the layout.
                 isSelected
-                  ? "border-primary bg-primary/[0.04] shadow-sm ring-1 ring-primary/20"
+                  ? "border-primary bg-primary/[0.06] shadow-sm ring-2 ring-primary/20"
                   : "border-border hover:border-primary/40 hover:bg-muted/40"
               )}
             >

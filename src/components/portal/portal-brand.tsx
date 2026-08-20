@@ -80,12 +80,13 @@ export function PortalBrand() {
         width={403}
         height={227}
         priority
-        // Taller than a single-line wordmark would need, because this mark
-        // stacks "FINANCIAL CORPORATION" under the ODL monogram — at 32px the
-        // second line was present but unreadable. 40/44px makes it legible
-        // while keeping the header well under the height where a logo starts
-        // dominating the page.
-        className="h-10 w-auto object-contain sm:h-11"
+        // 26B-2: raised from 40/44px to 60/68px — roughly 1.5x, which is what
+        // the mark needs to carry real presence. It stacks "FINANCIAL
+        // CORPORATION" beneath the monogram, so height is what makes it read;
+        // a linear wordmark would need far less. Exact rem values rather than
+        // the nearest scale step, because h-14 undershot and h-16 pushed the
+        // header taller than the content deserved.
+        className="h-[3.75rem] w-auto object-contain sm:h-[4.25rem]"
       />
     );
   }

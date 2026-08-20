@@ -1,7 +1,7 @@
 "use server";
 
 import { getAllProducts } from "@/lib/services/products";
-import { savePortalStepOne } from "@/lib/services/portal-step-one";
+import { ensureContinuationToken, savePortalStepOne } from "@/lib/services/portal-step-one";
 import { authorizePortalWrite } from "@/lib/services/portal-snapshot";
 import {
   validatePortalStepOne,
@@ -49,9 +49,17 @@ import {
  */
 
 export type PortalStepOneActionResult =
-  // No intake id comes back either. The browser has no use for one, and a
-  // value that is never sent cannot be replayed, logged or shared.
-  | { status: "ok"; outcome: "saved_lead" | "application_created" | "needs_review" }
+  // No intake id comes back — the browser has no use for one, and a value that
+  // is never sent cannot be replayed, logged or shared.
+  //
+  // The continuation TOKEN does come back, because Step 2 lives under it
+  // (/solicitud/continuar/<token>/paso-2) and the browser has to be able to go
+  // there. It is the same credential the address bar already holds on a resume.
+  | {
+      status: "ok";
+      outcome: "saved_lead" | "application_created" | "needs_review";
+      continuationToken?: string;
+    }
   | { status: "invalid"; fieldErrors: Partial<Record<PortalStepOneField, PortalStepOneFieldErrorCode>> }
   | { status: "error"; code: "PRODUCT_LOCKED" | "INTAKE_NOT_FOUND" | "SAVE_FAILED" };
 
@@ -147,5 +155,12 @@ export async function submitPortalStepOne(
     return { status: "error", code: saved.code };
   }
 
-  return { status: "ok", outcome: saved.status };
+  // REUSE THE TOKEN THE CUSTOMER ARRIVED WITH. Issuing a fresh one on every
+  // save would rotate — and therefore revoke — the link already sitting in
+  // their email, breaking it a little more each time they edited a field.
+  // A brand-new application gets its first token here.
+  const continuationToken =
+    payload.continuationToken ?? (await ensureContinuationToken(saved.intakeId));
+
+  return { status: "ok", outcome: saved.status, continuationToken };
 }

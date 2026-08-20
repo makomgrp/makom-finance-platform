@@ -153,7 +153,16 @@ export function StepOneForm({
       // Deliberately stays pending across the navigation: re-enabling the
       // button while the next screen is still loading invites a second click
       // on work that already succeeded.
-      router.push(`/solicitud/paso-2?estado=${result.outcome}`);
+      //
+      // Step 2 lives UNDER the continuation token, so the customer stays bound
+      // to the same intake by the same credential rather than a second session
+      // mechanism. Without a token there is nothing to continue into.
+      if (result.continuationToken) {
+        router.push(`/solicitud/continuar/${result.continuationToken}/paso-2`);
+      } else {
+        setFormError(tErrors("SAVE_FAILED"));
+        setIsPending(false);
+      }
     } catch {
       shouldFocusErrorsRef.current = true;
       setFormError(tErrors("SAVE_FAILED"));
