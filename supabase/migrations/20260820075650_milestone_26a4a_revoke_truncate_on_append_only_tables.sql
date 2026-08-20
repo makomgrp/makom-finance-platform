@@ -1,0 +1,41 @@
+-- ============================================================================
+-- MILESTONE 26A-4A — REMOVE TRUNCATE FROM THE APPEND-ONLY TABLES
+-- ============================================================================
+--
+-- A corrective follow-up to 20260820074254, found by that milestone's own
+-- privilege tests. A SEPARATE MIGRATION, NOT AN EDIT: 20260820074254 is already
+-- applied, and this schema's standing discipline is that an applied migration
+-- is never rewritten, only corrected forward.
+--
+-- WHAT WAS WRONG. 20260820074254 revoked everything from anon and authenticated
+-- and then granted service_role SELECT only, so that `application_declarations`
+-- would be append-only by withheld privilege — the same mechanism that protects
+-- `crm_events`. But REVOKE ... FROM anon, authenticated does not touch
+-- service_role, and Supabase's default privileges had already granted
+-- service_role TRUNCATE on both new tables. A verification run confirmed it:
+--
+--     T  service_role UPDATE on declarations: DENIED  PASS
+--     T  service_role TRUNCATE on declarations: ALLOWED  <-- FINDING
+--
+-- TRUNCATE is not a smaller DELETE, it is a bigger one. Withholding UPDATE and
+-- DELETE while leaving TRUNCATE means every individual consent record is
+-- protected and ALL of them together are not — which is precisely backwards for
+-- an append-only compliance table. `crm_events` already carries the correct
+-- posture (service_role holds REFERENCES, SELECT, TRIGGER and nothing else);
+-- these two tables should match it rather than be the exception nobody
+-- remembers.
+--
+-- HOW EXPLOITABLE WAS IT? Not remotely. PostgREST exposes no TRUNCATE verb, so
+-- nothing reachable over the API could have issued one, and anon/authenticated
+-- hold no privileges on these tables at all. The exposure was to server-side
+-- code holding the secret key — which is to say, to a future mistake rather
+-- than to an attacker. That is still worth closing, because the entire value of
+-- enforcing append-only through privilege is that it does not depend on anyone
+-- remembering the rule.
+--
+-- TRIGGER and REFERENCES are left in place deliberately: they match crm_events,
+-- they cannot destroy or alter data, and revoking them would break the ability
+-- to add a foreign key or trigger later without buying any safety.
+
+revoke truncate on public.application_declarations from service_role;
+revoke truncate on public.public_application_tokens from service_role;

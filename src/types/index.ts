@@ -21,3 +21,5 @@ export * from "./application-intake";
 export * from "./automation-event";
 export * from "./loan-criteria";
 export * from "./application-analysis";
+export * from "./portal-continuation";
+export * from "./application-declaration";

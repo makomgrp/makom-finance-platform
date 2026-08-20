@@ -1,5 +1,6 @@
 import type { ApplicationSource } from "./application";
 import type { IdentificationType } from "./client";
+import type { PortalStep } from "./portal-continuation";
 
 /**
  * The Application Intake pipeline's own lifecycle (Milestone 15B — see
@@ -89,4 +90,30 @@ export interface ApplicationIntake {
   reviewReason?: ApplicationIntakeReviewReason;
   receivedAt: string;
   processedAt?: string;
+
+  /**
+   * MILESTONE 26A-4 — THE DRAFT LIFECYCLE.
+   *
+   * These describe the CUSTOMER's journey through the portal and are
+   * deliberately separate from `status`, which describes what the intake
+   * ENGINE did with this lead. A lead can be `needs_review` for the engine
+   * while the customer is happily working through Step 2; merging the two
+   * would force one of those facts to overwrite the other.
+   */
+
+  /**
+   * Where the customer last was. A BOOKMARK, NOT AUTHORITY — resume routing
+   * derives the real target from actual completion state
+   * (src/lib/services/portal-progress.ts), so a customer whose earlier answer
+   * stopped being valid is sent back to fix it rather than forward past it.
+   */
+  currentStep: PortalStep;
+  /**
+   * Last time the customer CHANGED something. Reads never touch it, so it
+   * means "progress happened" rather than "a link was opened" — the token's
+   * own `lastUsedAt` records the latter.
+   */
+  lastActivityAt: string;
+  /** Set on final submission. Undefined means still a draft. */
+  submittedAt?: string;
 }

@@ -11,6 +11,7 @@ import type {
   ApplicationIntakeStatus,
   ApplicationSource,
   IdentificationType,
+  PortalStep,
 } from "@/types";
 
 /**
@@ -64,6 +65,9 @@ interface ApplicationIntakeRow {
   review_reason: string | null;
   received_at: string;
   processed_at: string | null;
+  current_step: string;
+  last_activity_at: string;
+  submitted_at: string | null;
 }
 
 const APPLICATION_INTAKE_SELECT =
@@ -71,7 +75,7 @@ const APPLICATION_INTAKE_SELECT =
   "applicant_identification_number, applicant_email, applicant_phone, applicant_birth_date, " +
   "applicant_nationality, applicant_address, applicant_position, requested_product_code, requested_amount, " +
   "requested_term_months, employer_name, monthly_salary, matched_client_id, created_application_id, " +
-  "review_reason, received_at, processed_at";
+  "review_reason, received_at, processed_at, current_step, last_activity_at, submitted_at";
 
 function toApplicationIntake(row: ApplicationIntakeRow): ApplicationIntake {
   return {
@@ -99,6 +103,9 @@ function toApplicationIntake(row: ApplicationIntakeRow): ApplicationIntake {
     reviewReason: (row.review_reason as ApplicationIntakeReviewReason | null) ?? undefined,
     receivedAt: row.received_at,
     processedAt: row.processed_at ?? undefined,
+    currentStep: row.current_step as PortalStep,
+    lastActivityAt: row.last_activity_at,
+    submittedAt: row.submitted_at ?? undefined,
   };
 }
 
@@ -562,4 +569,93 @@ export async function claimApplicationIntakeForProcessing(
   }
 
   return { status: "ok", intake: toApplicationIntake(updated) };
+}
+
+/**
+ * ============================================================================
+ * MILESTONE 26A-4 — THE DRAFT LIFECYCLE
+ * ============================================================================
+ *
+ * Writes for the customer-facing half of an intake. Deliberately narrow: each
+ * function names exactly which columns it may touch, so a token-authenticated
+ * portal write can never become a general-purpose row update. No caller ever
+ * passes a column name.
+ *
+ * These do NOT touch `status`, `matched_client_id`, `created_application_id` or
+ * `review_reason` — that vocabulary belongs to the 15B intake engine and its
+ * guarded transitions, and a customer clicking "next" must not be able to move
+ * a lead through the engine's state machine.
+ */
+
+export type UpdateIntakeDraftStateResult =
+  | { status: "ok"; intake: ApplicationIntake }
+  | { status: "error"; code: "NOT_FOUND" | "UPDATE_FAILED" };
+
+/**
+ * Record forward movement: where the customer now is, and that they did
+ * something.
+ *
+ * `current_step` and `last_activity_at` move TOGETHER because they describe one
+ * event. A step change is by definition activity, and letting them drift apart
+ * would allow a draft to look abandoned while it was being worked on.
+ *
+ * REFUSES ON A SUBMITTED INTAKE. `.is("submitted_at", null)` is part of the
+ * WHERE clause rather than a prior read, so the guard is atomic: a submission
+ * landing between a check and an update cannot slip through. Once an
+ * application is with ODL, a late draft edit must not silently alter what a
+ * human is already assessing.
+ */
+export async function updateIntakeDraftState(
+  intakeId: string,
+  currentStep: PortalStep
+): Promise<UpdateIntakeDraftStateResult> {
+  const supabase = getSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("application_intakes")
+    .update({ current_step: currentStep, last_activity_at: new Date().toISOString() })
+    .eq("id", intakeId)
+    .is("submitted_at", null)
+    .select(APPLICATION_INTAKE_SELECT)
+    .maybeSingle();
+
+  if (error) {
+    console.error("[application-intakes service] Failed to update draft state:", error.message);
+    return { status: "error", code: "UPDATE_FAILED" };
+  }
+  if (!data) {
+    // Either no such intake, or it is already submitted. Both mean "this draft
+    // is not editable", and distinguishing them would tell an anonymous caller
+    // whether an intake exists.
+    return { status: "error", code: "NOT_FOUND" };
+  }
+
+  // maybeSingle() over a runtime-built select string leaves PostgREST unable to
+  // infer the row shape; every column read below is in APPLICATION_INTAKE_SELECT.
+  return { status: "ok", intake: toApplicationIntake(data as unknown as ApplicationIntakeRow) };
+}
+
+/**
+ * Mark that the customer changed something, without moving them.
+ *
+ * Called by WRITE paths only. Reads deliberately never call it: if opening a
+ * link counted as activity, a customer who re-read the same email six times
+ * would look busier than one who actually uploaded three documents, and the
+ * future "you left an application unfinished" reminder would go to exactly the
+ * wrong people.
+ */
+export async function touchIntakeActivity(
+  intakeId: string
+): Promise<{ status: "ok" } | { status: "error"; code: "UPDATE_FAILED" }> {
+  const supabase = getSupabaseServerClient();
+  const { error } = await supabase
+    .from("application_intakes")
+    .update({ last_activity_at: new Date().toISOString() })
+    .eq("id", intakeId)
+    .is("submitted_at", null);
+
+  if (error) {
+    console.error("[application-intakes service] Failed to touch activity:", error.message);
+    return { status: "error", code: "UPDATE_FAILED" };
+  }
+  return { status: "ok" };
 }
