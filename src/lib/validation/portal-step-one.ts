@@ -1,4 +1,8 @@
 import "server-only";
+import {
+  APPLICATION_TERM_MONTHS_MAX,
+  APPLICATION_TERM_MONTHS_MIN,
+} from "@/lib/config/application";
 
 /**
  * ============================================================================
@@ -34,6 +38,7 @@ export type PortalStepOneFieldErrorCode =
   | "INVALID_EMAIL"
   | "INVALID_IDENTIFICATION_TYPE"
   | "INVALID_PRODUCT"
+  | "INVALID_NUMBER"
   | "OUT_OF_RANGE";
 
 export type PortalStepOneField =
@@ -43,7 +48,8 @@ export type PortalStepOneField =
   | "identificationType"
   | "identificationNumber"
   | "productCode"
-  | "requestedAmount";
+  | "requestedAmount"
+  | "requestedTermMonths";
 
 export interface NormalizedPortalStepOne {
   /**
@@ -60,6 +66,12 @@ export interface NormalizedPortalStepOne {
   /** The public N/D/V/E code. The action resolves it to a real Product. */
   productCode: string;
   requestedAmount: number;
+  /**
+   * OPTIONAL (26B-1B). Undefined means the customer did not choose a term —
+   * a real answer, not a gap to fill in. It persists as NULL so a future loan
+   * calculator can ask for it, and nothing anywhere substitutes a default.
+   */
+  requestedTermMonths?: number;
 }
 
 export type PortalStepOneValidationResult =
@@ -157,6 +169,23 @@ export function validatePortalStepOne(
     fieldErrors.requestedAmount = "OUT_OF_RANGE";
   }
 
+  // OPTIONAL. Blank is valid and means "not chosen yet" — so absence is never
+  // an error here, but a value the customer DID type still has to be one the
+  // database will accept. Bounds come from the shared constants that mirror
+  // applications_requested_term_months_check; no second range is invented.
+  const rawTerm = readString(input, "requestedTermMonths");
+  let requestedTermMonths: number | undefined;
+  if (rawTerm !== "") {
+    const parsed = readNumber(input, "requestedTermMonths");
+    if (parsed === undefined || !Number.isInteger(parsed)) {
+      fieldErrors.requestedTermMonths = "INVALID_NUMBER";
+    } else if (parsed < APPLICATION_TERM_MONTHS_MIN || parsed > APPLICATION_TERM_MONTHS_MAX) {
+      fieldErrors.requestedTermMonths = "OUT_OF_RANGE";
+    } else {
+      requestedTermMonths = parsed;
+    }
+  }
+
   if (Object.keys(fieldErrors).length > 0) {
     return { status: "error", fieldErrors };
   }
@@ -171,6 +200,9 @@ export function validatePortalStepOne(
       identificationNumber,
       productCode,
       requestedAmount: requestedAmount!,
+      // Undefined when left blank — deliberately NOT 0, which would be a term
+      // the customer never asked for and which the CHECK would reject anyway.
+      requestedTermMonths,
     },
   };
 }

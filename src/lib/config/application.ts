@@ -54,3 +54,24 @@ export const APPLICATION_STATUS_BADGE_CLASS: Record<ApplicationStatus, string> =
   not_eligible: "bg-destructive/10 text-destructive border-destructive/20",
   cancelled: "bg-muted text-muted-foreground border-border",
 };
+
+/**
+ * MILESTONE 26B-1B — THE ONE PLACE THE REPAYMENT-TERM BOUNDS ARE NAMED.
+ *
+ * These mirror `applications_requested_term_months_check`, which since 26B-1A
+ * reads `requested_term_months IS NULL OR (> 0 AND <= 360)`. The DATABASE stays
+ * authoritative; these exist so form validation rejects a bad value with a
+ * readable message instead of surfacing a raw constraint violation.
+ *
+ * NAMED HERE rather than re-typed in each validator because the portal's
+ * optional "desired term" field needed the same range that already existed, and
+ * two independently-written ranges are exactly how a form starts accepting
+ * values the database will later refuse.
+ *
+ * NOTE: `src/app/(app)/solicitudes/actions.ts` still carries its own local
+ * MAX_TERM_MONTHS literal of the same value. It is deliberately left alone —
+ * that is internal CRM code and outside this milestone's scope. Folding it in
+ * is a worthwhile tidy-up for whichever milestone next has reason to touch it.
+ */
+export const APPLICATION_TERM_MONTHS_MIN = 1;
+export const APPLICATION_TERM_MONTHS_MAX = 360;

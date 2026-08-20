@@ -1086,7 +1086,9 @@
       "continueSaving": "Saving…",
       "required": "Required",
       "errorSummary": "Please check the highlighted fields.",
-      "fullName": "Full name"
+      "fullName": "Full name",
+      "requestedTermMonths": "Desired term (months)",
+      "requestedTermMonthsHint": "Optional. You can choose it later."
     },
     "errors": {
       "REQUIRED": "This field is required.",
@@ -1098,7 +1100,8 @@
       "PRODUCT_LOCKED": "Your application was already created with a different loan type. Contact us to change it.",
       "SAVE_FAILED": "We couldn't save your details. Please try again in a moment.",
       "INTAKE_NOT_FOUND": "We couldn't find your application. Please start again from the beginning.",
-      "NEEDS_REVIEW": "We received your details. An ODL advisor will review your application and contact you."
+      "NEEDS_REVIEW": "We received your details. An ODL advisor will review your application and contact you.",
+      "INVALID_NUMBER": "Enter a whole number of months."
     },
     "resume": {
       "notFoundTitle": "This link isn't valid",

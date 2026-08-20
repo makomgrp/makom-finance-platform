@@ -1086,7 +1086,9 @@
       "continueSaving": "Guardando…",
       "required": "Obligatorio",
       "errorSummary": "Revisa los campos marcados.",
-      "fullName": "Nombre y apellido"
+      "fullName": "Nombre y apellido",
+      "requestedTermMonths": "Plazo deseado (meses)",
+      "requestedTermMonthsHint": "Opcional. Puedes definirlo más adelante."
     },
     "errors": {
       "REQUIRED": "Este campo es obligatorio.",
@@ -1098,7 +1100,8 @@
       "PRODUCT_LOCKED": "Tu solicitud ya fue creada con otro tipo de préstamo. Contáctanos para cambiarlo.",
       "SAVE_FAILED": "No pudimos guardar tus datos. Intenta de nuevo en un momento.",
       "INTAKE_NOT_FOUND": "No encontramos tu solicitud. Comienza de nuevo desde el inicio.",
-      "NEEDS_REVIEW": "Recibimos tus datos. Un asesor de ODL revisará tu solicitud y te contactará."
+      "NEEDS_REVIEW": "Recibimos tus datos. Un asesor de ODL revisará tu solicitud y te contactará.",
+      "INVALID_NUMBER": "Escribe un número entero de meses."
     },
     "resume": {
       "notFoundTitle": "Este enlace no es válido",

@@ -63,6 +63,8 @@ export interface PortalStepOnePayload {
   identificationNumber: string;
   productCode: string;
   requestedAmount: string;
+  /** Optional (26B-1B). Empty string means "not chosen yet". */
+  requestedTermMonths: string;
   /** Stable per form instance — the double-click guard. */
   submissionId: string;
   /**

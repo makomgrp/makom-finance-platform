@@ -52,6 +52,8 @@ export interface StepOneInitialValues {
   identificationNumber: string;
   productCode: string;
   requestedAmount: string;
+  /** Optional. Empty string = not chosen yet. */
+  requestedTermMonths: string;
 }
 
 interface StepOneFormProps {
@@ -126,6 +128,7 @@ export function StepOneForm({
         identificationNumber: values.identificationNumber,
         productCode: values.productCode,
         requestedAmount: values.requestedAmount,
+        requestedTermMonths: values.requestedTermMonths,
         submissionId: submissionIdRef.current,
         continuationToken,
         website: honeypot,
@@ -340,6 +343,24 @@ export function StepOneForm({
                   className="h-11 pl-7"
                 />
               </div>
+            )}
+          </PortalField>
+
+          <PortalField
+            id={`${baseId}-requestedTermMonths`}
+            label={t("requestedTermMonths")}
+            hint={t("requestedTermMonthsHint")}
+            error={errorFor("requestedTermMonths")}
+          >
+            {(props) => (
+              <Input
+                {...props}
+                // Whole months only, so `numeric` rather than `decimal`.
+                inputMode="numeric"
+                value={values.requestedTermMonths}
+                onChange={(e) => set("requestedTermMonths", e.target.value)}
+                className="h-11"
+              />
             )}
           </PortalField>
         </fieldset>

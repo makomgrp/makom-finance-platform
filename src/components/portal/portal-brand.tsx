@@ -31,10 +31,16 @@ import { useTranslations } from "next-intl";
  *
  *     public/brand/odl-financial-corporation.png
  *
- * A wordmark-style asset roughly 3:1 to 4:1 works best in this header. Nothing
- * else needs to change: `object-contain` inside a fixed-height box means the
- * logo keeps its own proportions and cannot be stretched, whatever its
- * intrinsic size.
+ * Nothing else needs to change: `w-auto` plus `object-contain` inside a
+ * fixed-height box means the logo keeps its own proportions and cannot be
+ * stretched, whatever its intrinsic size.
+ *
+ * PREPARE THE ASSET FOR A WHITE HEADER. The provisional file was a screenshot
+ * with an opaque light-grey backing, which rendered as a visible rectangle
+ * behind the mark. It was cleaned up — flat backing flood-filled to
+ * transparency from the edges only, then cropped to the mark's bounding box.
+ * The artwork itself was not altered. A replacement asset should arrive with a
+ * transparent background already; if it does not, it needs the same treatment.
  *
  * This component is PUBLIC-PORTAL ONLY. The internal CRM's branding is
  * deliberately untouched.
@@ -67,10 +73,19 @@ export function PortalBrand() {
       <Image
         src={LOGO_PUBLIC_PATH}
         alt={companyName}
-        width={320}
-        height={80}
+        // Intrinsic size of the provisional asset. Next needs a width/height
+        // pair to reserve space; `w-auto` + `object-contain` below mean these
+        // set the RATIO, not the rendered size, so a replacement asset of any
+        // dimensions still cannot distort.
+        width={403}
+        height={227}
         priority
-        className="h-8 w-auto object-contain sm:h-9"
+        // Taller than a single-line wordmark would need, because this mark
+        // stacks "FINANCIAL CORPORATION" under the ODL monogram — at 32px the
+        // second line was present but unreadable. 40/44px makes it legible
+        // while keeping the header well under the height where a logo starts
+        // dominating the page.
+        className="h-10 w-auto object-contain sm:h-11"
       />
     );
   }

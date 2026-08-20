@@ -70,6 +70,7 @@ export default async function PortalStepOnePage({
     identificationNumber: "",
     productCode: preselectedCode,
     requestedAmount: "",
+    requestedTermMonths: "",
   };
 
   return (

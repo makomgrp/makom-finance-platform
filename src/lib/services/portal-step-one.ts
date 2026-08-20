@@ -111,13 +111,17 @@ async function applyStepOneToIntake(
       applicant_phone: input.phone,
       requested_product_code: input.productCode,
       requested_amount: input.requestedAmount,
-      // MILESTONE 26B-1A — requested_term_months is DELIBERATELY ABSENT.
+      // MILESTONE 26B-1B — the term IS written again, and writing null is
+      // deliberate.
       //
-      // Step 1 no longer asks for a term, and omitting the column from this
-      // UPDATE is the point: writing `null` here would ERASE a term that an
-      // earlier channel legitimately captured (the long website form still
-      // collects one) every time the customer edited their name. A field the
-      // portal stopped showing must not become a field the portal deletes.
+      // 26B-1A omitted this column precisely because the field was hidden, and
+      // a hidden field must never be silently deleted. Now that Step 1 shows an
+      // optional "Plazo deseado" — prefilled with whatever the intake already
+      // holds — the submitted value is authoritative: what the customer sees is
+      // what they are confirming. So leaving it blank CLEARS it to NULL, which
+      // is the only way an optional field the customer can empty actually
+      // behaves as optional. NULL stays "not chosen yet"; it is never 0.
+      requested_term_months: input.requestedTermMonths ?? null,
       current_step: "loan_selection",
       last_activity_at: new Date().toISOString(),
     })
@@ -162,7 +166,8 @@ export async function savePortalStepOne(
       applicantPhone: input.phone,
       requestedProductCode: input.productCode,
       requestedAmount: input.requestedAmount,
-      // No term: a brand-new portal lead has not been asked for one.
+      // Present only if the customer chose one; otherwise the column stays NULL.
+      requestedTermMonths: input.requestedTermMonths,
     });
 
     if (created.status === "ok") {

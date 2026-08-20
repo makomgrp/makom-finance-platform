@@ -109,9 +109,11 @@ export default async function PortalContinuePage({
     identificationNumber: intake.applicantIdentificationNumber ?? "",
     productCode,
     requestedAmount: intake.requestedAmount != null ? String(intake.requestedAmount) : "",
-    // A term the customer is never shown is deliberately not carried into the
-    // form. Any value an earlier channel captured stays on the intake row —
-    // see applyStepOneToIntake, which does not write that column at all.
+    // 26B-1B: a term captured by any earlier channel is shown so the customer
+    // confirms or changes it rather than silently re-submitting a value they
+    // cannot see. Blank when nobody has chosen one.
+    requestedTermMonths:
+      intake.requestedTermMonths != null ? String(intake.requestedTermMonths) : "",
   };
 
   // The banner is shown only when the customer's OWN details actually arrived.
