@@ -1107,7 +1107,13 @@
       "INVALID_OPTION": "Selecciona una de las opciones disponibles.",
       "NOT_AUTHORIZED": "Este enlace ya no permite editar tu solicitud.",
       "NO_APPLICATION": "Aún no podemos continuar con esta solicitud.",
-      "FORBIDDEN_ROW": "No pudimos guardar esos datos. Recarga la página e intenta de nuevo."
+      "FORBIDDEN_ROW": "No pudimos guardar esos datos. Recarga la página e intenta de nuevo.",
+      "SLOT_NOT_AVAILABLE": "No pudimos subir ese documento. Recarga la página e intenta de nuevo.",
+      "NO_FILE": "Selecciona un archivo.",
+      "INVALID_TYPE": "Solo aceptamos PDF, JPG, PNG o WEBP.",
+      "TOO_LARGE": "El archivo supera los 20 MB.",
+      "UPLOAD_FAILED": "No pudimos subir el archivo. Intenta de nuevo.",
+      "NOT_FOUND": "No pudimos abrir ese documento."
     },
     "resume": {
       "notFoundTitle": "Este enlace no es válido",
@@ -1129,7 +1135,10 @@
       "noApplicationBody": "Esta solicitud aún no tiene un expediente formal porque faltan fecha de nacimiento, nacionalidad y dirección. Es un límite conocido de desarrollo, no una pantalla para clientes.",
       "stepThreeTitle": "Paso 3 aún no está construido",
       "stepThreeBody": "Tus datos del Paso 2 se guardaron correctamente. Esta pantalla es un límite temporal de desarrollo.",
-      "backToStepTwo": "Volver al Paso 2"
+      "backToStepTwo": "Volver al Paso 2",
+      "stepFourTitle": "Revisar y enviar aún no está construido",
+      "stepFourBody": "Tus documentos se guardaron correctamente. Las declaraciones y el envío final llegan en un milestone posterior. Esta pantalla es un límite temporal de desarrollo.",
+      "backToStepThree": "Volver al Paso 3"
     },
     "step2": {
       "title": "Información de tu solicitud",
@@ -1230,6 +1239,38 @@
       "back": "Atrás",
       "continue": "Continuar",
       "continueSaving": "Guardando…",
+      "saveForLater": "Guardar y continuar después"
+    },
+    "step3": {
+      "title": "Tus documentos",
+      "subtitle": "Estos son los documentos para tu {product}.",
+      "applicationRef": "Solicitud {number}",
+      "group_applicant": "Tus documentos",
+      "group_business": "Documentos de la empresa",
+      "group_vehicle": "Documentos de tu vehículo",
+      "group_guarantor": "Documentos del garante",
+      "group_other": "Otros documentos",
+      "groupProgress": "{done} de {total} recibidos",
+      "needFiles": "Necesitamos {count} documentos.",
+      "stillNeed": "Falta {count}.",
+      "received": "{count} recibido(s)",
+      "statusPending": "Pendiente",
+      "statusOptionalPending": "Sin enviar",
+      "optional": "Opcional",
+      "originalLater": "El original físico se solicita más adelante.",
+      "upload": "Subir",
+      "addAnother": "Agregar otro",
+      "uploading": "Subiendo…",
+      "view": "Ver",
+      "replace": "Reemplazar",
+      "uploadPartial": "Se subieron {count}. No pudimos subir: {failed}.",
+      "propertyPendingTitle": "Documentos de la propiedad",
+      "propertyPendingBody": "Un asesor de ODL te indicará qué documentos de la propiedad se necesitan.",
+      "savedTitle": "Tu avance está guardado",
+      "savedBody": "Los documentos se guardan al subirlos. Puedes continuar más adelante con el mismo enlace.",
+      "continueBlocked": "Sube los documentos pendientes para continuar.",
+      "back": "Atrás",
+      "continue": "Continuar",
       "saveForLater": "Guardar y continuar después"
     }
   }

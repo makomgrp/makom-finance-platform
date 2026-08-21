@@ -1107,7 +1107,13 @@
       "INVALID_OPTION": "Select one of the available options.",
       "NOT_AUTHORIZED": "This link can no longer edit your application.",
       "NO_APPLICATION": "We cannot continue with this application yet.",
-      "FORBIDDEN_ROW": "We could not save those details. Reload the page and try again."
+      "FORBIDDEN_ROW": "We could not save those details. Reload the page and try again.",
+      "SLOT_NOT_AVAILABLE": "We could not upload that document. Reload the page and try again.",
+      "NO_FILE": "Please select a file.",
+      "INVALID_TYPE": "We only accept PDF, JPG, PNG or WEBP.",
+      "TOO_LARGE": "The file is larger than 20 MB.",
+      "UPLOAD_FAILED": "We could not upload the file. Please try again.",
+      "NOT_FOUND": "We could not open that document."
     },
     "resume": {
       "notFoundTitle": "This link isn't valid",
@@ -1129,7 +1135,10 @@
       "noApplicationBody": "This application has no formal record yet because date of birth, nationality and address are missing. This is a known development boundary, not a customer screen.",
       "stepThreeTitle": "Step 3 is not built yet",
       "stepThreeBody": "Your Step 2 details were saved successfully. This screen is a temporary development boundary.",
-      "backToStepTwo": "Back to Step 2"
+      "backToStepTwo": "Back to Step 2",
+      "stepFourTitle": "Review and submit is not built yet",
+      "stepFourBody": "Your documents were saved successfully. Declarations and final submission come in a later milestone. This screen is a temporary development boundary.",
+      "backToStepThree": "Back to Step 3"
     },
     "step2": {
       "title": "Your application details",
@@ -1230,6 +1239,38 @@
       "back": "Back",
       "continue": "Continue",
       "continueSaving": "Saving…",
+      "saveForLater": "Save and continue later"
+    },
+    "step3": {
+      "title": "Your documents",
+      "subtitle": "These are the documents for your {product}.",
+      "applicationRef": "Application {number}",
+      "group_applicant": "Your documents",
+      "group_business": "Business documents",
+      "group_vehicle": "Your vehicle documents",
+      "group_guarantor": "Guarantor documents",
+      "group_other": "Other documents",
+      "groupProgress": "{done} of {total} received",
+      "needFiles": "We need {count} documents.",
+      "stillNeed": "{count} still needed.",
+      "received": "{count} received",
+      "statusPending": "Pending",
+      "statusOptionalPending": "Not sent",
+      "optional": "Optional",
+      "originalLater": "The physical original is requested later.",
+      "upload": "Upload",
+      "addAnother": "Add another",
+      "uploading": "Uploading…",
+      "view": "View",
+      "replace": "Replace",
+      "uploadPartial": "{count} uploaded. We could not upload: {failed}.",
+      "propertyPendingTitle": "Property documents",
+      "propertyPendingBody": "An ODL advisor will tell you which property documents are needed.",
+      "savedTitle": "Your progress is saved",
+      "savedBody": "Documents are saved as you upload them. You can continue later with the same link.",
+      "continueBlocked": "Upload the pending documents to continue.",
+      "back": "Back",
+      "continue": "Continue",
       "saveForLater": "Save and continue later"
     }
   }
