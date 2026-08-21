@@ -67,11 +67,22 @@ export interface Client {
    * Read `employerName` first and fall back to this; never the reverse.
    */
   companyLegacyId?: string;
-  position: string;
-  monthlySalary: number;
-  birthDate: string;
-  nationality: string;
-  address: string;
+  /**
+   * MILESTONE 26B-2A — THE FIVE FIELDS ODL MAY NOT HAVE ASKED FOR YET.
+   *
+   * Undefined means NOT COLLECTED YET, never "empty" and never zero. The
+   * public portal's Step 1 asks only for name, contact and identity, so a
+   * client created from it legitimately has none of these until ODL gathers
+   * them (Step 2 collects job title and salary; the rest come later).
+   *
+   * A client created through the CRM still has all five — that form asks for
+   * them — so absence here is information, not a defect.
+   */
+  position?: string;
+  monthlySalary?: number;
+  birthDate?: string;
+  nationality?: string;
+  address?: string;
   observations?: string;
   status: ClientStatus;
   /** Orthogonal compliance/risk flag, independent from status — a client

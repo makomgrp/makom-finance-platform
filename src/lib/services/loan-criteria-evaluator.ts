@@ -92,11 +92,13 @@ export interface ApplicationFacts {
   applicationRequestedAmount: number;
   /** Undefined when the term has not been agreed yet (26B-1A). */
   applicationRequestedTermMonths?: number;
-  clientMonthlySalary: number;
+  /** Undefined when ODL has not collected a salary yet (26B-2A). */
+  clientMonthlySalary?: number;
   /** null when the client's birth date is missing, malformed, or in the
    * future — see calculateAge. */
   clientAge: number | null;
-  clientNationality: string;
+  /** Undefined when ODL has not collected a nationality yet (26B-2A). */
+  clientNationality?: string;
   clientIdentificationType: string;
   clientRestricted: boolean;
 }
@@ -144,11 +146,21 @@ function resolveScalarFact(fieldSource: LoanCriterionFieldSource, facts: Applica
         ? { available: false }
         : { available: true, type: "number", value: facts.applicationRequestedTermMonths };
     case "client_monthly_salary":
-      return { available: true, type: "number", value: facts.clientMonthlySalary };
+      // MILESTONE 26B-2A — an uncollected salary is UNAVAILABLE, not zero.
+      // Reported through the same channel `client_age` already uses for a
+      // missing birth date, so every operator handles it by rules that already
+      // exist: `required_field_present` correctly fails, and a numeric minimum
+      // cannot silently compare against a fabricated 0 and approve someone
+      // nobody has asked about.
+      return facts.clientMonthlySalary === undefined
+        ? { available: false }
+        : { available: true, type: "number", value: facts.clientMonthlySalary };
     case "client_age":
       return facts.clientAge === null ? { available: false } : { available: true, type: "number", value: facts.clientAge };
     case "client_nationality":
-      return { available: true, type: "string", value: facts.clientNationality };
+      return facts.clientNationality === undefined
+        ? { available: false }
+        : { available: true, type: "string", value: facts.clientNationality };
     case "client_identification_type":
       return { available: true, type: "string", value: facts.clientIdentificationType };
     case "client_restricted":

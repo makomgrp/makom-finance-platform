@@ -11,7 +11,16 @@ interface PersonalDataTabProps {
   client: Client;
 }
 
-function Field({ label, value }: { label: string; value: string }) {
+/**
+ * MILESTONE 26B-2A — `value` accepts undefined.
+ *
+ * Five client fields became nullable, because a portal applicant is a real
+ * client ODL simply has not finished asking questions of. This helper already
+ * rendered the project's em-dash convention for an empty string; widening the
+ * type means "not collected yet" arrives here as itself rather than being
+ * coerced into "" at four separate call sites.
+ */
+function Field({ label, value }: { label: string; value: string | undefined }) {
   return (
     <div>
       <dt className="text-xs text-muted-foreground">{label}</dt>
@@ -52,13 +61,17 @@ export function PersonalDataTab({ client }: PersonalDataTabProps) {
           <Field label={t("dossier.personalData.email")} value={client.email} />
           <Field label={t("dossier.personalData.employer")} value={employerLabel} />
           <Field label={t("dossier.personalData.position")} value={client.position} />
+          {/* The formatters are NOT null-safe: formatCurrency(undefined) yields
+              "NaN" and formatDate(undefined) yields "Invalid Date". Both would
+              read as corrupted data rather than as an unanswered question, so
+              absence short-circuits to the em dash before they are called. */}
           <Field
             label={t("dossier.personalData.monthlySalary")}
-            value={formatCurrency(client.monthlySalary)}
+            value={client.monthlySalary === undefined ? undefined : formatCurrency(client.monthlySalary)}
           />
           <Field
             label={t("dossier.personalData.birthDate")}
-            value={formatDate(client.birthDate, locale)}
+            value={client.birthDate === undefined ? undefined : formatDate(client.birthDate, locale)}
           />
           <Field label={t("dossier.personalData.nationality")} value={client.nationality} />
           <Field label={t("dossier.personalData.address")} value={client.address} />

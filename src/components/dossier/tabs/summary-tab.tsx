@@ -69,14 +69,18 @@ export function SummaryTab({ client, application, requirementsData }: SummaryTab
             </div>
             <div>
               <dt className="text-xs text-muted-foreground">{t("dossier.summary.position")}</dt>
-              <dd className="text-sm font-medium text-foreground">{client.position}</dd>
+              {/* TypeScript does NOT flag a bare `undefined` in JSX — it just
+                  renders nothing, leaving a silently blank field. The em dash
+                  is the project's convention for "no value", and saying it
+                  explicitly is what stops absence from looking like a bug. */}
+              <dd className="text-sm font-medium text-foreground">{client.position ?? "—"}</dd>
             </div>
             <div>
               <dt className="text-xs text-muted-foreground">
                 {t("dossier.summary.monthlySalary")}
               </dt>
               <dd className="text-sm font-medium text-foreground">
-                {formatCurrency(client.monthlySalary)}
+                {client.monthlySalary === undefined ? "—" : formatCurrency(client.monthlySalary)}
               </dd>
             </div>
             <div>

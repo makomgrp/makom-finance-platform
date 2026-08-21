@@ -95,11 +95,19 @@ export function RealClientFormDialog({
           phone: initialClient.phone,
           email: initialClient.email,
           employerName: initialClient.employerName ?? "",
-          position: initialClient.position,
-          monthlySalary: String(initialClient.monthlySalary),
-          birthDate: initialClient.birthDate,
-          nationality: initialClient.nationality,
-          address: initialClient.address,
+          // MILESTONE 26B-2A — these five may legitimately be missing on a
+          // client who came through the public portal, so they prefill as
+          // EMPTY INPUTS for staff to complete.
+          //
+          // `?? ""` on the salary rather than String(...): String(undefined)
+          // produces the literal text "undefined", which would sit in the
+          // field looking like a value and then be saved as NaN.
+          position: initialClient.position ?? "",
+          monthlySalary:
+            initialClient.monthlySalary === undefined ? "" : String(initialClient.monthlySalary),
+          birthDate: initialClient.birthDate ?? "",
+          nationality: initialClient.nationality ?? "",
+          address: initialClient.address ?? "",
           observations: initialClient.observations ?? "",
         }
       : EMPTY_FORM

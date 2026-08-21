@@ -38,11 +38,11 @@ interface ClientRow {
   email: string;
   employer_name: string | null;
   company_legacy_id: string | null;
-  position: string;
-  monthly_salary: number;
-  birth_date: string;
-  nationality: string;
-  address: string;
+  position: string | null;
+  monthly_salary: number | null;
+  birth_date: string | null;
+  nationality: string | null;
+  address: string | null;
   observations: string | null;
   status: string;
   restricted: boolean;
@@ -73,11 +73,12 @@ function toClient(row: ClientRow): Client {
     email: row.email,
     employerName: row.employer_name ?? undefined,
     companyLegacyId: row.company_legacy_id ?? undefined,
-    position: row.position,
-    monthlySalary: row.monthly_salary,
-    birthDate: row.birth_date,
-    nationality: row.nationality,
-    address: row.address,
+    // NULL => undefined: "not collected yet" (26B-2A). Never "" and never 0.
+    position: row.position ?? undefined,
+    monthlySalary: row.monthly_salary ?? undefined,
+    birthDate: row.birth_date ?? undefined,
+    nationality: row.nationality ?? undefined,
+    address: row.address ?? undefined,
     observations: row.observations ?? undefined,
     status: row.status as ClientStatus,
     restricted: row.restricted,
@@ -293,11 +294,16 @@ export interface CreateClientInput {
    * writing that column entirely, so a newly created client can never carry a
    * fabricated company code. */
   employerName?: string;
-  position: string;
-  monthlySalary: number;
-  birthDate: string;
-  nationality: string;
-  address: string;
+  /**
+   * OPTIONAL since 26B-2A. Omit entirely when the value has not been
+   * collected — the portal's Step 1 does not ask for any of these five. Never
+   * pass a placeholder to satisfy the shape.
+   */
+  position?: string;
+  monthlySalary?: number;
+  birthDate?: string;
+  nationality?: string;
+  address?: string;
   observations?: string;
   source: ApplicationSource;
   /** Only valid (and only used) when source === "crm_manual" — see
@@ -331,15 +337,25 @@ export async function createClient(input: CreateClientInput): Promise<CreateClie
   if (input.actorProfileId !== null && input.source !== "crm_manual") {
     return { status: "error", code: "INVALID_ACTOR" };
   }
+  // IDENTITY IS STILL MANDATORY. These five remain NOT NULL in the database
+  // and are exactly what the portal's Step 1 collects — they are what makes a
+  // Client a person rather than a placeholder.
   if (
     !input.fullName.trim() ||
     !input.identificationNumber.trim() ||
     !input.phone.trim() ||
-    !input.email.trim() ||
-    !input.position.trim() ||
-    !input.nationality.trim() ||
-    !input.address.trim() ||
-    !(input.monthlySalary >= 0)
+    !input.email.trim()
+  ) {
+    return { status: "error", code: "INVALID_INPUT" };
+  }
+  // The rest are optional (26B-2A), but a value that IS supplied must be
+  // usable: a blank string is not "not collected", it is a bad input, and a
+  // negative salary is rejected by the column's own CHECK anyway.
+  if (
+    (input.position !== undefined && !input.position.trim()) ||
+    (input.nationality !== undefined && !input.nationality.trim()) ||
+    (input.address !== undefined && !input.address.trim()) ||
+    (input.monthlySalary !== undefined && !(input.monthlySalary >= 0))
   ) {
     return { status: "error", code: "INVALID_INPUT" };
   }
@@ -359,11 +375,11 @@ export async function createClient(input: CreateClientInput): Promise<CreateClie
       // new client, so the static COMPANIES bridge can never acquire a new
       // dependant. employer_name is the only employer this path records.
       employer_name: input.employerName ?? null,
-      position: input.position,
-      monthly_salary: input.monthlySalary,
-      birth_date: input.birthDate,
-      nationality: input.nationality,
-      address: input.address,
+      position: input.position ?? null,
+      monthly_salary: input.monthlySalary ?? null,
+      birth_date: input.birthDate ?? null,
+      nationality: input.nationality ?? null,
+      address: input.address ?? null,
       observations: input.observations ?? null,
       created_by_profile_id: input.actorProfileId,
       created_source: input.source,

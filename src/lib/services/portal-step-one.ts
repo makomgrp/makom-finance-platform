@@ -26,13 +26,11 @@ import type { ApplicationIntake } from "@/types";
  * exactly one place in the codebase that creates an Application from an intake,
  * and exactly one place that mints an official ODL number.
  *
- * In practice a Step-1-only lead will usually come back `awaiting_completion`,
- * because `createClient` requires a birth date, nationality, address, position
- * and salary — five fields Step 1 is explicitly forbidden from asking. That is
- * the correct outcome, not a failure: the lead is live, the customer continues,
- * and the Application is created later by the same engine once Step 2 supplies
- * the rest. A lead that arrived from the ODL website already carrying those
- * fields becomes an Application immediately. Both paths run the same code.
+ * MILESTONE 26B-2A: a Step-1-only lead now becomes a real Application. Those
+ * five extra client columns are nullable, so identity plus a product and an
+ * amount is enough — which is precisely what Step 1 collects. A lead still
+ * comes back `awaiting_completion` when it genuinely lacks a product or an
+ * amount, which remains a valid, non-error draft state.
  *
  * ----------------------------------------------------------------------------
  * IDEMPOTENCY — THE THING THAT MUST NOT GO WRONG

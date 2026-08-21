@@ -213,14 +213,17 @@ async function resolveClient(intake: ApplicationIntake): Promise<ClientResolutio
 /**
  * Creates a new Client from an intake that Client matching found no
  * existing Client for (Milestone 15B correction, section 4/12).
- * createClient() requires fullName, identificationType,
- * identificationNumber, phone, email, position, nationality, address,
- * monthlySalary, and birthDate (see CreateClientInput in clients.ts) —
- * this function checks every one of those is present and non-empty on
- * the intake before ever calling createClient, and routes to
- * needs_review(insufficient_client_data) otherwise. Nothing is ever
- * fabricated to fill a gap, and no partial Client is ever created (see
- * Milestone 15B correction, section 5).
+ *
+ * MILESTONE 26B-2A: createClient() now requires only IDENTITY — fullName,
+ * identificationType, identificationNumber, phone and email, the five columns
+ * that remain NOT NULL and exactly what the portal's Step 1 collects. Position,
+ * salary, birth date, nationality and address are passed through when a channel
+ * supplied them and persist as NULL when it did not.
+ *
+ * The 15B rule that mattered is unchanged and is the reason this reads the way
+ * it does: nothing is ever fabricated to fill a gap. What changed is that a gap
+ * is now storable, so an applicant ODL has not finished interviewing is a
+ * partial record rather than a blocked one.
  *
  * MILESTONE 23: intake.employerName is now carried straight onto the
  * Client as employer_name. It always WAS captured on the intake row and
@@ -243,29 +246,33 @@ async function resolveClient(intake: ApplicationIntake): Promise<ClientResolutio
  * write in this pipeline (Milestone 15B correction, section 7).
  */
 async function createClientFromIntake(intake: ApplicationIntake): Promise<ClientResolution> {
-  const hasAllRequiredFields =
+  // MILESTONE 26B-2A — IDENTITY IS REQUIRED; THE REST IS COLLECTED LATER.
+  //
+  // This guard used to demand all ten fields, because `clients` required all
+  // ten. Five of those columns are now nullable (see 20260821144340), so the
+  // question it asks has narrowed to the one that still matters: do we know
+  // WHO this person is?
+  //
+  // Name, identification, phone and email are exactly what the portal's Step 1
+  // collects and exactly what remains NOT NULL. Birth date, nationality,
+  // address, job title and salary are gathered later — Step 2 asks employees
+  // for the last two — and their absence is recorded honestly as NULL rather
+  // than blocking a real applicant or being filled with something invented.
+  const hasIdentity =
     Boolean(intake.applicantFullName?.trim()) &&
     Boolean(intake.applicantIdentificationType) &&
     Boolean(intake.applicantIdentificationNumber?.trim()) &&
     Boolean(intake.applicantPhone?.trim()) &&
-    Boolean(intake.applicantEmail?.trim()) &&
-    Boolean(intake.applicantPosition?.trim()) &&
-    Boolean(intake.applicantNationality?.trim()) &&
-    Boolean(intake.applicantAddress?.trim()) &&
-    Boolean(intake.applicantBirthDate) &&
-    intake.monthlySalary !== undefined &&
-    intake.monthlySalary >= 0;
+    Boolean(intake.applicantEmail?.trim());
 
-  if (!hasAllRequiredFields) {
+  if (!hasIdentity) {
     // MILESTONE 26B-1 — MISSING IS NOT WRONG.
     //
     // Before the portal existed, every intake arrived from a single long form
-    // that either supplied all ten fields or was defective, so "incomplete"
-    // and "needs a human" were the same thing. They no longer are: a portal
-    // lead that has finished Step 1 has a name, an ID, a phone and an email
-    // and legitimately does not yet have a birth date, nationality, address,
-    // position or salary — those are Step 2 questions, and Step 1 is forbidden
-    // from asking them.
+    // that either supplied what was needed or was defective, so "incomplete"
+    // and "needs a human" were the same thing. They no longer are: a lead that
+    // has not yet told us who it is — no name, or no way to identify or reach
+    // the person — is simply not finished, not broken.
     //
     // Routing that customer to needs_review would put a queue item on a
     // reviewer's desk for every person who is merely still typing, and would
@@ -285,11 +292,15 @@ async function createClientFromIntake(intake: ApplicationIntake): Promise<Client
     identificationNumber: intake.applicantIdentificationNumber!,
     phone: intake.applicantPhone!,
     email: intake.applicantEmail!,
-    position: intake.applicantPosition!,
-    monthlySalary: intake.monthlySalary!,
-    birthDate: intake.applicantBirthDate!,
-    nationality: intake.applicantNationality!,
-    address: intake.applicantAddress!,
+    // PASSED THROUGH WHEN PRESENT, OMITTED WHEN NOT. The long website form
+    // still supplies all five and they are stored exactly as before; a Step-1
+    // portal lead supplies none and they persist as NULL. Nothing is
+    // substituted in either direction.
+    position: intake.applicantPosition,
+    monthlySalary: intake.monthlySalary,
+    birthDate: intake.applicantBirthDate,
+    nationality: intake.applicantNationality,
+    address: intake.applicantAddress,
     employerName: intake.employerName,
     source: intake.channel,
     actorProfileId: null,

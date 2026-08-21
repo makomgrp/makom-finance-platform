@@ -162,28 +162,21 @@ async function StepTwoProblem({ kind }: { kind: "link" }) {
 
 /**
  * ============================================================================
- * ⚠️ DEVELOPMENT BOUNDARY — A KNOWN GAP, NOT A CUSTOMER SCREEN
+ * ⚠️ DEVELOPMENT BOUNDARY — NOT A CUSTOMER SCREEN
  * ============================================================================
  *
- * Step 2's data hangs off an APPLICATION. An application needs a Client, and
- * `clients` requires birth date, nationality, address, position and monthly
- * salary — all NOT NULL at the schema level.
+ * Step 2's data hangs off an APPLICATION, so this renders when the token
+ * resolves to a lead that has not become one.
  *
- * The portal collects none of the first three. Step 1's approved field list
- * deliberately excludes them (26B-1A), and Step 2's approved field lists do
- * not include them either. So a brand-new applicant reaches this point with a
- * live lead and no application, and there is nowhere to put their answers.
+ * MILESTONE 26B-2A CLOSED THE REASON THIS USED TO FIRE. Until then a brand-new
+ * applicant could never have an Application at all, because `clients` demanded
+ * a birth date, nationality, address, job title and salary that the approved
+ * Step 1 does not collect. Those five columns are now nullable, so identity
+ * plus a product and an amount — exactly what Step 1 asks for — is enough.
  *
- * An applicant who MATCHES AN EXISTING ODL CLIENT is unaffected: the intake
- * engine resolves the client, the application is created at Step 1, and Step 2
- * works normally. Same for anyone arriving from the long website form, which
- * does collect all ten fields.
- *
- * NOTHING IS FABRICATED TO PAPER OVER THIS. Inventing a birth date to satisfy
- * a NOT NULL is exactly the kind of thing every milestone here has refused to
- * do. Closing the gap is a product decision — either those three fields get
- * collected somewhere in the portal, or client creation changes — and it is
- * written up in the milestone report rather than guessed at.
+ * What remains is the genuinely defensive case: a lead with no product or no
+ * amount, which Step 1 requires and therefore should not produce. It is kept
+ * because reaching Step 2 without an application must not render a broken page.
  *
  * `notFound()` in production means this explanation can never reach a real
  * customer.
