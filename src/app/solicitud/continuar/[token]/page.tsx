@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { getAllProducts } from "@/lib/services/products";
 import { resolveContinuationToken } from "@/lib/services/continuation-tokens";
 import { getApplicationIntakeById } from "@/lib/services/application-intakes";
+import { redirectIfSubmitted } from "@/lib/services/portal-submitted-guard";
 import { StepOneForm, type StepOneInitialValues } from "../../step-one-form";
 
 /**
@@ -50,6 +51,9 @@ export default async function PortalContinuePage({
   params,
 }: PageProps<"/solicitud/continuar/[token]">) {
   const { token } = await params;
+
+  // Already sent? Then this is a receipt, not a form. See the guard's header.
+  await redirectIfSubmitted(token);
 
   const resolved = await resolveContinuationToken(token);
 

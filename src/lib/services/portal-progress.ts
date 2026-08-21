@@ -93,12 +93,19 @@ export function isStep1Complete(intake: ApplicationIntake, applicationId?: strin
  * Underwriting thresholds deliberately live nowhere near here — 26A-1's loan
  * criteria own that, and duplicating any of it would create a second answer
  * that drifts.
+ *
+ * ⚠️ `applicationCode` IS THE N/D/V/E SUFFIX, NOT `products.code`. Those are two
+ * different identifiers and the internal slug ("payroll_deduction") matches no
+ * branch below, so passing it makes this function return false for every real
+ * product — silently, because the fail-closed default is indistinguishable from
+ * a genuinely incomplete Step 2. The parameter is named for the field it wants,
+ * and 26B-4 fixed the one caller that was passing the wrong one.
  */
-export function isStep2Complete(productCode: string, step2: ApplicationStep2): boolean {
+export function isStep2Complete(applicationCode: string, step2: ApplicationStep2): boolean {
   const employment = step2.employment;
   const hasIncome = Boolean(employment && employment.monthlyIncome !== undefined);
 
-  switch (productCode) {
+  switch (applicationCode) {
     case "N":
       // Payroll deduction: the employer IS the repayment mechanism, and
       // whether they permit deduction decides whether the product is possible.
@@ -251,10 +258,11 @@ export async function evaluatePortalProgress(
 
   const [productResult, step2Result, slotsResult, evidenceResult, declarationsResult] =
     await Promise.all([
-      // The product CODE is what the Step 2 rules switch on, and `Application`
-      // carries only productId — resolved here rather than threaded through, so
-      // the rules stay keyed to the stable business code (N/D/V/E) instead of a
-      // UUID that means nothing when read.
+      // The APPLICATION CODE (N/D/V/E) is what the Step 2 rules switch on, and
+      // `Application` carries only productId — resolved here rather than
+      // threaded through, so the rules stay keyed to the business code instead
+      // of a UUID that means nothing when read. NOT `product.code`, which is
+      // the internal slug: see `isStep2Complete`.
       getProductById(application.application.productId),
       getApplicationStep2(SYSTEM_NATIONAL_SCOPE, applicationId),
       getRequirementSlotsByApplicationId(SYSTEM_NATIONAL_SCOPE, applicationId),
@@ -272,14 +280,25 @@ export async function evaluatePortalProgress(
     return { status: "error", code: "EVALUATION_FAILED" };
   }
 
-  if (isStep2Complete(productResult.product.code, step2Result.step2)) {
+  // `?? ""` keeps the fail-closed behaviour for a product carrying no
+  // application code: it matches no branch, so Step 2 stays incomplete rather
+  // than being waved through.
+  if (isStep2Complete(productResult.product.applicationCode ?? "", step2Result.step2)) {
     completed.add("financial_data");
   } else {
     return { status: "ok", progress: summariseProgress(completed) };
   }
 
+  // LIVE FILES ONLY. A superseded row is the file the applicant REPLACED, so
+  // counting it would let one document satisfy a two-document requirement:
+  // upload one pay slip, replace it, and the slot holds two rows but one
+  // actual file. Skipping superseded rows also keeps this gate agreeing with
+  // what Step 3 shows the applicant — a disagreement here would either block
+  // someone the UI calls finished, or submit an application the UI calls
+  // incomplete.
   const fileCounts = new Map<string, number>();
   for (const evidence of evidenceResult.evidence) {
+    if (evidence.supersededByEvidenceId) continue;
     fileCounts.set(evidence.requirementSlotId, (fileCounts.get(evidence.requirementSlotId) ?? 0) + 1);
   }
 

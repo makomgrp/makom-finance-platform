@@ -8,6 +8,7 @@ import { resolveContinuationToken } from "@/lib/services/continuation-tokens";
 import { getApplicationById } from "@/lib/services/applications";
 import { getProductById } from "@/lib/services/products";
 import { getApplicationStep2 } from "@/lib/services/application-step2";
+import { redirectIfSubmitted } from "@/lib/services/portal-submitted-guard";
 import { StepTwoForm, type StepTwoInitialValues } from "./step-two-form";
 
 /**
@@ -26,6 +27,9 @@ export default async function PortalStepTwoPage({
   params,
 }: PageProps<"/solicitud/continuar/[token]/paso-2">) {
   const { token } = await params;
+
+  // Already sent? Then this is a receipt, not a form. See the guard's header.
+  await redirectIfSubmitted(token);
 
   const resolved = await resolveContinuationToken(token);
   if (resolved.status !== "ok") {

@@ -4,6 +4,24 @@ function intlLocale(locale: Locale): string {
   return locale === "en" ? "en-US" : "es-PA";
 }
 
+/**
+ * A calendar date has no timezone, so it must not be given one.
+ *
+ * `new Date("2016-09-01")` is parsed as UTC MIDNIGHT. Rendered in Panama
+ * (UTC-5) that is 7pm on 31 August, so a DATE column read back to the person
+ * who typed it shows the day BEFORE the one they entered — an employment start
+ * date, a date of birth, a business's first day of trading, each off by one.
+ *
+ * Pinning the formatter to UTC cancels the shift, but only for values that are
+ * date-only. A real timestamp still renders in local time, which for a
+ * timestamp is the correct and expected behaviour.
+ */
+const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
+
+function zoneFor(iso: string): string | undefined {
+  return DATE_ONLY.test(iso) ? "UTC" : undefined;
+}
+
 export function formatCurrency(amount: number): string {
   const formatted = new Intl.NumberFormat("en-US", {
     minimumFractionDigits: 2,
@@ -17,6 +35,7 @@ export function formatDate(iso: string, locale: Locale = "es"): string {
     day: "2-digit",
     month: "short",
     year: "numeric",
+    timeZone: zoneFor(iso),
   }).format(new Date(iso));
 }
 
@@ -25,6 +44,7 @@ export function formatLongDate(iso: string, locale: Locale = "es"): string {
     day: "numeric",
     month: "long",
     year: "numeric",
+    timeZone: zoneFor(iso),
   }).format(new Date(iso));
 }
 

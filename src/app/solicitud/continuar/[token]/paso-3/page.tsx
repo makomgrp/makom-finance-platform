@@ -9,6 +9,7 @@ import { getProductById } from "@/lib/services/products";
 import { getApplicationStep2 } from "@/lib/services/application-step2";
 import { materializeConditionalSlots } from "@/lib/services/requirement-slot-materialization";
 import { getPortalDocuments } from "@/lib/services/portal-documents";
+import { redirectIfSubmitted } from "@/lib/services/portal-submitted-guard";
 import { StepThreeView } from "./step-three-view";
 
 /**
@@ -30,6 +31,9 @@ export default async function PortalStepThreePage({
   params,
 }: PageProps<"/solicitud/continuar/[token]/paso-3">) {
   const { token } = await params;
+
+  // Already sent? Then this is a receipt, not a form. See the guard's header.
+  await redirectIfSubmitted(token);
 
   const resolved = await resolveContinuationToken(token);
   if (resolved.status !== "ok" || !resolved.resolved.applicationId) {
