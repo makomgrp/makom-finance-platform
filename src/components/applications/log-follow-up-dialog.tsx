@@ -124,7 +124,11 @@ export function LogFollowUpDialog({
             <span className="text-sm font-medium text-foreground">{t("followUp.contactMethod")}</span>
             <Select value={method} onValueChange={(v) => setMethod(v as ContactMethod)}>
               <SelectTrigger>
-                <SelectValue />
+                {/* base-ui renders the raw VALUE unless given a mapper, so this
+                    read "call" instead of "Llamada" in the closed trigger. */}
+                <SelectValue>
+                  {(value: string) => t(`followUp.methods.${value}` as "followUp.methods.call")}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {CONTACT_METHODS.map((m) => (
@@ -140,7 +144,9 @@ export function LogFollowUpDialog({
             <span className="text-sm font-medium text-foreground">{t("followUp.outcome")}</span>
             <Select value={outcome} onValueChange={(v) => setOutcome(v as ContactOutcome)}>
               <SelectTrigger>
-                <SelectValue />
+                <SelectValue>
+                  {(value: string) => t(`followUp.outcomes.${value}` as "followUp.outcomes.contacted")}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {CONTACT_OUTCOMES.map((o) => (

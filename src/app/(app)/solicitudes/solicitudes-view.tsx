@@ -209,6 +209,13 @@ export function SolicitudesView({
         ? t("applications.toasts.advisorAssigned", { name: advisor.fullName })
         : t("applications.toasts.advisorUnassigned")
     );
+
+    // MILESTONE 26B-6A — the optimistic update above patches `applications`,
+    // which is the TABLE's list. The board renders from `pipelineCards`, a
+    // server prop, so without this the assignment succeeded in the database
+    // while the card kept reading "Sin asignar" until a manual reload. Found by
+    // assigning a real advisor through the UI and watching nothing change.
+    router.refresh();
   };
 
   return (
