@@ -2,6 +2,7 @@
 
 import { authorizePortalWrite } from "@/lib/services/portal-snapshot";
 import { getApplicationById } from "@/lib/services/applications";
+import { syncClientCurrentProfile } from "@/lib/services/clients";
 import { getProductById } from "@/lib/services/products";
 import { SYSTEM_NATIONAL_SCOPE } from "@/lib/services/branch-scope-query";
 import { updateIntakeDraftState } from "@/lib/services/application-intakes";
@@ -119,6 +120,33 @@ export async function submitPortalStepTwo(input: Step2SubmitInput): Promise<Step
       status: "error",
       code: failure.code === "FORBIDDEN_ROW" ? "FORBIDDEN_ROW" : "SAVE_FAILED",
     };
+  }
+
+  // MILESTONE 26B-6C — THE CLIENT ROW LEARNS WHERE THEY WORK NOW.
+  //
+  // Step 2's employment answers are, at this instant, the most recent thing ODL
+  // knows about this person's job. `application_employment` keeps them as this
+  // application's permanent snapshot — that row is not touched again — and the
+  // `clients` row additionally carries them forward as the CURRENT profile, so
+  // "Datos personales" stops showing dashes for someone who has told us twice.
+  //
+  // These are the same three facts the client profile has always had columns
+  // for (employer_name, position, monthly_salary), which is why they are the
+  // three that sync. Nothing else about the application is mirrored: staff read
+  // application data from the application, and 26B-5B's rule that a dossier
+  // must not source employment from `clients` is unchanged by this.
+  //
+  // NON-FATAL. The application's own data is already committed above. A failed
+  // mirror is logged inside the service and must not turn a successful save
+  // into an error the customer sees; the sync is idempotent and the next save
+  // retries it.
+  if (value.employment) {
+    await syncClientCurrentProfile(application.application.clientId, {
+      employerName: value.employment.employerName,
+      position: value.employment.jobTitle,
+      monthlySalary: value.employment.monthlyIncome,
+      source: "website_form",
+    });
   }
 
   // Bookmark + activity. Deliberately AFTER the writes: a save that failed

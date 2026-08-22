@@ -499,6 +499,84 @@ export async function updateClientProfile(
   return { status: "ok", client: toClient(data) };
 }
 
+/**
+ * ============================================================================
+ * MILESTONE 26B-6C — ADVANCING THE CURRENT PROFILE (NEVER A SNAPSHOT)
+ * ============================================================================
+ *
+ * The `clients` row is what ODL currently knows about a person. Their
+ * applications and intakes are what was true when each one was filed. This
+ * function moves the first and cannot touch the second: `sync_client_current_profile`
+ * writes to `clients` and to nothing else.
+ *
+ * WHY THIS EXISTS INSTEAD OF REUSING updateClientProfile. That one is the staff
+ * EDITING surface and writes every column it is handed, which is correct for a
+ * form where a cleared field means "remove this". A portal step that simply
+ * never collected `address` would, through that path, erase an address ODL
+ * already had. Here every argument is optional in the real sense — omitted
+ * means "not asked", never "the customer has none" — and the RPC resolves each
+ * column to `coalesce(nullif(btrim(incoming), ''), existing)`.
+ *
+ * A newer NON-EMPTY value does win. Someone who changed employers is employed
+ * somewhere else now, and the current profile is supposed to say so.
+ *
+ * IDENTITY IS NOT A PARAMETER. Name and identification are the anchor the
+ * returning-customer match is made on; moving them from a portal submission
+ * could retarget another person's record on a typo. Correcting identity stays a
+ * deliberate staff action through updateClientProfile.
+ *
+ * NON-FATAL BY CONTRACT. Callers treat a failure here as a logged warning, not
+ * a failed save: the customer's application data is already safely written and
+ * refusing their step because a convenience mirror did not update would be the
+ * worse outcome. The sync is idempotent, so the next save retries it for free.
+ */
+export interface SyncClientCurrentProfileInput {
+  phone?: string | null;
+  email?: string | null;
+  address?: string | null;
+  birthDate?: string | null;
+  nationality?: string | null;
+  employerName?: string | null;
+  position?: string | null;
+  monthlySalary?: number | null;
+  /** crm_events.source for the audit row — the channel that supplied this. */
+  source?: string;
+}
+
+export type SyncClientCurrentProfileResult =
+  | { status: "ok" }
+  | { status: "error"; code: "CLIENT_NOT_FOUND" | "SYNC_FAILED" };
+
+export async function syncClientCurrentProfile(
+  clientId: string,
+  input: SyncClientCurrentProfileInput
+): Promise<SyncClientCurrentProfileResult> {
+  const supabase = getSupabaseServerClient();
+
+  const { data, error } = await supabase.rpc("sync_client_current_profile", {
+    p_client_id: clientId,
+    p_phone: input.phone ?? null,
+    p_email: input.email ?? null,
+    p_address: input.address ?? null,
+    p_birth_date: input.birthDate ?? null,
+    p_nationality: input.nationality ?? null,
+    p_employer_name: input.employerName ?? null,
+    p_position: input.position ?? null,
+    p_monthly_salary: input.monthlySalary ?? null,
+    p_source: input.source ?? "website_form",
+  });
+
+  if (error) {
+    console.error("[clients service] Failed to sync current client profile:", error.message);
+    return { status: "error", code: "SYNC_FAILED" };
+  }
+  if (!data) {
+    return { status: "error", code: "CLIENT_NOT_FOUND" };
+  }
+
+  return { status: "ok" };
+}
+
 export type SetClientStatusResult =
   | { status: "ok"; client: Client }
   | { status: "error"; code: "CLIENT_NOT_FOUND" | "INVALID_STATUS" | "UPDATE_FAILED" };

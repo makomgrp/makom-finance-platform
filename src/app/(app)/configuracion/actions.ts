@@ -41,10 +41,12 @@ import {
   setStaffActiveStatus,
   updateStaffRole,
   setStaffAutoAssignment,
+  setStaffPreferredLanguage,
 } from "@/lib/services/staff-admin";
 import { inviteStaffAuthUser } from "@/lib/services/auth-admin";
 import { USER_ROLE_VALUES } from "@/lib/config/user-role";
 import { SUPPORTED_LANGUAGE_VALUES } from "@/lib/config/language";
+import { isLocale, type Locale } from "@/i18n/config";
 import { PRODUCT_STATUS_ORDER } from "@/lib/config/product";
 import { REQUIREMENT_KIND_ORDER, REQUIREMENT_STATUS_ORDER } from "@/lib/config/requirement";
 import type {
@@ -1256,6 +1258,58 @@ export async function setStaffAutoAssignmentAction(
   }
 
   const result = await setStaffAutoAssignment(input.profileId, input.enabled, auth.profile.id);
+  if (result.status === "error") {
+    return { status: "error", code: result.code };
+  }
+
+  return { status: "success" };
+}
+
+
+// ============================================================================
+// MILESTONE 26B-6C — STAFF CRM LANGUAGE
+// ============================================================================
+//
+// `user:set_language` is held by administrador AND gerente. See the capability's
+// own note in src/lib/auth/capabilities.ts for why this one crosses a line the
+// other `user:*` capabilities deliberately do not: it grants no access and can
+// escalate nothing, it chooses which translation of the same screens a
+// colleague reads.
+//
+// The language is re-validated here against the CRM's actual locales rather
+// than against SUPPORTED_LANGUAGE_VALUES, which is wider ('fr') because it also
+// serves chat translation. The RPC enforces the same two values independently,
+// so this layer cannot be the only thing standing between a payload and the
+// column.
+
+export interface SetStaffPreferredLanguageInput {
+  profileId: string;
+  language: Locale;
+}
+
+export type SetStaffPreferredLanguageActionResult =
+  | { status: "success" }
+  | {
+      status: "error";
+      code: "UNAUTHENTICATED" | "FORBIDDEN" | "INVALID_INPUT" | "NOT_FOUND" | "UPDATE_FAILED";
+    };
+
+export async function setStaffPreferredLanguageAction(
+  input: SetStaffPreferredLanguageInput
+): Promise<SetStaffPreferredLanguageActionResult> {
+  const auth = await requireCapability("user:set_language");
+  if (auth.status === "denied") {
+    return { status: "error", code: auth.code };
+  }
+
+  if (!isNonEmptyString(input.profileId) || !UUID_PATTERN.test(input.profileId)) {
+    return { status: "error", code: "INVALID_INPUT" };
+  }
+  if (!isLocale(input.language)) {
+    return { status: "error", code: "INVALID_INPUT" };
+  }
+
+  const result = await setStaffPreferredLanguage(input.profileId, input.language, auth.profile.id);
   if (result.status === "error") {
     return { status: "error", code: result.code };
   }

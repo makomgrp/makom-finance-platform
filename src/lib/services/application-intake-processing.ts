@@ -9,7 +9,7 @@ import {
 } from "./application-intakes";
 import { matchClientForIntake } from "./client-matching";
 import { autoAssignLeadAdvisor, createApplication } from "./applications";
-import { createClient, findClientByIdentification } from "./clients";
+import { createClient, findClientByIdentification, syncClientCurrentProfile } from "./clients";
 import { getAllProducts } from "./products";
 import { recordAutomationEvent } from "./automation-events";
 import type { ApplicationIntake, ApplicationIntakeReviewReason, ApplicationSource } from "@/types";
@@ -226,13 +226,62 @@ async function resolveClient(intake: ApplicationIntake): Promise<ClientResolutio
   }
 
   if (matchResult.match.outcome === "matched") {
+    // MILESTONE 26B-6C — A RETURNING CUSTOMER BRINGS NEWS.
+    //
+    // The match itself is made on (identification_type, identification_number),
+    // so reaching here means this is the SAME person ODL already has. Whatever
+    // this submission says about how to reach them, and where they work, is
+    // more recent than what the row holds — so the CURRENT profile takes it.
+    //
+    // Only non-empty values move (see syncClientCurrentProfile): a Step-1 lead
+    // supplies no address and must not therefore erase one. The intake row is
+    // untouched, so this application's own snapshot keeps saying exactly what
+    // the customer stated today, forever.
+    //
+    // NOT FATAL. The client is correctly identified either way; a failed mirror
+    // must not fail the applicant's submission, and the next save retries it.
+    await syncCurrentProfileFromIntake(matchResult.match.clientId, intake);
     return { outcome: "resolved", clientId: matchResult.match.clientId, wasCreated: false };
   }
   if (matchResult.match.outcome === "needs_review") {
     return { outcome: "needs_review", reason: matchResult.match.reason };
   }
 
+  // Case E. Either a genuinely new Client, or — if two submissions raced — an
+  // existing one recovered by resolveClientAfterDuplicateRace, which syncs for
+  // the same reason this branch does.
   return createClientFromIntake(intake);
+}
+
+/**
+ * Pushes what this submission says about a KNOWN customer onto their current
+ * profile. See clients.ts#syncClientCurrentProfile for the non-destructive
+ * rule; the short version is that only non-empty values move, so a Step-1 lead
+ * cannot blank out details a later step already collected.
+ *
+ * Deliberately swallows failure into a warning. By the time this runs the
+ * person is correctly identified and their application data is safe; a
+ * convenience mirror that did not update is not a reason to fail their
+ * submission, and the sync is idempotent so the next save retries it.
+ */
+async function syncCurrentProfileFromIntake(clientId: string, intake: ApplicationIntake): Promise<void> {
+  const synced = await syncClientCurrentProfile(clientId, {
+    phone: intake.applicantPhone,
+    email: intake.applicantEmail,
+    address: intake.applicantAddress,
+    birthDate: intake.applicantBirthDate,
+    nationality: intake.applicantNationality,
+    employerName: intake.employerName,
+    position: intake.applicantPosition,
+    monthlySalary: intake.monthlySalary,
+    source: intake.channel,
+  });
+
+  if (synced.status === "error") {
+    console.warn(
+      `[intake processing] Client ${clientId} was resolved for intake ${intake.id} but the current profile could not be synced (${synced.code}).`
+    );
+  }
 }
 
 /**
@@ -369,6 +418,10 @@ async function resolveClientAfterDuplicateRace(intake: ApplicationIntake): Promi
     );
   }
   if (lookup.client) {
+    // 26B-6C: the row already existed, so this is the returning-customer path
+    // arrived at by a different route. Same rule applies — advance the current
+    // profile with whatever this submission newly says.
+    await syncCurrentProfileFromIntake(lookup.client.id, intake);
     return { outcome: "resolved", clientId: lookup.client.id, wasCreated: false };
   }
 

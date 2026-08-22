@@ -39,6 +39,7 @@ import { UserBranchesDialog } from "@/components/settings/user-branches-dialog";
 import {
   resendStaffInvitation,
   setStaffAutoAssignmentAction,
+  setStaffPreferredLanguageAction,
   setStaffUserActive,
   setStaffUserRole,
 } from "@/app/(app)/configuracion/actions";
@@ -46,8 +47,9 @@ import { useCapability } from "@/lib/auth/use-capability";
 import { canActOnStaffTarget } from "@/lib/auth/capabilities";
 import { useCurrentProfile } from "@/lib/auth/current-profile-context";
 import { LANGUAGE_CONFIG } from "@/lib/config/language";
+import { LOCALES, type Locale } from "@/i18n/config";
 import type { DelegatableCapability } from "@/lib/auth/capabilities";
-import type { Branch, BranchMembership, StaffUser, UserRole } from "@/types";
+import type { Branch, BranchMembership, StaffUser, SupportedLanguage, UserRole } from "@/types";
 
 /**
  * Settings > Users (Milestone 21) — real staff administration.
@@ -124,6 +126,7 @@ export function UsersSection({
   const canInviteUsers = useCapability("user:invite");
   const canSetUserRole = useCapability("user:set_role");
   const canSetUserActive = useCapability("user:set_active");
+  const canSetLanguage = useCapability("user:set_language");
   // MILESTONE 26B-6B — the same authority that decides who owns a process
   // decides who is fed new ones. Held by administrador and gerente.
   const canAssignAdvisor = useCapability("application:assign_advisor");
@@ -195,6 +198,37 @@ export function UsersSection({
     // Re-read rather than patch: the badge, the button label and the rotation
     // pool all derive from this one flag, and a local guess would disagree with
     // the next load.
+    router.refresh();
+  };
+
+  /**
+   * MILESTONE 26B-6C — the CRM language a colleague reads.
+   *
+   * Not a preference this screen owns on their behalf so much as one a
+   * supervisor can fix for them: a new hire who cannot read Spanish should not
+   * have to navigate a Spanish settings screen to escape it.
+   *
+   * Refresh rather than patch, same reason as the toggle above — and because
+   * changing YOUR OWN language must re-render this page in it immediately.
+   */
+  const handleLanguageChange = async (user: StaffUser, language: Locale) => {
+    if (language === user.preferredLanguage) return;
+
+    setBusyProfileId(user.id);
+    const result = await setStaffPreferredLanguageAction({ profileId: user.id, language });
+    setBusyProfileId(null);
+
+    if (result.status !== "success") {
+      toast.error(t("settings.users.language.error"));
+      return;
+    }
+
+    toast.success(
+      t("settings.users.language.changed", {
+        name: user.fullName,
+        language: LANGUAGE_CONFIG[language].nativeName,
+      })
+    );
     router.refresh();
   };
 
@@ -317,12 +351,53 @@ export function UsersSection({
                         )}
                       </TableCell>
                       <TableCell className="text-muted-foreground">
-                        <span className="inline-flex items-center gap-1.5">
-                          <span className="rounded border border-border px-1.5 py-0.5 text-[11px] font-medium text-foreground">
-                            {LANGUAGE_CONFIG[user.preferredLanguage].abbreviation}
+                        {/* MILESTONE 26B-6C — editable for administrador and
+                            gerente, read-only for everyone else. SELF IS
+                            INCLUDED on purpose: unlike the role select beside
+                            it, changing your own display language escalates
+                            nothing, so the A3 self-exclusion does not apply.
+
+                            The options are the CRM's two locales, not
+                            LANGUAGE_CONFIG's three — 'fr' is a chat-translation
+                            language and the interface has no French. A profile
+                            already holding 'fr' still RENDERS correctly here,
+                            because the trigger maps whatever value it is given
+                            through LANGUAGE_CONFIG; picking ES or EN then moves
+                            them onto a language the CRM can actually draw. */}
+                        {canSetLanguage && !isProtectedTarget ? (
+                          <Select
+                            value={user.preferredLanguage}
+                            onValueChange={(value) =>
+                              value && handleLanguageChange(user, value as Locale)
+                            }
+                            disabled={isBusy}
+                          >
+                            <SelectTrigger className="w-36" aria-label={t("settings.users.language.label")}>
+                              {/* base-ui renders the raw stored value unless
+                                  given a mapper — without this the cell would
+                                  read "es". */}
+                              <SelectValue>
+                                {(value: string) =>
+                                  LANGUAGE_CONFIG[value as SupportedLanguage]?.nativeName ?? value
+                                }
+                              </SelectValue>
+                            </SelectTrigger>
+                            <SelectContent>
+                              {LOCALES.map((locale) => (
+                                <SelectItem key={locale} value={locale}>
+                                  {LANGUAGE_CONFIG[locale].nativeName}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5">
+                            <span className="rounded border border-border px-1.5 py-0.5 text-[11px] font-medium text-foreground">
+                              {LANGUAGE_CONFIG[user.preferredLanguage].abbreviation}
+                            </span>
+                            {LANGUAGE_CONFIG[user.preferredLanguage].nativeName}
                           </span>
-                          {LANGUAGE_CONFIG[user.preferredLanguage].nativeName}
-                        </span>
+                        )}
                       </TableCell>
                       <TableCell>
                         <div className="flex flex-wrap items-center gap-1.5">

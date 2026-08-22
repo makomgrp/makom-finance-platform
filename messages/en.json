@@ -651,6 +651,11 @@
         "enabled": "{name} now receives automatic leads.",
         "disabled": "{name} no longer receives automatic leads.",
         "error": "We could not update automatic distribution."
+      },
+      "language": {
+        "label": "CRM language",
+        "changed": "{name} now uses the CRM in {language}.",
+        "error": "We couldn't update the language."
       }
     },
     "products": {

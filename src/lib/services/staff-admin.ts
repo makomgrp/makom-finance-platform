@@ -293,3 +293,48 @@ export async function setStaffAutoAssignment(
 
   return { status: "ok" };
 }
+
+/**
+ * ============================================================================
+ * MILESTONE 26B-6C — WHICH LANGUAGE A COLLEAGUE READS THE CRM IN
+ * ============================================================================
+ *
+ * Sibling of setStaffAutoAssignment above, and deliberately identical in shape:
+ * one column, one audited write, no-op stays a no-op.
+ *
+ * ES / EN ONLY. `preferred_language` also drives chat translation, where 'fr'
+ * is meaningful and live profiles hold it — but the CRM interface ships exactly
+ * two locales, and this control exists to set the language a colleague reads
+ * the CRM in. The RPC enforces the same two values rather than trusting this
+ * layer, so no caller can widen it.
+ *
+ * AUTHORIZATION IS THE CALLER'S JOB — the Server Action checks
+ * `user:set_language` before reaching this. This is the write.
+ */
+export type SetStaffPreferredLanguageResult =
+  | { status: "ok" }
+  | { status: "error"; code: "NOT_FOUND" | "FORBIDDEN" | "INVALID_INPUT" | "UPDATE_FAILED" };
+
+export async function setStaffPreferredLanguage(
+  profileId: string,
+  language: "es" | "en",
+  actorProfileId: string
+): Promise<SetStaffPreferredLanguageResult> {
+  const outcome = await callRpc("set_staff_preferred_language", {
+    p_profile_id: profileId,
+    p_language: language,
+    p_actor_profile_id: actorProfileId,
+  });
+
+  if (outcome.errorCode) {
+    // Same mapping the sibling staff mutations use: 42501 is an authorization
+    // refusal (inactive actor, or target outside the actor's branch scope),
+    // 22023 is a rejected input (a language the CRM does not render).
+    if (outcome.errorCode === "42501") return { status: "error", code: "FORBIDDEN" };
+    if (outcome.errorCode === "22023") return { status: "error", code: "INVALID_INPUT" };
+    return { status: "error", code: "UPDATE_FAILED" };
+  }
+  if (!outcome.profileId) return { status: "error", code: "NOT_FOUND" };
+
+  return { status: "ok" };
+}

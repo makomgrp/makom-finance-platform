@@ -214,6 +214,23 @@ export type Capability =
    * anything delegable.
    */
   | "user:manage_permissions"
+  /**
+   * Change another staff member's CRM interface language (Milestone 26B-6C).
+   *
+   * THE ONE `user:*` CAPABILITY `gerente` HOLDS BY ROLE, and the note above
+   * about delegation is the reason it is not a contradiction. The first four
+   * are withheld from gerente because they are STAFF ADMINISTRATION: who may
+   * enter the CRM, as what, holding which powers. This one grants no access,
+   * revokes none, and cannot escalate anything — it decides which of two
+   * translations of the same screens a colleague reads. A supervisor sitting
+   * with a new hire who cannot read Spanish should be able to fix that without
+   * being made a staff administrator to do it.
+   *
+   * Scoped like every other staff mutation: the database additionally requires
+   * the target to be inside the actor's branch scope
+   * (set_staff_preferred_language).
+   */
+  | "user:set_language"
 
   // --- Branch administration (Milestone 25A) -----------------------------
   /**
@@ -343,6 +360,7 @@ export const ROLE_CAPABILITIES = {
     "user:set_active",
     "user:set_role",
     "user:manage_permissions",
+    "user:set_language",
     "branch:create",
     "branch:manage",
     "branch:transfer",
@@ -372,6 +390,10 @@ export const ROLE_CAPABILITIES = {
     "evidence:upload",
     "evidence:review",
     "requirement_slot:set_status",
+    // See the capability's own note: a display language is not staff
+    // administration, which is why this one crosses the line the other
+    // `user:*` capabilities deliberately do not.
+    "user:set_language",
   ],
 
   /**
