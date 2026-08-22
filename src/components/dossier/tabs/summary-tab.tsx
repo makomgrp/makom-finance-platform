@@ -48,11 +48,28 @@ export function SummaryTab({ client, application, requirementsData, activeDraft 
   // static COMPANIES bridge is consulted ONLY as a fallback for fixture
   // rows created before that column existed. Never the other way round.
   //
-  // MILESTONE 26B-5B — when a portal process is running, ITS employer is the
-  // current one. Falling through to the client's stale snapshot here is what
-  // showed "—" for a prospect whose draft plainly said Makom Capital Group.
+  // MILESTONE 26B-5B / 26B-6C — WHICH EMPLOYER IS "CURRENT"?
+  //
+  // 26B-5B read the live draft FIRST, because a portal prospect's `clients` row
+  // held nothing and the field rendered "—" while their draft plainly said
+  // Makom Capital Group. That was a workaround for a missing write, and 26B-6C
+  // removed the reason for it: Step 1 and Step 2 now synchronise employer,
+  // position and salary onto the client record, which is the CURRENT PROFILE by
+  // definition.
+  //
+  // Leaving the draft in front then became actively wrong. A client may now
+  // hold SEVERAL processes (26B-6C made returning customers reuse one client),
+  // so "the active draft" is one process among many — and preferring it meant
+  // this card showed that draft's employer while "Datos personales", reading
+  // the client record, showed the real current one. Two tabs of the same
+  // dossier disagreed, and the one contradicting the customer's actual profile
+  // was the summary.
+  //
+  // The client record leads. The draft remains a FALLBACK for the rows the
+  // sync has never touched — leads created before 26B-6C — so nothing that
+  // rendered a value before renders "—" now.
   const employerLabel =
-    activeDraft?.employerName ?? client.employerName ?? company?.name ?? "—";
+    client.employerName ?? activeDraft?.employerName ?? company?.name ?? "—";
 
   // Milestone 12E1: "how many document requirements for this Application
   // require no further action" — document-kind Requirement Slots whose
@@ -90,7 +107,8 @@ export function SummaryTab({ client, application, requirementsData, activeDraft 
                   is the project's convention for "no value", and saying it
                   explicitly is what stops absence from looking like a bug. */}
               <dd className="text-sm font-medium text-foreground">
-                {activeDraft?.jobTitle ?? client.position ?? "—"}
+                {/* Current profile first — see employerLabel above. */}
+                {client.position ?? activeDraft?.jobTitle ?? "—"}
               </dd>
             </div>
             <div>
@@ -99,7 +117,8 @@ export function SummaryTab({ client, application, requirementsData, activeDraft 
               </dt>
               <dd className="text-sm font-medium text-foreground">
                 {(() => {
-                  const salary = activeDraft?.monthlyIncome ?? client.monthlySalary;
+                  // Current profile first — see employerLabel above.
+                  const salary = client.monthlySalary ?? activeDraft?.monthlyIncome;
                   return salary === undefined ? "—" : formatCurrency(salary);
                 })()}
               </dd>

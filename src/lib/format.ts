@@ -68,7 +68,23 @@ export function formatRelativeTime(
   locale: Locale,
   t: RelativeTimeTranslator
 ): string {
-  const now = new Date("2026-08-05T12:00:00-05:00");
+  // MILESTONE 26B-6D — THE CLOCK IS THE REAL ONE.
+  //
+  // This read `new Date("2026-08-05T12:00:00-05:00")` — a fixed instant that
+  // shipped in the initial release alongside seed data dated around it. Every
+  // relative timestamp in the CRM was therefore measured against 5 August 2026
+  // forever, so once real activity moved past that date every diff went
+  // NEGATIVE and fell into the `< 1 minute` branch. A call logged nine hours
+  // ago rendered as "hace instantes", and so did one logged last week: the
+  // pipeline's last-contact line, the application table's status-changed
+  // column and the chat conversation list all reported the same thing about
+  // every record, which is worse than showing nothing.
+  //
+  // Kept as a plain `new Date()` rather than an injected clock: this is a
+  // display helper called during render, the value is never persisted or
+  // compared, and a parameter would push the same decision onto a dozen call
+  // sites for no gain.
+  const now = new Date();
   const date = new Date(iso);
   const diffMs = now.getTime() - date.getTime();
   const diffMinutes = Math.round(diffMs / 60000);
