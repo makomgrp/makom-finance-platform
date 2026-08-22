@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import { BranchOriginLabel } from "@/components/shared/branch-origin-label";
 import { useRouter } from "next/navigation";
@@ -57,7 +58,14 @@ interface ApplicationsTableProps {
    * getDocumentSlotCompletionCounts. A missing key means "0 of 0", not an
    * error. Replaces the demo LoanApplication.documentationProgress field,
    * which is never stored on the real Application. */
-  documentSlotCounts: Record<string, { completed: number; total: number }>;
+  /**
+   * MILESTONE 26B-5 — reception and review, kept apart.
+   *
+   * The old single "completed" count was the REVIEW verdict, rendered as
+   * "Documentación 0%" next to seven documents the customer had actually sent.
+   * Both numbers travel now, and the column says which is which.
+   */
+  documentProgress: Record<string, { received: number; reviewed: number; total: number }>;
   onStatusChange: (applicationId: string, status: ApplicationStatus) => void;
   /** Milestone 23 — staff eligible to own a file, resolved server-side by
    * getAssignableAdvisorsForApplications().
@@ -74,7 +82,7 @@ const PAGE_SIZE = 8;
 
 export function ApplicationsTable({
   applications,
-  documentSlotCounts,
+  documentProgress,
   onStatusChange,
   assignableAdvisorsByApplication,
   onAdvisorChange,
@@ -105,7 +113,7 @@ export function ApplicationsTable({
     return applications.filter((app) => {
       const matchesSearch =
         term.length === 0 ||
-        app.applicationNumber.toLowerCase().includes(term) ||
+        (app.applicationNumber?.toLowerCase().includes(term) ?? false) ||
         app.clientFullName.toLowerCase().includes(term);
       const matchesStatus = statusFilter === "todos" || app.status === statusFilter;
       return matchesSearch && matchesStatus;
@@ -186,14 +194,24 @@ export function ApplicationsTable({
             </TableHeader>
             <TableBody>
               {paginated.map((app) => {
-                const counts = documentSlotCounts[app.id] ?? { completed: 0, total: 0 };
-                const documentationPercent = counts.total > 0 ? Math.round((counts.completed / counts.total) * 100) : 0;
+                const docs = documentProgress[app.id] ?? { received: 0, reviewed: 0, total: 0 };
                 const legalTargets = APPLICATION_STATUS_TRANSITIONS[app.status];
 
                 return (
                   <TableRow key={app.id}>
-                    <TableCell className="font-medium text-foreground">
-                      {app.applicationNumber}
+                    <TableCell className="font-medium">
+                      {/* MILESTONE 26B-5 — the number opens THIS application.
+                          Manual QA found it inert, so the only way into a loan
+                          was through its customer, which is the wrong entrance
+                          and ambiguous the moment a client has two. A real link
+                          (not a click handler on a div) so it is keyboard
+                          reachable and openable in a new tab. */}
+                      <Link
+                        href={`/solicitudes/${app.id}`}
+                        className="rounded-sm font-medium text-foreground underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                      >
+                        {app.applicationNumber}
+                      </Link>
                     </TableCell>
                     <TableCell>
                       <button
@@ -235,10 +253,28 @@ export function ApplicationsTable({
                       />
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-2">
-                        <Progress value={documentationPercent} />
-                        <span className="w-9 shrink-0 text-xs text-muted-foreground">
-                          {documentationPercent}%
+                      {/* Reception drives the bar because it is the half that
+                          moves on its own and the half a customer can be chased
+                          about. Review is stated in words beside it rather than
+                          folded in — a single number here is what produced "0%"
+                          for a complete set of documents. */}
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center gap-2">
+                          <Progress
+                            value={docs.total > 0 ? Math.round((docs.received / docs.total) * 100) : 0}
+                          />
+                          <span className="shrink-0 text-xs font-medium text-foreground tabular-nums">
+                            {t("applications.documentsReceivedShort", {
+                              received: docs.received,
+                              total: docs.total,
+                            })}
+                          </span>
+                        </div>
+                        <span className="text-xs text-muted-foreground tabular-nums">
+                          {t("applications.documentsReviewedShort", {
+                            reviewed: docs.reviewed,
+                            total: docs.total,
+                          })}
                         </span>
                       </div>
                     </TableCell>

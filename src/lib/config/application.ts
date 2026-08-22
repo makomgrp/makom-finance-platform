@@ -1,5 +1,12 @@
 import type { ApplicationStatus } from "@/types";
 
+// MILESTONE 26B-5 — `draft` is deliberately ABSENT from this list.
+//
+// This order drives operational surfaces (the Solicitudes board, status
+// filters, the kanban columns). A draft is a portal journey ODL has not
+// received, so it has no column and no filter chip: leaving it out here is what
+// keeps it out of every one of those surfaces by construction, rather than by
+// each of them remembering to exclude it.
 export const APPLICATION_STATUS_ORDER: ApplicationStatus[] = [
   "new",
   "in_review",
@@ -20,6 +27,13 @@ export const APPLICATION_STATUS_ORDER: ApplicationStatus[] = [
 // pair_check for why that invariant depends on this. See the Milestone
 // 11 architecture review's "Lifecycle" section for what each state means.
 export const APPLICATION_STATUS_TRANSITIONS: Record<ApplicationStatus, ApplicationStatus[]> = {
+  // MILESTONE 26B-5 — a draft leaves this state through ONE door only:
+  // submit_application(), which allocates the official number and moves it to
+  // in_review in the same statement. No staff transition may promote a draft,
+  // because promoting it without allocating a number would break
+  // applications_draft_number_pair_check — so the empty list here is the code
+  // agreeing with the constraint rather than a second opinion about it.
+  draft: [],
   new: ["in_review", "cancelled"],
   in_review: ["approved", "not_eligible", "cancelled"],
   approved: [],
@@ -48,6 +62,10 @@ export const APPLICATION_STATUS_TRANSITIONABLE: ApplicationStatus[] = APPLICATIO
 // is an administrative/neutral closure with no judgment implied, so it
 // takes the same muted treatment "waived" gets for requirement slots.
 export const APPLICATION_STATUS_BADGE_CLASS: Record<ApplicationStatus, string> = {
+  // Muted: a draft is not an operational state anyone acts on, and giving it a
+  // colour that competes with `new` would invite exactly the confusion between
+  // "in progress with the customer" and "received by ODL" that 26B-5 removed.
+  draft: "bg-muted text-muted-foreground border-border",
   new: "bg-secondary text-secondary-foreground border-border",
   in_review: "bg-navy/10 text-navy border-navy/20",
   approved: "bg-success/10 text-success border-success/20",

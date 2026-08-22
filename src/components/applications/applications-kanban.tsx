@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { Card, CardContent } from "@/components/ui/card";
@@ -16,11 +17,12 @@ interface ApplicationsKanbanProps {
   applications: ApplicationListItem[];
   /** See ApplicationsTableProps — same shape, same "missing key = 0 of 0"
    * contract. */
-  documentSlotCounts: Record<string, { completed: number; total: number }>;
+  /** MILESTONE 26B-5 — reception and review, kept apart. */
+  documentProgress: Record<string, { received: number; reviewed: number; total: number }>;
   onStatusChange: (applicationId: string, status: ApplicationStatus) => void;
 }
 
-export function ApplicationsKanban({ applications, documentSlotCounts, onStatusChange }: ApplicationsKanbanProps) {
+export function ApplicationsKanban({ applications, documentProgress, onStatusChange }: ApplicationsKanbanProps) {
   // Milestone 16 — same capability and reasoning as ApplicationsTable; the
   // kanban is just the other view of the same list.
   const canSetApplicationStatus = useCapability("application:set_status");
@@ -46,8 +48,9 @@ export function ApplicationsKanban({ applications, documentSlotCounts, onStatusC
 
             <div className="space-y-3">
               {columnApps.map((app) => {
-                const counts = documentSlotCounts[app.id] ?? { completed: 0, total: 0 };
-                const documentationPercent = counts.total > 0 ? Math.round((counts.completed / counts.total) * 100) : 0;
+                const docs = documentProgress[app.id] ?? { received: 0, reviewed: 0, total: 0 };
+                const receivedPercent =
+                  docs.total > 0 ? Math.round((docs.received / docs.total) * 100) : 0;
                 const legalTargets = APPLICATION_STATUS_TRANSITIONS[app.status];
 
                 return (
@@ -60,7 +63,13 @@ export function ApplicationsKanban({ applications, documentSlotCounts, onStatusC
                         >
                           {app.clientFullName}
                         </button>
-                        <p className="text-xs text-muted-foreground">{app.applicationNumber}</p>
+                        {/* The number opens this specific application (26B-5). */}
+                        <Link
+                          href={`/solicitudes/${app.id}`}
+                          className="rounded-sm text-xs text-muted-foreground underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                        >
+                          {app.applicationNumber}
+                        </Link>
                       </div>
 
                       <p className="text-xs text-muted-foreground">{app.productName[locale]}</p>
@@ -68,9 +77,22 @@ export function ApplicationsKanban({ applications, documentSlotCounts, onStatusC
                       <div>
                         <div className="mb-1 flex items-center justify-between text-[11px] text-muted-foreground">
                           <span>{t("applications.columns.documentation")}</span>
-                          <span>{documentationPercent}%</span>
+                          <span className="tabular-nums">
+                            {t("applications.documentsReceivedShort", {
+                              received: docs.received,
+                              total: docs.total,
+                            })}
+                          </span>
                         </div>
-                        <Progress value={documentationPercent} />
+                        <Progress value={receivedPercent} />
+                        {/* Review stated separately — a bar that folded both in
+                            is what showed 0% for a full set of documents. */}
+                        <p className="mt-1 text-[11px] text-muted-foreground tabular-nums">
+                          {t("applications.documentsReviewedShort", {
+                            reviewed: docs.reviewed,
+                            total: docs.total,
+                          })}
+                        </p>
                       </div>
 
                       <div className="flex items-center justify-between">

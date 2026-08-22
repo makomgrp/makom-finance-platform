@@ -6,6 +6,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { Info, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PortalProgress } from "@/components/portal/portal-progress";
+import { PortalReferenceLine } from "@/components/portal/portal-reference-line";
 import { DocumentTaskCard } from "@/components/portal/document-task-card";
 import { getPortalDocumentUrl, uploadPortalDocuments } from "./actions";
 import type { PortalDocumentGroup, PortalDocuments } from "@/lib/services/portal-documents";
@@ -29,7 +30,8 @@ import type { LocalizedText } from "@/types";
 
 interface StepThreeViewProps {
   continuationToken: string;
-  applicationNumber: string;
+  /** Undefined until the application is formally submitted (26B-5). */
+  applicationNumber?: string;
   productName: LocalizedText;
   documents: PortalDocuments;
 }
@@ -125,9 +127,7 @@ export function StepThreeView({
         <p className="text-[0.9375rem] leading-relaxed text-muted-foreground">
           {t("subtitle", { product: productName[locale] ?? productName.es })}
         </p>
-        <p className="text-xs text-muted-foreground">
-          {t("applicationRef", { number: applicationNumber })}
-        </p>
+        <PortalReferenceLine applicationNumber={applicationNumber} />
       </header>
 
       {formError && (

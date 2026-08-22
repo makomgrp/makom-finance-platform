@@ -3,7 +3,7 @@ import { EMPTY_BRANCH_SCOPE } from "@/lib/services/branch-scope-query";
 import { resolveBranchViewScope } from "@/lib/services/branch-view-context";
 import { viewSpansMultipleBranches } from "@/lib/services/branch-origin";
 import { getCurrentProfile } from "@/lib/auth/get-current-profile";
-import { getDocumentSlotCompletionCounts } from "@/lib/services/requirement-slots";
+import { getApplicationDocumentProgress } from "@/lib/services/requirement-slots";
 import { getApplicationCreatableProducts } from "@/lib/services/products";
 import { getClients } from "@/lib/services/clients";
 import { getAssignableAdvisorsForApplications } from "@/lib/services/profiles";
@@ -51,9 +51,9 @@ export default async function SolicitudesPage({ searchParams }: { searchParams: 
   // the component never receives the scope itself, so it cannot recompute — or
   // misread — authorization. The deciding factor is the VIEW, not the role.
   const showBranchOrigin = viewSpansMultipleBranches(scope);
-  const [applicationsResult, countsResult, productsResult, clientsResult] = await Promise.all([
+  const [applicationsResult, progressResult, productsResult, clientsResult] = await Promise.all([
     getApplications(scope),
-    getDocumentSlotCompletionCounts(scope),
+    getApplicationDocumentProgress(scope),
     getApplicationCreatableProducts(),
     getClients(scope),
   ]);
@@ -74,7 +74,7 @@ export default async function SolicitudesPage({ searchParams }: { searchParams: 
     <SolicitudesView
       showBranchOrigin={showBranchOrigin}
       initialApplications={applications}
-      documentSlotCounts={countsResult.status === "ok" ? countsResult.counts : {}}
+      documentProgress={progressResult.status === "ok" ? progressResult.progress : {}}
       loadError={applicationsResult.status === "error"}
       creatableProducts={productsResult.status === "ok" ? productsResult.products : []}
       productsLoadError={productsResult.status === "error"}

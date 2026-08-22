@@ -196,7 +196,10 @@ export async function savePortalStepOne(
 
   // Hand off to the ONE engine that may create an Application. Idempotent: an
   // already-processed intake returns its existing application id untouched.
-  const processed = await processApplicationIntake(intake.id);
+  // STAGED: Step 1 of four. The application is created as a DRAFT so it can
+  // hold Step 2 and Step 3 work, and stays unnumbered and invisible to
+  // Solicitudes until the applicant presses "Enviar solicitud" (26B-5).
+  const processed = await processApplicationIntake(intake.id, "staged_portal");
 
   switch (processed.status) {
     case "processed":

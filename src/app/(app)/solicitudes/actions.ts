@@ -264,6 +264,9 @@ export async function createSolicitudApplication(
     requestedTermMonths: input.requestedTermMonths,
     source: "crm_manual",
     actorProfileId: auth.profile.id,
+    // Staff originating an application in the CRM ARE formally receiving it,
+    // so it is numbered at creation exactly as before 26B-5.
+    lifecycle: "formal",
   });
 
   if (result.status === "error") {

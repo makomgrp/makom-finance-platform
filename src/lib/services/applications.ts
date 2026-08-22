@@ -4,6 +4,7 @@ import { applyBranchScope, isBranchDeniedError, isEmptyScope } from "@/lib/servi
 import { branchOriginEmbed, toBranchOrigin, type BranchOriginRow } from "@/lib/services/branch-origin";
 import { createRequirementSlotsForApplication } from "@/lib/services/requirement-slots";
 import { APPLICATION_STATUS_TRANSITIONS } from "@/lib/config/application";
+import { FORMAL_APPLICATION_STATUSES } from "@/types";
 import type {
   Application,
   ApplicationListItem,
@@ -232,6 +233,22 @@ export type GetApplicationsResult = { status: "ok"; applications: ApplicationLis
  * Deliberately no filter parameters yet (by client, product, status,
  * advisor) — no consumer needs one until a real UI is migrated onto this
  * table; adding filters later is purely additive, not a redesign.
+ *
+ * ----------------------------------------------------------------------------
+ * MILESTONE 26B-5 — FORMAL APPLICATIONS ONLY
+ * ----------------------------------------------------------------------------
+ * Drafts are excluded HERE, in the query, not hidden later in the table
+ * component. A portal journey that is still in progress is not something ODL
+ * has received, so it must not reach an operational surface at all — and a
+ * server-side predicate is the difference between "not shown" and "not sent",
+ * which also keeps counts, exports and any future consumer of this function
+ * honest without each of them re-remembering the rule.
+ *
+ * Filtering on STATUS rather than on `application_number is null` deliberately:
+ * the lifecycle state is the fact, and the missing number is its consequence.
+ * The database ties the two together (applications_draft_number_pair_check), so
+ * the two predicates select the same rows — but only one of them still reads
+ * correctly if a future state is added.
  */
 export async function getApplications(scope: BranchScope): Promise<GetApplicationsResult> {
   if (isEmptyScope(scope)) return { status: "ok", applications: [] };
@@ -239,7 +256,10 @@ export async function getApplications(scope: BranchScope): Promise<GetApplicatio
   try {
     const supabase = getSupabaseServerClient();
     const { data, error } = await applyBranchScope(
-      supabase.from("applications").select(APPLICATION_LIST_SELECT),
+      supabase
+        .from("applications")
+        .select(APPLICATION_LIST_SELECT)
+        .in("status", [...FORMAL_APPLICATION_STATUSES]),
       scope
     )
       .order("created_at", { ascending: false });
@@ -273,6 +293,20 @@ export interface CreateApplicationInput {
   /** Only valid (and only used) when source === "crm_manual" — see
    * applications_created_by_source_check. */
   actorProfileId: string | null;
+  /**
+   * MILESTONE 26B-5 — IS ODL FORMALLY ORIGINATING THIS, OR IS IT STILL THE
+   * CUSTOMER'S DRAFT?
+   *
+   * "formal"  — staff created it in the CRM. It is received the moment it
+   *             exists, so the insert trigger allocates its official number.
+   * "draft"   — the public portal created it to hold Step 2 and Step 3 work.
+   *             No number until the applicant presses "Enviar solicitud".
+   *
+   * Required rather than defaulted: every caller has to state which kind of
+   * thing it is creating, because getting this wrong is exactly the defect
+   * 26B-5 exists to fix and a silent default would let it recur unnoticed.
+   */
+  lifecycle: "formal" | "draft";
 }
 
 export type CreateApplicationResult =
@@ -334,6 +368,10 @@ export async function createApplication(input: CreateApplicationInput): Promise<
       requested_term_months: input.requestedTermMonths ?? null,
       created_by_profile_id: input.actorProfileId,
       created_source: input.source,
+      // The status decides the numbering: set_application_number() skips
+      // drafts. Passed explicitly rather than relying on the column default, so
+      // the row's lifecycle is stated by the caller, not inherited.
+      status: input.lifecycle === "draft" ? "draft" : "new",
     })
     .select(APPLICATION_SELECT)
     .single<ApplicationRow>();
@@ -553,3 +591,60 @@ export async function assignApplicationAdvisor(
 
   return { status: "ok", application: toApplication(updated) };
 }
+
+/**
+ * ============================================================================
+ * MILESTONE 26B-5 — ONE APPLICATION, FULLY RESOLVED, FOR ITS OWN DOSSIER
+ * ============================================================================
+ *
+ * `getApplicationById` returns the thin row; the Solicitudes list resolves
+ * product, advisor, client and branch through APPLICATION_LIST_SELECT. The
+ * application dossier needs exactly what the list row already has — for one
+ * application — so it reads through the SAME select and the SAME mapper rather
+ * than growing a third shape that could drift from either.
+ *
+ * SCOPE IS ENFORCED HERE, not in the page. An application outside the caller's
+ * branch scope returns NOT_FOUND — the same answer as an application that does
+ * not exist — so the route cannot be used to discover which ids are real in
+ * branches the user may not see. Holding the UUID is not authorization.
+ *
+ * A DRAFT IS RETURNED IF ASKED FOR BY ID. This function is deliberately not
+ * filtered to formal applications: the dossier route decides what to do with a
+ * draft (it 404s), and a read that silently lied about a row's existence would
+ * make that decision impossible to write correctly.
+ */
+export async function getApplicationListItemById(
+  scope: BranchScope,
+  applicationId: string
+): Promise<GetApplicationListItemByIdResult> {
+  if (isEmptyScope(scope)) return { status: "error", code: "NOT_FOUND" };
+
+  try {
+    const supabase = getSupabaseServerClient();
+    const { data, error } = await applyBranchScope(
+      supabase.from("applications").select(APPLICATION_LIST_SELECT).eq("id", applicationId),
+      scope
+    ).maybeSingle();
+
+    if (error) {
+      // A branch-denied read is indistinguishable from a missing row by
+      // design — see this function's header.
+      if (isBranchDeniedError(error.code)) return { status: "error", code: "NOT_FOUND" };
+      console.error("[applications service] Failed to load application detail:", error.message);
+      return { status: "error", code: "QUERY_FAILED" };
+    }
+    if (!data) return { status: "error", code: "NOT_FOUND" };
+
+    return { status: "ok", application: toApplicationListItem(data as unknown as ApplicationListRow) };
+  } catch (error) {
+    console.error(
+      "[applications service] Unexpected failure loading application detail:",
+      error instanceof Error ? error.message : "unknown error"
+    );
+    return { status: "error", code: "QUERY_FAILED" };
+  }
+}
+
+export type GetApplicationListItemByIdResult =
+  | { status: "ok"; application: ApplicationListItem }
+  | { status: "error"; code: "NOT_FOUND" | "QUERY_FAILED" };

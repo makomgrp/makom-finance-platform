@@ -10,7 +10,46 @@ import type { LocalizedText } from "@/types/product";
  * both are computed live from RequirementSlot statuses instead of stored.
  * See the Milestone 11 architecture review's Lifecycle section.
  */
-export type ApplicationStatus = "new" | "in_review" | "approved" | "not_eligible" | "cancelled";
+export type ApplicationStatus =
+  /**
+   * MILESTONE 26B-5 — A PORTAL JOURNEY IN PROGRESS.
+   *
+   * The applicant is somewhere between Step 1 and pressing "Enviar solicitud".
+   * The row exists because Steps 2 and 3 need somewhere real to persist
+   * employment, collateral, requirement slots and evidence — but ODL has NOT
+   * received an application, so it carries NO official number and never appears
+   * in Solicitudes.
+   *
+   * `draft` <=> `applicationNumber === undefined`, enforced in the database by
+   * applications_draft_number_pair_check. The two can only change together.
+   */
+  | "draft"
+  /** Formally received and awaiting triage. NOT a synonym for `draft`. */
+  | "new"
+  | "in_review"
+  | "approved"
+  | "not_eligible"
+  | "cancelled";
+
+/**
+ * The states in which ODL has formally received the application.
+ *
+ * Everything except `draft`. Written as a list rather than `!== "draft"` so
+ * that server-side filters and UI both read from one place, and so adding a
+ * future state is a deliberate edit here rather than an accidental inclusion.
+ */
+export const FORMAL_APPLICATION_STATUSES: readonly ApplicationStatus[] = [
+  "new",
+  "in_review",
+  "approved",
+  "not_eligible",
+  "cancelled",
+] as const;
+
+/** Has ODL formally received this application? */
+export function isFormalApplication(status: ApplicationStatus): boolean {
+  return status !== "draft";
+}
 
 /** Which channel/actor-type created the application or performed a status
  * transition — same vocabulary as RequirementSlotSource and
@@ -45,7 +84,15 @@ export interface Application {
    * UNASSIGNED. */
   branchOrigin: BranchOrigin;
   id: string;
-  applicationNumber: string;
+  /**
+   * MILESTONE 26B-5 — THE OFFICIAL ODL REFERENCE, ONCE THERE IS ONE.
+   *
+   * Undefined while `status === "draft"`, because the number is allocated at
+   * formal submission and not a moment earlier. It is optional in exactly the
+   * same cases the column is NULL, so a caller that renders it must decide what
+   * an in-progress application looks like rather than printing a placeholder.
+   */
+  applicationNumber?: string;
   /** The real Client this application belongs to (Milestone 14E). NOT
    * NULL, ON DELETE RESTRICT — see applications.client_id's migration
    * comment. */

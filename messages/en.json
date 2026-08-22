@@ -267,7 +267,9 @@
       "unassigned": "Unassigned",
       "unassign": "Remove assignment",
       "noneAvailable": "No advisors available"
-    }
+    },
+    "documentsReceivedShort": "{received}/{total} received",
+    "documentsReviewedShort": "{reviewed}/{total} reviewed"
   },
   "dossier": {
     "backToClients": "Back to clients",
@@ -951,6 +953,7 @@
       "missing": "Missing"
     },
     "applicationStatus": {
+      "draft": "Draft",
       "new": "New",
       "in_review": "Under review",
       "approved": "Approved",
@@ -1251,9 +1254,9 @@
       "group_guarantor": "Guarantor documents",
       "group_other": "Other documents",
       "groupProgress": "{done} of {total} received",
-      "needFiles": "We need {count} documents.",
-      "stillNeed": "{count} still needed.",
-      "received": "{count} received",
+      "needFiles": "{count, plural, one {We need # document.} other {We need # documents.}}",
+      "stillNeed": "{count, plural, one {# still missing.} other {# still missing.}}",
+      "received": "{count, plural, one {# received} other {# received}}",
       "statusPending": "Pending",
       "statusOptionalPending": "Not sent",
       "optional": "Optional",
@@ -1295,7 +1298,7 @@
       "product": "Loan type",
       "amount": "Requested amount",
       "term": "Preferred term",
-      "months": "{count} months",
+      "months": "{count, plural, one {# month} other {# months}}",
       "termNoPreference": "No preference",
       "sectionFinancial": "Loan information",
       "employmentStatus": "Employment status",
@@ -1342,7 +1345,7 @@
       "lien_no": "No",
       "lien_unsure": "Not sure",
       "obligations": "Recorded obligations",
-      "obligationCount": "{count} recorded",
+      "obligationCount": "{count, plural, one {# recorded} other {# recorded}}",
       "guarantor": "Guarantor",
       "sectionDocuments": "Documents",
       "group_applicant": "Your documents",
@@ -1395,6 +1398,130 @@
       "whatNext2": "If something is missing or we need to clarify a detail, we will contact you by email or phone.",
       "whatNext3": "We will let you know the result of the evaluation once the process is complete.",
       "submittedOn": "Submitted on {date}"
+    },
+    "reference": {
+      "official": "Application {number}",
+      "inProgress": "Your application is in progress. You will receive your application number when you submit it."
     }
+  },
+  "identificationTypes": {
+    "cedula": "ID card",
+    "pasaporte": "Passport"
+  },
+  "employmentStatuses": {
+    "employee": "Employee",
+    "self_employed": "Self-employed"
+  },
+  "contractTypes": {
+    "permanent": "Permanent",
+    "temporary": "Temporary",
+    "contractor": "Contractor",
+    "other": "Other"
+  },
+  "payrollDeduction": {
+    "yes": "Yes",
+    "no": "No",
+    "unsure": "Not confirmed"
+  },
+  "bankAccountTypes": {
+    "savings": "Savings",
+    "checking": "Checking",
+    "other": "Other"
+  },
+  "lienStatuses": {
+    "yes": "Yes",
+    "no": "No",
+    "unsure": "Not confirmed"
+  },
+  "loanPurposes": {
+    "working_capital": "Working capital",
+    "inventory": "Inventory",
+    "equipment": "Equipment",
+    "expansion": "Expansion",
+    "other": "Other"
+  },
+  "businessRelationships": {
+    "owner": "Owner",
+    "partner": "Partner",
+    "director": "Director",
+    "authorized_representative": "Authorized representative",
+    "other": "Other"
+  },
+  "sourceOfFunds": {
+    "salary": "Salary",
+    "business_income": "Business income",
+    "savings": "Savings",
+    "sale_of_asset": "Sale of an asset",
+    "other": "Other"
+  },
+  "applicationDossier": {
+    "backToList": "Back to Applications",
+    "product": "Product",
+    "requestedAmount": "Requested amount",
+    "term": "Term",
+    "months": "{count, plural, one {# month} other {# months}}",
+    "termNoPreference": "No preference",
+    "advisor": "Advisor",
+    "branch": "Branch",
+    "createdAt": "Created",
+    "submittedAt": "Submitted",
+    "loadError": "We could not load all of this application’s information.",
+    "sectionApplicant": "Applicant details",
+    "fullName": "Full name",
+    "identification": "Identification",
+    "email": "Email",
+    "phone": "Phone",
+    "sectionFinancial": "Application information",
+    "employmentStatus": "Employment status",
+    "employer": "Employer or activity",
+    "position": "Position",
+    "employmentStart": "Employment start",
+    "contractType": "Contract type",
+    "monthlySalary": "Monthly salary",
+    "monthlyExpenses": "Monthly expenses",
+    "payrollDeduction": "Payroll deduction",
+    "legalName": "Legal name",
+    "tradeName": "Trade name",
+    "registrationNumber": "Registration number",
+    "economicActivity": "Economic activity",
+    "operationsStart": "Operations start",
+    "monthlyRevenue": "Average monthly revenue",
+    "businessExpenses": "Average monthly expenses",
+    "loanPurpose": "Loan purpose",
+    "relationship": "Relationship to the business",
+    "bank": "Bank",
+    "accountType": "Account type",
+    "account": "Account",
+    "vehicle": "Vehicle",
+    "plate": "Plate",
+    "lien": "Has a lien",
+    "propertyType": "Property type",
+    "propertyLocation": "Location",
+    "sectionObligations": "Obligations",
+    "obligationCount": "{count, plural, one {# recorded} other {# recorded}}",
+    "noObligations": "No obligations recorded.",
+    "lender": "Lender",
+    "outstandingBalance": "Balance",
+    "monthlyPayment": "Monthly payment",
+    "sectionGuarantor": "Guarantor",
+    "guarantorName": "Guarantor name",
+    "noGuarantor": "No guarantor recorded.",
+    "sectionDocuments": "Documents",
+    "receivedLabel": "Received:",
+    "reviewedLabel": "Reviewed:",
+    "ofTotal": "{count} of {total}",
+    "received": "{count, plural, one {# received} other {# received}}",
+    "notReceived": "Pending",
+    "reviewed": "Reviewed",
+    "pendingReview": "Not reviewed",
+    "sectionDeclarations": "Declarations",
+    "pep": "Politically exposed person",
+    "pepYes": "Yes",
+    "pepNo": "No",
+    "pepDetails": "PEP details",
+    "sourceOfFunds": "Source of funds",
+    "creditConsent": "Credit consultation",
+    "consentGranted": "Granted",
+    "consentRefused": "Not granted"
   }
 }

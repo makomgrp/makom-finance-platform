@@ -98,9 +98,31 @@ const INTAKE_CHANNEL_TO_APPLICATION_SOURCE: Record<ApplicationSource, Applicatio
  * 'processed' or 'needs_review'. See this module's doc comment for the
  * resumability and concurrency contract.
  */
-export async function processApplicationIntake(intakeId: string): Promise<ProcessApplicationIntakeResult> {
+/**
+ * MILESTONE 26B-5 — WHAT KIND OF JOURNEY IS THIS?
+ *
+ * Two very different things arrive through this one engine, and the difference
+ * decides whether an official number is allocated now or much later:
+ *
+ *   "one_shot"     — the long public website form. Everything the applicant has
+ *                    to say arrived in a single POST, so the application is
+ *                    complete on arrival and is formally received immediately.
+ *   "staged_portal" — the multi-step portal. Step 1 is the FIRST of four, and
+ *                    the applicant has not submitted anything yet, so the
+ *                    application is created as a draft with no number.
+ *
+ * Passed in rather than inferred from `channel`, because both journeys carry
+ * channel = 'website_form' — they genuinely are the same channel. Only the
+ * caller knows which shape of journey it is running.
+ */
+export type IntakeJourney = "one_shot" | "staged_portal";
+
+export async function processApplicationIntake(
+  intakeId: string,
+  journey: IntakeJourney
+): Promise<ProcessApplicationIntakeResult> {
   for (let attempt = 0; attempt < 2; attempt++) {
-    const result = await runProcessingAttempt(intakeId);
+    const result = await runProcessingAttempt(intakeId, journey);
     if (result.status !== "retry") {
       return result;
     }
@@ -111,7 +133,10 @@ export async function processApplicationIntake(intakeId: string): Promise<Proces
   );
 }
 
-async function runProcessingAttempt(intakeId: string): Promise<ProcessingAttemptResult> {
+async function runProcessingAttempt(
+  intakeId: string,
+  journey: IntakeJourney
+): Promise<ProcessingAttemptResult> {
   const loaded = await getApplicationIntakeById(intakeId);
   if (loaded.status === "error") {
     if (loaded.code === "NOT_FOUND") {
@@ -170,14 +195,14 @@ async function runProcessingAttempt(intakeId: string): Promise<ProcessingAttempt
       actor: "system",
     });
 
-    return runApplicationCreationStep(claimedForClient.intake);
+    return runApplicationCreationStep(claimedForClient.intake, journey);
   }
 
   // intake.status === "client_matched" — resume directly at Application
   // creation. This is reached both by the same call continuing on
   // (immediately above) and by an independent later call picking this
   // row back up after a prior attempt failed between the two steps.
-  return runApplicationCreationStep(intake);
+  return runApplicationCreationStep(intake, journey);
 }
 
 type ClientResolution =
@@ -357,7 +382,10 @@ async function resolveClientAfterDuplicateRace(intake: ApplicationIntake): Promi
  * is required before any Application is created, not merely before the
  * final status write.
  */
-async function runApplicationCreationStep(intake: ApplicationIntake): Promise<ProcessApplicationIntakeResult> {
+async function runApplicationCreationStep(
+  intake: ApplicationIntake,
+  journey: IntakeJourney
+): Promise<ProcessApplicationIntakeResult> {
   const claimedForProcessing = await claimApplicationIntakeForProcessing(intake.id);
   if (claimedForProcessing.status === "error") {
     if (claimedForProcessing.code === "NOT_FOUND") {
@@ -436,6 +464,10 @@ async function runApplicationCreationStep(intake: ApplicationIntake): Promise<Pr
     requestedTermMonths,
     source: INTAKE_CHANNEL_TO_APPLICATION_SOURCE[claimedIntake.channel],
     actorProfileId: null,
+    // A staged portal journey has only finished Step 1. Creating it as a draft
+    // is what keeps the official number — and the Solicitudes row — until the
+    // applicant actually submits.
+    lifecycle: journey === "staged_portal" ? "draft" : "formal",
   });
 
   if (createResult.status === "error") {

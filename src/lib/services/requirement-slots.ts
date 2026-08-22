@@ -634,3 +634,153 @@ export function evaluateFileCompletion(
     isFileComplete: minFiles === null ? false : fileCount >= minFiles,
   };
 }
+
+/**
+ * ============================================================================
+ * MILESTONE 26B-5 — RECEIVED IS NOT REVIEWED
+ * ============================================================================
+ *
+ * Manual QA found Solicitudes reporting "Documentación 0%" for an application
+ * whose seven requirements had all been uploaded and all read "Enviado". Both
+ * numbers were correct; they were answering different questions, and only one
+ * of them was on screen.
+ *
+ *   RECEIVED — has the applicant sent enough files? File-count based, using
+ *              26A-3's own `evaluateFileCompletion` so `min_files` semantics
+ *              are honoured rather than re-implemented.
+ *   REVIEWED — has a member of staff concluded the requirement is good?
+ *              Status based (satisfied / waived), the CRM's review verdict.
+ *
+ * Keeping them apart is the point. "7 received, 0 reviewed" is the true and
+ * useful state of a freshly submitted application; collapsing it to 0% reads as
+ * "the customer sent nothing", and collapsing it to 100% would claim staff had
+ * verified documents nobody had opened.
+ *
+ * SUPERSEDED FILES DO NOT COUNT. A replaced upload is the file the applicant
+ * withdrew; counting it would let one document satisfy a two-document
+ * requirement.
+ *
+ * TWO QUERIES, NEVER PER ROW. One for the slots in scope, one for their
+ * evidence, then aggregation in memory — so a Solicitudes page showing fifty
+ * applications costs exactly the same two round trips as one showing three.
+ */
+export interface ApplicationDocumentProgress {
+  /** Requirements with enough live files uploaded. */
+  received: number;
+  /** Requirements a reviewer has concluded (satisfied or waived). */
+  reviewed: number;
+  /** Every document-kind requirement on the application. */
+  total: number;
+}
+
+export type ApplicationDocumentProgressMap = Record<string, ApplicationDocumentProgress>;
+
+export type GetApplicationDocumentProgressResult =
+  | { status: "ok"; progress: ApplicationDocumentProgressMap }
+  | { status: "error" };
+
+export async function getApplicationDocumentProgress(
+  scope: BranchScope
+): Promise<GetApplicationDocumentProgressResult> {
+  if (isEmptyScope(scope)) return { status: "ok", progress: {} };
+
+  try {
+    const supabase = getSupabaseServerClient();
+
+    const { data: slotData, error: slotError } = await applyBranchScope(
+      supabase
+        .from("requirement_slots")
+        .select(
+          withScopedParent(
+            "id, application_id, status, min_files",
+            scope,
+            SLOT_APPLICATION_SCOPE_EMBED
+          )
+        )
+        .eq("requirement_kind", "document"),
+      scope,
+      "scope_application.branch_id"
+    );
+
+    if (slotError) {
+      console.error(
+        "[requirement-slots service] Failed to load slots for document progress:",
+        slotError.message
+      );
+      return { status: "error" };
+    }
+
+    const slots = (slotData ?? []) as unknown as {
+      id: string;
+      application_id: string;
+      status: string;
+      min_files: number | null;
+    }[];
+
+    if (slots.length === 0) return { status: "ok", progress: {} };
+
+    // Evidence is fetched by slot id — already scope-filtered above, so this
+    // inherits the branch predicate rather than re-expressing it.
+    const { data: evidenceData, error: evidenceError } = await supabase
+      .from("dossier_documents")
+      .select("id, requirement_slot_id, replaces_evidence_id")
+      .in(
+        "requirement_slot_id",
+        slots.map((slot) => slot.id)
+      );
+
+    if (evidenceError) {
+      console.error(
+        "[requirement-slots service] Failed to load evidence for document progress:",
+        evidenceError.message
+      );
+      return { status: "error" };
+    }
+
+    const evidence = (evidenceData ?? []) as unknown as {
+      id: string;
+      requirement_slot_id: string;
+      replaces_evidence_id: string | null;
+    }[];
+
+    const superseded = new Set(
+      evidence.map((row) => row.replaces_evidence_id).filter((id): id is string => Boolean(id))
+    );
+
+    const liveFilesBySlot = new Map<string, number>();
+    for (const row of evidence) {
+      if (superseded.has(row.id)) continue;
+      liveFilesBySlot.set(
+        row.requirement_slot_id,
+        (liveFilesBySlot.get(row.requirement_slot_id) ?? 0) + 1
+      );
+    }
+
+    const progress: ApplicationDocumentProgressMap = {};
+    for (const slot of slots) {
+      const bucket = (progress[slot.application_id] ??= { received: 0, reviewed: 0, total: 0 });
+      bucket.total += 1;
+
+      if (
+        evaluateFileCompletion(
+          { id: slot.id, minFiles: slot.min_files ?? null },
+          liveFilesBySlot.get(slot.id) ?? 0
+        ).isFileComplete
+      ) {
+        bucket.received += 1;
+      }
+
+      if (slot.status === "satisfied" || slot.status === "waived") {
+        bucket.reviewed += 1;
+      }
+    }
+
+    return { status: "ok", progress };
+  } catch (error) {
+    console.error(
+      "[requirement-slots service] Unexpected failure loading document progress:",
+      error instanceof Error ? error.message : "unknown error"
+    );
+    return { status: "error" };
+  }
+}

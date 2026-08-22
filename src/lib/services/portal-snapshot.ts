@@ -106,8 +106,14 @@ export interface PortalSnapshot {
 
   application?: {
     id: string;
-    /** The official ODL number — the applicant's own reference for support. */
-    applicationNumber: string;
+    /**
+     * The official ODL number — the applicant's own reference for support.
+     *
+     * MILESTONE 26B-5: undefined while the application is still a draft, since
+     * the number is allocated at formal submission. Callers must render the
+     * absence honestly rather than substituting a placeholder.
+     */
+    applicationNumber?: string;
     productCode: string;
     productName: LocalizedText;
     requestedAmount: number;

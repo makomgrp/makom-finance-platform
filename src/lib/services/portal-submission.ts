@@ -3,7 +3,7 @@ import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { SYSTEM_NATIONAL_SCOPE } from "@/lib/services/branch-scope-query";
 import { authorizePortalWrite } from "@/lib/services/portal-snapshot";
 import { getApplicationIntakeById } from "@/lib/services/application-intakes";
-import { getApplicationById, setApplicationStatus } from "@/lib/services/applications";
+import { getApplicationById } from "@/lib/services/applications";
 import { evaluatePortalProgress } from "@/lib/services/portal-progress";
 import type { PortalStep } from "@/types";
 
@@ -34,17 +34,30 @@ import type { PortalStep } from "@/types";
  * something is wrong.
  *
  * ----------------------------------------------------------------------------
+ * THIS IS WHERE THE OFFICIAL NUMBER IS BORN (26B-5)
+ * ----------------------------------------------------------------------------
+ * Until 26B-5 the application row was numbered the moment the portal promoted a
+ * lead, at Step 1, so abandoning the journey at Step 3 still burned a number and
+ * put the customer in Solicitudes as though ODL had received an application.
+ * Now the row is created as a DRAFT with no number, and `submit_application()`
+ * is the only thing in the system that can give it one.
+ *
+ * ----------------------------------------------------------------------------
  * IDEMPOTENCY IS A DATABASE GUARANTEE, NOT A UI ONE
  * ----------------------------------------------------------------------------
- * The anchor is one guarded UPDATE:
+ * Two independent guards, each doing a different job:
  *
- *     set submitted_at = now() where id = ? and submitted_at is null
+ *   1. `submit_application()` — takes a row lock, and allocates a number only
+ *      if the row does not already have one. This is what makes it impossible
+ *      for two concurrent submits to consume two numbers: the second waits for
+ *      the first to commit, then sees the number and returns it unchanged.
  *
- * PostgreSQL locks the row for that statement, so of two simultaneous submits
- * exactly one matches a row and the other matches none. The loser reports
- * `already_submitted` rather than submitting again, and no second application,
- * number, status transition or audit entry is produced. Nothing about that
- * depends on the button being disabled.
+ *   2. The guarded `submitted_at` UPDATE — decides which caller REPORTS the
+ *      submission. Exactly one matches a row; the other reports
+ *      `already_submitted`.
+ *
+ * The first protects the sequence, the second protects the customer-facing
+ * story. Neither depends on the button being disabled.
  */
 
 export type PortalSubmissionResult =
@@ -85,9 +98,29 @@ export async function submitPortalApplication(token: string): Promise<PortalSubm
   }
 
   const supabase = getSupabaseServerClient();
-  const submittedAt = new Date().toISOString();
 
-  // THE IDEMPOTENCY ANCHOR. See this module's header.
+  // THE FORMAL BOUNDARY. One statement allocates the official number and moves
+  // the row draft -> in_review. Deliberately NOT setApplicationStatus(): that
+  // service knows nothing about numbering, and APPLICATION_STATUS_TRANSITIONS
+  // gives `draft` no outgoing transitions precisely so this RPC is the only
+  // door out of it.
+  const { data: allocatedNumber, error: submitError } = await supabase.rpc("submit_application", {
+    p_application_id: authorized.applicationId,
+    p_source: "website_form",
+  });
+
+  if (submitError || typeof allocatedNumber !== "string" || allocatedNumber.length === 0) {
+    console.error(
+      "[portal-submission] Formal submission failed:",
+      submitError?.message ?? "no application number returned"
+    );
+    return { status: "error", code: "SUBMIT_FAILED" };
+  }
+
+  // WHO GETS TO SAY IT WAS THEM. The number above is already safe; this decides
+  // which of two racing callers reports the submission and which is told it had
+  // already happened.
+  const submittedAt = new Date().toISOString();
   const { data: claimed, error: claimError } = await supabase
     .from("application_intakes")
     .update({ submitted_at: submittedAt, last_activity_at: submittedAt })
@@ -97,54 +130,23 @@ export async function submitPortalApplication(token: string): Promise<PortalSubm
     .maybeSingle();
 
   if (claimError) {
-    console.error("[portal-submission] Failed to claim submission:", claimError.message);
+    // The application IS submitted and numbered — only the portal's own marker
+    // lagged. Reported rather than swallowed; the next attempt re-runs the RPC
+    // (which returns the same number) and re-tries this update, so it heals.
+    console.error("[portal-submission] Numbered but intake claim failed:", claimError.message);
     return { status: "error", code: "SUBMIT_FAILED" };
   }
 
   if (!claimed) {
-    // Lost the race, or a previous attempt already claimed it.
     const submitted = await loadSubmittedState(token);
-    if (!submitted) return { status: "error", code: "SUBMIT_FAILED" };
-    // REPAIR PATH: if an earlier attempt claimed the submission and then died
-    // before moving the application, the record would sit "submitted" while
-    // still reading `new` to staff. Re-attempting the transition here costs
-    // nothing when it has already happened and fixes it when it has not.
-    await moveToReview(authorized.applicationId);
-    return { status: "already_submitted", ...submitted };
+    return {
+      status: "already_submitted",
+      applicationNumber: allocatedNumber,
+      submittedAt: submitted?.submittedAt ?? submittedAt,
+    };
   }
 
-  const moved = await moveToReview(authorized.applicationId);
-  if (!moved) {
-    // The submission is recorded and the customer's work is safe; only the
-    // staff-facing status lagged. Reported as an error so it is not silently
-    // swallowed — the repair path above resolves it on the next attempt.
-    console.error("[portal-submission] Submitted but status transition failed for", authorized.applicationId);
-  }
-
-  const application = await getApplicationById(SYSTEM_NATIONAL_SCOPE, authorized.applicationId);
-  if (application.status !== "ok") return { status: "error", code: "SUBMIT_FAILED" };
-
-  return {
-    status: "ok",
-    applicationNumber: application.application.applicationNumber,
-    submittedAt,
-  };
-}
-
-/**
- * `new -> in_review` through the EXISTING transition service.
- *
- * Not a direct UPDATE: `setApplicationStatus` owns the legal-transition table
- * and the status_changed_at/source bookkeeping that
- * `applications_status_new_pair_check` depends on. Source is the channel, actor
- * is null — a public applicant is not a CRM profile.
- *
- * Returns false rather than throwing when the application has already moved,
- * which is what makes the repair path above safe to run unconditionally.
- */
-async function moveToReview(applicationId: string): Promise<boolean> {
-  const result = await setApplicationStatus(applicationId, "in_review", "website_form", null);
-  return result.status === "ok";
+  return { status: "ok", applicationNumber: allocatedNumber, submittedAt };
 }
 
 /** The confirmation-safe facts about an application that is already submitted. */
@@ -152,7 +154,10 @@ async function loadSubmittedState(
   token: string
 ): Promise<{ applicationNumber: string; submittedAt: string } | undefined> {
   const state = await getPortalSubmissionState(token);
-  return state?.submittedAt
+  // Both must be present: a submitted application always has a number
+  // (applications_draft_number_pair_check), so a state missing either is not a
+  // submitted one and must not be reported as such.
+  return state?.submittedAt && state.applicationNumber
     ? { applicationNumber: state.applicationNumber, submittedAt: state.submittedAt }
     : undefined;
 }
@@ -160,7 +165,8 @@ async function loadSubmittedState(
 export interface PortalSubmissionState {
   intakeId: string;
   applicationId: string;
-  applicationNumber: string;
+  /** Undefined while the application is still a draft (26B-5). */
+  applicationNumber?: string;
   /** Undefined while the application is still a draft. */
   submittedAt?: string;
 }

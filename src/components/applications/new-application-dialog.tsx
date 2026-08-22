@@ -213,17 +213,22 @@ export function NewApplicationDialog({
     }
 
     const application = result.application;
+    // A CRM-created application is formally originated, so it is numbered at
+    // insert (26B-5 defers numbering for portal DRAFTS only, and this dialog
+    // never creates one). The fallback exists because the field is optional on
+    // the shared type — it is not a state this path can reach.
+    const createdNumber = application.applicationNumber ?? application.id;
 
     if (result.status === "partial") {
       // SLOT_SNAPSHOT_FAILED. The application EXISTS and is valid; only
       // its Requirement Slot snapshot did not complete. Never reported as
       // a plain success, and never rolled back.
       toast.warning(
-        t("applications.create.toasts.partial", { number: application.applicationNumber })
+        t("applications.create.toasts.partial", { number: createdNumber })
       );
     } else {
       toast.success(
-        t("applications.create.toasts.created", { number: application.applicationNumber })
+        t("applications.create.toasts.created", { number: createdNumber })
       );
     }
 

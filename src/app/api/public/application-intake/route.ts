@@ -141,7 +141,10 @@ export async function POST(request: NextRequest) {
   // doc comment and the implementation report's Processing Behavior
   // section.
   try {
-    await processApplicationIntake(intakeId);
+    // ONE SHOT: this endpoint receives the entire long website form in a single
+    // POST, so the application is complete on arrival and is formally received
+    // immediately — it gets its official number now.
+    await processApplicationIntake(intakeId, "one_shot");
   } catch (error) {
     // The intake row itself was already durably created above — that is
     // the honest thing being reported as "received" to the caller.

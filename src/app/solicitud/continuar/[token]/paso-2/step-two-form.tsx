@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PortalProgress } from "@/components/portal/portal-progress";
+import { PortalReferenceLine } from "@/components/portal/portal-reference-line";
 import { submitPortalStepTwo } from "./actions";
 import type { Step2Errors, Step2Mode } from "@/lib/validation/portal-step-two";
 import type { LocalizedText } from "@/types";
@@ -91,7 +92,8 @@ export interface StepTwoInitialValues {
 interface StepTwoFormProps {
   productCode: string;
   productName: LocalizedText;
-  applicationNumber: string;
+  /** Undefined until the application is formally submitted (26B-5). */
+  applicationNumber?: string;
   continuationToken: string;
   initialValues: StepTwoInitialValues;
 }
@@ -263,10 +265,10 @@ export function StepTwoForm({
         <p className="text-[0.9375rem] leading-relaxed text-muted-foreground">
           {t("subtitle", { product: productName[locale] ?? productName.es })}
         </p>
-        {/* Subtle by design — the customer's reference if they call, not a badge. */}
-        <p className="text-xs text-muted-foreground">
-          {t("applicationRef", { number: applicationNumber })}
-        </p>
+        {/* Subtle by design — the customer's reference if they call, not a badge.
+            Before submission there is no official number, so this says so
+            instead of printing one. */}
+        <PortalReferenceLine applicationNumber={applicationNumber} />
       </header>
 
       {hasErrors && (

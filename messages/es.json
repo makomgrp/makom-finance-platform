@@ -267,7 +267,9 @@
       "unassigned": "Sin asignar",
       "unassign": "Quitar asignación",
       "noneAvailable": "No hay asesores disponibles"
-    }
+    },
+    "documentsReceivedShort": "{received}/{total} {received, plural, one {recibido} other {recibidos}}",
+    "documentsReviewedShort": "{reviewed}/{total} {reviewed, plural, one {revisado} other {revisados}}"
   },
   "dossier": {
     "backToClients": "Volver a clientes",
@@ -951,6 +953,7 @@
       "missing": "Faltante"
     },
     "applicationStatus": {
+      "draft": "Borrador",
       "new": "Nueva",
       "in_review": "En evaluación",
       "approved": "Aprobada",
@@ -1248,12 +1251,12 @@
       "group_applicant": "Tus documentos",
       "group_business": "Documentos de la empresa",
       "group_vehicle": "Documentos de tu vehículo",
-      "group_guarantor": "Documentos del garante",
+      "group_guarantor": "Documentos del fiador",
       "group_other": "Otros documentos",
       "groupProgress": "{done} de {total} recibidos",
-      "needFiles": "Necesitamos {count} documentos.",
-      "stillNeed": "Falta {count}.",
-      "received": "{count} recibido(s)",
+      "needFiles": "{count, plural, one {Necesitamos # documento.} other {Necesitamos # documentos.}}",
+      "stillNeed": "{count, plural, one {Falta #.} other {Faltan #.}}",
+      "received": "{count, plural, one {# recibido} other {# recibidos}}",
       "statusPending": "Pendiente",
       "statusOptionalPending": "Sin enviar",
       "optional": "Opcional",
@@ -1295,7 +1298,7 @@
       "product": "Tipo de préstamo",
       "amount": "Monto solicitado",
       "term": "Plazo deseado",
-      "months": "{count} meses",
+      "months": "{count, plural, one {# mes} other {# meses}}",
       "termNoPreference": "Sin preferencia",
       "sectionFinancial": "Información del préstamo",
       "employmentStatus": "Situación laboral",
@@ -1342,13 +1345,13 @@
       "lien_no": "No",
       "lien_unsure": "No estoy seguro",
       "obligations": "Obligaciones registradas",
-      "obligationCount": "{count} registrada(s)",
-      "guarantor": "Garante",
+      "obligationCount": "{count, plural, one {# registrada} other {# registradas}}",
+      "guarantor": "Fiador",
       "sectionDocuments": "Documentos",
       "group_applicant": "Tus documentos",
       "group_business": "Documentos de la empresa",
       "group_vehicle": "Documentos de tu vehículo",
-      "group_guarantor": "Documentos del garante",
+      "group_guarantor": "Documentos del fiador",
       "group_other": "Otros documentos",
       "documentsReceived": "{done} de {total} recibidos",
       "sectionDeclarations": "Declaraciones y autorizaciones",
@@ -1395,6 +1398,130 @@
       "whatNext2": "Si falta algo o necesitamos aclarar un dato, te contactamos por correo o teléfono.",
       "whatNext3": "Te informamos el resultado de la evaluación cuando el proceso termine.",
       "submittedOn": "Enviada el {date}"
+    },
+    "reference": {
+      "official": "Solicitud {number}",
+      "inProgress": "Tu solicitud está en progreso. Recibirás tu número de solicitud al enviarla."
     }
+  },
+  "identificationTypes": {
+    "cedula": "Cédula",
+    "pasaporte": "Pasaporte"
+  },
+  "employmentStatuses": {
+    "employee": "Empleado",
+    "self_employed": "Independiente"
+  },
+  "contractTypes": {
+    "permanent": "Permanente",
+    "temporary": "Temporal",
+    "contractor": "Por contrato",
+    "other": "Otro"
+  },
+  "payrollDeduction": {
+    "yes": "Sí",
+    "no": "No",
+    "unsure": "No confirmado"
+  },
+  "bankAccountTypes": {
+    "savings": "Ahorros",
+    "checking": "Corriente",
+    "other": "Otra"
+  },
+  "lienStatuses": {
+    "yes": "Sí",
+    "no": "No",
+    "unsure": "No confirmado"
+  },
+  "loanPurposes": {
+    "working_capital": "Capital de trabajo",
+    "inventory": "Inventario",
+    "equipment": "Equipo",
+    "expansion": "Expansión",
+    "other": "Otro"
+  },
+  "businessRelationships": {
+    "owner": "Propietario",
+    "partner": "Socio",
+    "director": "Director",
+    "authorized_representative": "Representante autorizado",
+    "other": "Otra"
+  },
+  "sourceOfFunds": {
+    "salary": "Salario",
+    "business_income": "Ingresos de negocio",
+    "savings": "Ahorros",
+    "sale_of_asset": "Venta de un bien",
+    "other": "Otro"
+  },
+  "applicationDossier": {
+    "backToList": "Volver a Solicitudes",
+    "product": "Producto",
+    "requestedAmount": "Monto solicitado",
+    "term": "Plazo",
+    "months": "{count, plural, one {# mes} other {# meses}}",
+    "termNoPreference": "Sin preferencia",
+    "advisor": "Asesor",
+    "branch": "Sucursal",
+    "createdAt": "Creada",
+    "submittedAt": "Enviada",
+    "loadError": "No pudimos cargar toda la información de esta solicitud.",
+    "sectionApplicant": "Datos del solicitante",
+    "fullName": "Nombre completo",
+    "identification": "Identificación",
+    "email": "Correo electrónico",
+    "phone": "Teléfono",
+    "sectionFinancial": "Información de la solicitud",
+    "employmentStatus": "Situación laboral",
+    "employer": "Empleador o actividad",
+    "position": "Cargo",
+    "employmentStart": "Inicio laboral",
+    "contractType": "Tipo de contrato",
+    "monthlySalary": "Salario mensual",
+    "monthlyExpenses": "Gastos mensuales",
+    "payrollDeduction": "Descuento por nómina",
+    "legalName": "Razón social",
+    "tradeName": "Nombre comercial",
+    "registrationNumber": "Número de registro",
+    "economicActivity": "Actividad económica",
+    "operationsStart": "Inicio de operaciones",
+    "monthlyRevenue": "Ingreso mensual promedio",
+    "businessExpenses": "Gastos mensuales promedio",
+    "loanPurpose": "Destino del préstamo",
+    "relationship": "Relación con la empresa",
+    "bank": "Banco",
+    "accountType": "Tipo de cuenta",
+    "account": "Cuenta",
+    "vehicle": "Vehículo",
+    "plate": "Placa",
+    "lien": "Tiene gravamen",
+    "propertyType": "Tipo de propiedad",
+    "propertyLocation": "Ubicación",
+    "sectionObligations": "Obligaciones",
+    "obligationCount": "{count, plural, one {# registrada} other {# registradas}}",
+    "noObligations": "Sin obligaciones registradas.",
+    "lender": "Acreedor",
+    "outstandingBalance": "Saldo",
+    "monthlyPayment": "Cuota mensual",
+    "sectionGuarantor": "Fiador",
+    "guarantorName": "Nombre del fiador",
+    "noGuarantor": "Sin fiador registrado.",
+    "sectionDocuments": "Documentos",
+    "receivedLabel": "Recibidos:",
+    "reviewedLabel": "Revisados:",
+    "ofTotal": "{count} de {total}",
+    "received": "{count, plural, one {# recibido} other {# recibidos}}",
+    "notReceived": "Pendiente",
+    "reviewed": "Revisado",
+    "pendingReview": "Sin revisar",
+    "sectionDeclarations": "Declaraciones",
+    "pep": "Persona expuesta políticamente",
+    "pepYes": "Sí",
+    "pepNo": "No",
+    "pepDetails": "Detalle PEP",
+    "sourceOfFunds": "Origen de los fondos",
+    "creditConsent": "Consulta crediticia",
+    "consentGranted": "Autorizada",
+    "consentRefused": "No autorizada"
   }
 }

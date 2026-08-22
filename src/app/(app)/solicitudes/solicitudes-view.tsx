@@ -26,7 +26,7 @@ import type {
 
 interface SolicitudesViewProps {
   initialApplications: ApplicationListItem[];
-  documentSlotCounts: Record<string, { completed: number; total: number }>;
+  documentProgress: Record<string, { received: number; reviewed: number; total: number }>;
   loadError: boolean;
   /** Milestone 17 — products eligible for origination, already filtered
    * server-side by getApplicationCreatableProducts(). */
@@ -54,7 +54,7 @@ interface SolicitudesViewProps {
  */
 export function SolicitudesView({
   initialApplications,
-  documentSlotCounts,
+  documentProgress,
   loadError,
   creatableProducts,
   productsLoadError,
@@ -211,7 +211,7 @@ export function SolicitudesView({
       ) : view === "tabla" ? (
         <ApplicationsTable
           applications={applications}
-          documentSlotCounts={documentSlotCounts}
+          documentProgress={documentProgress}
           onStatusChange={handleStatusChange}
           assignableAdvisorsByApplication={assignableAdvisorsByApplication}
           showBranchOrigin={showBranchOrigin}
@@ -220,7 +220,7 @@ export function SolicitudesView({
       ) : (
         <ApplicationsKanban
           applications={applications}
-          documentSlotCounts={documentSlotCounts}
+          documentProgress={documentProgress}
           onStatusChange={handleStatusChange}
         />
       )}

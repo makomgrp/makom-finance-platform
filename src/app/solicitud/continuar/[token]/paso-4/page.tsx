@@ -54,13 +54,15 @@ export default async function PortalStepFourPage({
   const intake = intakeResult.intake;
 
   // ALREADY SENT — show the receipt, not the form.
+  //
+  // A submitted application always has a number: 26B-5's
+  // applications_draft_number_pair_check makes "submitted without a number"
+  // unrepresentable. The guard is here anyway because the type is optional and
+  // a receipt with a blank reference would be worse than the problem screen.
   if (intake.submittedAt) {
-    return (
-      <PortalConfirmation
-        applicationNumber={application.application.applicationNumber}
-        submittedAt={intake.submittedAt}
-      />
-    );
+    const submittedNumber = application.application.applicationNumber;
+    if (!submittedNumber) return <StepFourProblem />;
+    return <PortalConfirmation applicationNumber={submittedNumber} submittedAt={intake.submittedAt} />;
   }
 
   const [productResult, step2Result, declarationsResult, progressResult] = await Promise.all([

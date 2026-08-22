@@ -6,6 +6,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { AlertCircle, Check, Loader2, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PortalProgress } from "@/components/portal/portal-progress";
+import { PortalReferenceLine } from "@/components/portal/portal-reference-line";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { savePortalDeclarations, submitPortalApplicationAction } from "./actions";
@@ -59,7 +60,8 @@ import type { Locale } from "@/i18n/config";
 export interface ReviewSnapshot {
   productCode: string;
   productName: LocalizedText;
-  applicationNumber: string;
+  /** Undefined until this application is formally submitted (26B-5). */
+  applicationNumber?: string;
 
   applicant: {
     fullName?: string;
@@ -340,9 +342,9 @@ export function StepFourView({
           {t("title")}
         </h1>
         <p className="text-[0.9375rem] leading-relaxed text-muted-foreground">{t("subtitle")}</p>
-        <p className="text-xs text-muted-foreground">
-          {t("applicationRef", { number: snapshot.applicationNumber })}
-        </p>
+        {/* No number yet — the applicant is still reviewing. Saying so beats
+            showing an identifier ODL has not issued. */}
+        <PortalReferenceLine applicationNumber={snapshot.applicationNumber} />
       </header>
 
       {blockedByEarlierStep && (
