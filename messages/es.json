@@ -1523,5 +1523,23 @@
     "creditConsent": "Consulta crediticia",
     "consentGranted": "Autorizada",
     "consentRefused": "No autorizada"
+  },
+  "pipeline": {
+    "stages": {
+      "nuevo": "Nuevo",
+      "paso_2": "Paso 2",
+      "paso_3": "Paso 3",
+      "en_evaluacion": "En evaluación",
+      "aprobado": "Aprobado",
+      "cancelado": "Cancelado",
+      "descartado": "Descartado"
+    },
+    "leadProgress": {
+      "nuevo": "Datos iniciales completos",
+      "paso_2": "Información completa",
+      "paso_3": "Documentos completos"
+    },
+    "sourcePortal": "Portal",
+    "emptyColumn": "Sin registros en esta etapa."
   }
 }

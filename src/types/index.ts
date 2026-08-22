@@ -23,3 +23,4 @@ export * from "./loan-criteria";
 export * from "./application-analysis";
 export * from "./portal-continuation";
 export * from "./application-declaration";
+export * from "./pipeline";

@@ -1523,5 +1523,23 @@
     "creditConsent": "Credit consultation",
     "consentGranted": "Granted",
     "consentRefused": "Not granted"
+  },
+  "pipeline": {
+    "stages": {
+      "nuevo": "New",
+      "paso_2": "Step 2",
+      "paso_3": "Step 3",
+      "en_evaluacion": "In review",
+      "aprobado": "Approved",
+      "cancelado": "Cancelled",
+      "descartado": "Discarded"
+    },
+    "leadProgress": {
+      "nuevo": "Initial details complete",
+      "paso_2": "Information complete",
+      "paso_3": "Documents complete"
+    },
+    "sourcePortal": "Portal",
+    "emptyColumn": "Nothing at this stage."
   }
 }

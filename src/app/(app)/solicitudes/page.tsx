@@ -4,6 +4,7 @@ import { resolveBranchViewScope } from "@/lib/services/branch-view-context";
 import { viewSpansMultipleBranches } from "@/lib/services/branch-origin";
 import { getCurrentProfile } from "@/lib/auth/get-current-profile";
 import { getApplicationDocumentProgress } from "@/lib/services/requirement-slots";
+import { getPipelineCards } from "@/lib/services/pipeline";
 import { getApplicationCreatableProducts } from "@/lib/services/products";
 import { getClients } from "@/lib/services/clients";
 import { getAssignableAdvisorsForApplications } from "@/lib/services/profiles";
@@ -51,9 +52,13 @@ export default async function SolicitudesPage({ searchParams }: { searchParams: 
   // the component never receives the scope itself, so it cannot recompute — or
   // misread — authorization. The deciding factor is the VIEW, not the role.
   const showBranchOrigin = viewSpansMultipleBranches(scope);
-  const [applicationsResult, progressResult, productsResult, clientsResult] = await Promise.all([
+  const [applicationsResult, progressResult, pipelineResult, productsResult, clientsResult] = await Promise.all([
+    // Two reads on purpose: the table's formal register and the board's unified
+    // pipeline answer different questions and must not be derived from each
+    // other. See SolicitudesViewProps.
     getApplications(scope),
     getApplicationDocumentProgress(scope),
+    getPipelineCards(scope),
     getApplicationCreatableProducts(),
     getClients(scope),
   ]);
@@ -74,6 +79,7 @@ export default async function SolicitudesPage({ searchParams }: { searchParams: 
     <SolicitudesView
       showBranchOrigin={showBranchOrigin}
       initialApplications={applications}
+      pipelineCards={pipelineResult.status === "ok" ? pipelineResult.cards : []}
       documentProgress={progressResult.status === "ok" ? progressResult.progress : {}}
       loadError={applicationsResult.status === "error"}
       creatableProducts={productsResult.status === "ok" ? productsResult.products : []}

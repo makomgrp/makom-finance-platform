@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ApplicationsTable } from "@/components/applications/applications-table";
-import { ApplicationsKanban } from "@/components/applications/applications-kanban";
+import { PipelineKanban } from "@/components/applications/pipeline-kanban";
 import { NewApplicationDialog } from "@/components/applications/new-application-dialog";
 import {
   assignSolicitudAdvisor,
@@ -19,13 +19,25 @@ import { cn } from "@/lib/utils";
 import type {
   ApplicationListItem,
   ApplicationStatus,
+  PipelineCard,
   AssignableAdvisor,
   Client,
   Product,
 } from "@/types";
 
 interface SolicitudesViewProps {
+  /**
+   * FORMAL applications only — this is what the table renders.
+   *
+   * MILESTONE 26B-5A: the table and the board deliberately disagree about what
+   * they contain. The table is the register of applications ODL has received;
+   * the board is the operational pipeline, which includes prospects still
+   * filling in the portal. Feeding both from one list would force one of them
+   * to be wrong.
+   */
   initialApplications: ApplicationListItem[];
+  /** The unified board: leads AND formal applications. */
+  pipelineCards: PipelineCard[];
   documentProgress: Record<string, { received: number; reviewed: number; total: number }>;
   loadError: boolean;
   /** Milestone 17 — products eligible for origination, already filtered
@@ -54,6 +66,7 @@ interface SolicitudesViewProps {
  */
 export function SolicitudesView({
   initialApplications,
+  pipelineCards,
   documentProgress,
   loadError,
   creatableProducts,
@@ -218,11 +231,7 @@ export function SolicitudesView({
           onAdvisorChange={handleAdvisorChange}
         />
       ) : (
-        <ApplicationsKanban
-          applications={applications}
-          documentProgress={documentProgress}
-          onStatusChange={handleStatusChange}
-        />
+        <PipelineKanban cards={pipelineCards} onStatusChange={handleStatusChange} />
       )}
     </div>
   );
