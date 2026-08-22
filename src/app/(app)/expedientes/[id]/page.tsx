@@ -6,6 +6,7 @@ import { getClientById } from "@/lib/services/clients";
 import { getNotesByClientId } from "@/lib/services/notes";
 import { getAlertsByClientId } from "@/lib/services/alerts";
 import { getApplications } from "@/lib/services/applications";
+import { getActiveDraftForClient } from "@/lib/services/pipeline";
 import { getRequirementSlotsByApplicationId } from "@/lib/services/requirement-slots";
 import { getEvidenceByApplicationId } from "@/lib/services/document-evidence";
 import { getClientCrmEvents } from "@/lib/services/crm-events";
@@ -91,12 +92,21 @@ export default async function ExpedientePage({
   // is deliberately the first additional dossier query since Milestone 19:
   // durable history lives in its own table, and there is no way to read it
   // without reading it.
-  const [notesResult, alertsResult, applicationsResult, crmEventsResult] = await Promise.all([
-    getNotesByClientId(scope, client.id),
-    getAlertsByClientId(scope, client.id),
-    getApplications(scope),
-    getClientCrmEvents(scope, client.id),
-  ]);
+  // MILESTONE 26B-5B — the ACTIVE DRAFT joins the load.
+  //
+  // `getApplications` is formal-only (26B-5), which is correct for the
+  // application list but left a prospect halfway through the portal looking
+  // like someone with no process at all. The draft is read separately, through
+  // its own branch predicate, so knowing a client id never becomes authority to
+  // see an application.
+  const [notesResult, alertsResult, applicationsResult, crmEventsResult, activeDraft] =
+    await Promise.all([
+      getNotesByClientId(scope, client.id),
+      getAlertsByClientId(scope, client.id),
+      getApplications(scope),
+      getClientCrmEvents(scope, client.id),
+      getActiveDraftForClient(scope, client.id),
+    ]);
 
   const applications =
     applicationsResult.status === "ok"
@@ -137,6 +147,7 @@ export default async function ExpedientePage({
       alertsLoadError={alertsResult.status === "error"}
       initialApplications={applications}
       initialRequirementsByApplicationId={requirementsByApplicationId}
+      activeDraft={activeDraft}
       activities={activities}
     />
   );

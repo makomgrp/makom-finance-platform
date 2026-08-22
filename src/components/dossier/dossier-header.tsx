@@ -13,10 +13,13 @@ import { APPLICATION_STATUS_BADGE_CLASS, APPLICATION_STATUS_TRANSITIONS } from "
 import { formatDate, getInitials } from "@/lib/format";
 import { useCapability } from "@/lib/auth/use-capability";
 import type { Locale } from "@/i18n/config";
+import type { ActiveDraftContext } from "@/lib/services/pipeline";
 import type { ApplicationListItem, ApplicationStatus, Client } from "@/types";
 
 interface DossierHeaderProps {
   client: Client;
+  /** MILESTONE 26B-5B — the portal process currently running, if any. */
+  activeDraft?: ActiveDraftContext;
   applications: ApplicationListItem[];
   activeApplication?: ApplicationListItem;
   onSelectApplication: (applicationId: string) => void;
@@ -26,6 +29,7 @@ interface DossierHeaderProps {
 
 export function DossierHeader({
   client,
+  activeDraft,
   applications,
   activeApplication,
   onSelectApplication,
@@ -100,6 +104,21 @@ export function DossierHeader({
                   {t("dossier.createdOn")}: {formatDate(activeApplication.createdAt, locale)}
                 </span>
               </div>
+            ) : activeDraft ? (
+              /* MILESTONE 26B-5B — a live portal process, which is NOT a formal
+                 application. "Sin solicitud asociada" was false here: there is
+                 a process, it simply has not been submitted. No official
+                 number is shown, and none is invented — the stage is the
+                 honest identifier at this point. */
+              <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
+                <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-foreground">
+                  {t("dossier.processInProgress")} · {t(`pipeline.stages.${activeDraft.stage}`)}
+                </span>
+                <span>{activeDraft.productName[locale]}</span>
+                <span>
+                  {t("dossier.lastActivity")}: {formatDate(activeDraft.lastActivityAt, locale)}
+                </span>
+              </p>
             ) : (
               <p className="mt-1 text-sm text-muted-foreground">
                 {t("dossier.noApplication")} · {t("dossier.registeredOn")}:{" "}

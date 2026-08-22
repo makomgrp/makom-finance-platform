@@ -28,6 +28,7 @@ import type {
   InternalNote,
   RequirementSlot,
 } from "@/types";
+import type { ActiveDraftContext } from "@/lib/services/pipeline";
 
 /**
  * Real Requirement Slot + Evidence bundle for one real Application
@@ -76,6 +77,16 @@ interface DossierViewProps {
    * the feed can never drift from what the database actually holds.
    */
   activities: ActivityFeedItem[];
+  /**
+   * MILESTONE 26B-5B — the portal process this prospect currently has running,
+   * if any.
+   *
+   * Separate from `initialApplications`, which is formal-only. A draft is not a
+   * formal application and must never be presented as one — no official number,
+   * no place in the application switcher — but it IS a live process, and saying
+   * "Sin solicitud asociada" while one is running was simply untrue.
+   */
+  activeDraft?: ActiveDraftContext;
 }
 
 // Milestone 19 restored "actividad" — this time backed by persisted
@@ -94,6 +105,7 @@ export function DossierView({
   initialApplications,
   initialRequirementsByApplicationId,
   activities,
+  activeDraft,
 }: DossierViewProps) {
   const t = useTranslations();
   const [client, setClient] = useState<Client>(initialClient);
@@ -209,6 +221,7 @@ export function DossierView({
         onSelectApplication={(id) => setActiveApplicationId(id)}
         onClientUpdate={handleClientUpdate}
         onApplicationStatusChange={handleApplicationStatusChange}
+        activeDraft={activeDraft}
       />
 
       <Tabs defaultValue={defaultTab} className="mt-6">
@@ -226,6 +239,7 @@ export function DossierView({
             client={client}
             application={application}
             requirementsData={activeRequirementsData}
+            activeDraft={activeDraft}
           />
         </TabsContent>
 

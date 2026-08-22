@@ -305,7 +305,10 @@
       "noApplicationDocuments": "Este cliente no tiene una solicitud asociada con requisitos documentales.",
       "noDocumentRequirements": "Esta solicitud no tiene requisitos documentales.",
       "lastUpdate": "Última actualización",
-      "employer": "Empresa donde labora"
+      "employer": "Empresa donde labora",
+      "currentStage": "Etapa actual",
+      "requestedAmount": "Monto solicitado",
+      "noDocumentsYet": "Aún no se han enviado documentos."
     },
     "personalData": {
       "title": "Datos personales",
@@ -437,7 +440,9 @@
         "cliente_estado_cambiado": "Cliente: estado cambiado de «{previousStatus}» a «{status}»",
         "cliente_perfil_actualizado": "Perfil del cliente actualizado ({count} campos)"
       }
-    }
+    },
+    "processInProgress": "Proceso en curso",
+    "lastActivity": "Última actividad"
   },
   "documentsModule": {
     "title": "Documentos",
@@ -462,7 +467,8 @@
     "viewDossier": "Ver expediente",
     "toasts": {
       "refetchError": "No se pudo actualizar la información. Intente recargar la página."
-    }
+    },
+    "draftBadge": "Borrador"
   },
   "alertsModule": {
     "title": "Alertas y restricciones",

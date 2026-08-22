@@ -45,6 +45,7 @@ import type {
 interface WorkspaceApplicationRow {
   id: string;
   application_number: string;
+  status: string;
   client_id: string;
   assigned_advisor_profile_id: string | null;
   advisor: { full_name: string } | null;
@@ -120,7 +121,7 @@ const WORKSPACE_SELECT =
   // no branch_id of its own and deliberately does not gain one: a second
   // ownership column would have to be kept in step with every 25B-3 transfer,
   // and any drift between them would be an isolation hole.
-  `application:applications!requirement_slots_application_id_fkey(id, application_number, client_id, assigned_advisor_profile_id, advisor:profiles!applications_assigned_advisor_profile_id_fkey(full_name), client:clients!applications_client_id_fkey(full_name), ${branchOriginEmbed("applications_branch_id_fkey")}), ` +
+  `application:applications!requirement_slots_application_id_fkey(id, application_number, status, client_id, assigned_advisor_profile_id, advisor:profiles!applications_assigned_advisor_profile_id_fkey(full_name), client:clients!applications_client_id_fkey(full_name), ${branchOriginEmbed("applications_branch_id_fkey")}), ` +
   "evidence:dossier_documents!dossier_documents_requirement_slot_id_fkey(id, requirement_slot_id, replaces_evidence_id, storage_bucket, storage_path, file_name, mime_type, file_size_bytes, file_sha256, uploaded_at, uploaded_by_profile_id, uploaded_source, reviewed_at, reviewed_by_profile_id, uploaded_by:profiles!dossier_documents_uploaded_by_profile_id_fkey(full_name), reviewed_by:profiles!dossier_documents_reviewed_by_profile_id_fkey(full_name))";
 
 function toRequirementSlot(row: WorkspaceSlotRow): RequirementSlot {
@@ -247,6 +248,9 @@ export async function getDocumentEvidenceWorkspace(
       application: {
         id: row.application?.id ?? row.application_id,
         applicationNumber: row.application?.application_number ?? "",
+        // Derived from the lifecycle status, not from the empty number —
+        // the status is the fact and the missing number its consequence.
+        isDraft: row.application?.status === "draft",
         clientId: row.application?.client_id ?? "",
         assignedAdvisorProfileId: row.application?.assigned_advisor_profile_id ?? undefined,
         assignedAdvisorFullName: row.application?.advisor?.full_name ?? undefined,

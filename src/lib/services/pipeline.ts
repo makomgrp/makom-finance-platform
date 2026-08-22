@@ -175,13 +175,11 @@ export async function getPipelineCards(scope: BranchScope): Promise<GetPipelineR
  * on the Step 3 page having uploaded nothing is in Paso 2, because that is the
  * last thing they finished — which is exactly the case ODL's manual QA raised.
  */
-function draftStage(
-  row: PipelineRow,
+export function deriveDraftStage(
+  applicationCode: string,
   step2: ApplicationStep2 | undefined,
   docs: { received: number; total: number }
 ): PipelineStage {
-  const applicationCode = row.product?.application_code ?? "";
-
   // Documents complete => Paso 3. `total > 0` guards the moment before the
   // requirement snapshot exists, where 0-of-0 would otherwise read as finished.
   const documentsComplete = docs.total > 0 && docs.received >= docs.total;
@@ -192,6 +190,14 @@ function draftStage(
 
   // The application row exists at all, which only happens once Step 1 is done.
   return "nuevo";
+}
+
+function draftStage(
+  row: PipelineRow,
+  step2: ApplicationStep2 | undefined,
+  docs: { received: number; total: number }
+): PipelineStage {
+  return deriveDraftStage(row.product?.application_code ?? "", step2, docs);
 }
 
 /**
@@ -314,4 +320,173 @@ async function loadStep2ForApplications(
   }
 
   return byApplication;
+}
+
+/**
+ * ============================================================================
+ * THE PROSPECT'S CURRENT PROCESS (26B-5B)
+ * ============================================================================
+ *
+ * Opening a prospect who is halfway through the portal used to say "Sin
+ * solicitud asociada", and the summary read employer "—", cargo "—", salario
+ * "—" and "La empresa no aplica" — because it was reading `clients`, where
+ * those fields are legitimately empty for a portal applicant, and because the
+ * dossier's application list is formal-only (26B-5).
+ *
+ * Every one of those statements was false about Juan Peña, whose draft holds
+ * Makom Capital Group, Gerente and B/. 2,500, and whose payroll deduction
+ * answer was "Sí". "No formal application" and "no process at all" are
+ * different facts, and the CRM was reporting the second when only the first
+ * was true.
+ *
+ * NOTHING IS COPIED INTO `clients`. 26B-5 established that employer, position,
+ * salary and the rest belong to the application because they can differ between
+ * two applications of the same person. That holds. This reads them from the
+ * draft, live, for display — it does not denormalise them anywhere.
+ *
+ * SCOPE IS ENFORCED ON THE DRAFT ITSELF, not inherited from the fact that the
+ * caller could open the client. Knowing a client id is not authorization to see
+ * an application, so the draft is fetched through the same branch predicate
+ * every other application read uses; out of scope simply returns nothing.
+ */
+export interface ActiveDraftContext {
+  applicationId: string;
+  stage: PipelineStage;
+  productCode: string;
+  productName: LocalizedText;
+  requestedAmount: number;
+  requestedTermMonths?: number;
+
+  /** All application-scoped. Read live from the draft, never from `clients`. */
+  employerName?: string;
+  jobTitle?: string;
+  employmentStartDate?: string;
+  contractType?: string;
+  monthlyIncome?: number;
+  monthlyExpenses?: number;
+  payrollDeductionAvailable?: PayrollDeductionAvailability;
+
+  documentsReceived: number;
+  documentsRequired: number;
+  lastActivityAt: string;
+}
+
+/**
+ * The one active draft this client currently has, if any.
+ *
+ * A client has at most one live portal journey in practice; if several drafts
+ * ever existed, the most recently touched is the one an advisor means by "the
+ * current process", and the others are abandoned. Ordering by creation and
+ * taking the newest makes that explicit rather than leaving it to chance.
+ *
+ * Returns undefined — not an error — when there is no draft. "This prospect has
+ * no process running" is a normal answer, and the caller renders the plain
+ * identity profile for it.
+ */
+export async function getActiveDraftForClient(
+  scope: BranchScope,
+  clientId: string
+): Promise<ActiveDraftContext | undefined> {
+  if (isEmptyScope(scope)) return undefined;
+
+  try {
+    const supabase = getSupabaseServerClient();
+
+    const { data, error } = await applyBranchScope(
+      supabase
+        .from("applications")
+        .select(
+          "id, requested_amount, requested_term_months, created_at, " +
+            "product:products!applications_product_id_fkey(code, application_code, name), " +
+            "intake:application_intakes!application_intakes_created_application_id_fkey(last_activity_at)"
+        )
+        .eq("client_id", clientId)
+        .eq("status", "draft"),
+      scope
+    )
+      .order("created_at", { ascending: false })
+      .limit(1);
+
+    if (error) {
+      console.error("[pipeline service] Failed to load active draft:", error.message);
+      return undefined;
+    }
+
+    const row = (data ?? [])[0] as unknown as
+      | {
+          id: string;
+          requested_amount: number;
+          requested_term_months: number | null;
+          product: { code: string; application_code: string | null; name: LocalizedText } | null;
+          intake: { last_activity_at: string }[] | { last_activity_at: string } | null;
+          created_at: string;
+        }
+      | undefined;
+
+    if (!row) return undefined;
+
+    const [step2ByApplication, progressResult, employmentResult, financialResult] =
+      await Promise.all([
+        loadStep2ForApplications([row.id]),
+        getApplicationDocumentProgress(scope),
+        supabase
+          .from("application_employment")
+          .select(
+            "employer_name, job_title, start_date, contract_type, monthly_income, payroll_deduction_available"
+          )
+          .eq("application_id", row.id)
+          .maybeSingle(),
+        supabase
+          .from("application_financial_profiles")
+          .select("monthly_expenses")
+          .eq("application_id", row.id)
+          .maybeSingle(),
+      ]);
+
+    const docs =
+      (progressResult.status === "ok" ? progressResult.progress[row.id] : undefined) ??
+      { received: 0, reviewed: 0, total: 0 };
+
+    const employment = employmentResult.data as {
+      employer_name: string | null;
+      job_title: string | null;
+      start_date: string | null;
+      contract_type: string | null;
+      monthly_income: number | null;
+      payroll_deduction_available: string | null;
+    } | null;
+
+    const financial = financialResult.data as { monthly_expenses: number | null } | null;
+    const intake = Array.isArray(row.intake) ? row.intake[0] : row.intake;
+
+    return {
+      applicationId: row.id,
+      // The SAME derivation the board uses, so the profile and the card can
+      // never disagree about which step this person is on.
+      stage: deriveDraftStage(row.product?.application_code ?? "", step2ByApplication.get(row.id), docs),
+      productCode: row.product?.code ?? "",
+      productName: row.product?.name ?? { es: "—", en: "—" },
+      requestedAmount: row.requested_amount,
+      requestedTermMonths: row.requested_term_months ?? undefined,
+
+      employerName: employment?.employer_name ?? undefined,
+      jobTitle: employment?.job_title ?? undefined,
+      employmentStartDate: employment?.start_date ?? undefined,
+      contractType: employment?.contract_type ?? undefined,
+      monthlyIncome: employment?.monthly_income ?? undefined,
+      monthlyExpenses: financial?.monthly_expenses ?? undefined,
+      payrollDeductionAvailable:
+        (employment?.payroll_deduction_available as PayrollDeductionAvailability | null) ?? undefined,
+
+      documentsReceived: docs.received,
+      documentsRequired: docs.total,
+      lastActivityAt: intake?.last_activity_at ?? row.created_at,
+    };
+  } catch (error) {
+    console.error(
+      "[pipeline service] Unexpected failure loading active draft:",
+      error instanceof Error ? error.message : "unknown error"
+    );
+    return undefined;
+  }
 }

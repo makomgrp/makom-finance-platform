@@ -305,7 +305,10 @@
       "noApplicationDocuments": "This client does not have an associated application with document requirements.",
       "noDocumentRequirements": "This application has no document requirements.",
       "lastUpdate": "Last update",
-      "employer": "Employer"
+      "employer": "Employer",
+      "currentStage": "Current stage",
+      "requestedAmount": "Requested amount",
+      "noDocumentsYet": "No documents have been uploaded yet."
     },
     "personalData": {
       "title": "Personal data",
@@ -437,7 +440,9 @@
         "cliente_estado_cambiado": "Client: status changed from “{previousStatus}” to “{status}”",
         "cliente_perfil_actualizado": "Client profile updated ({count} fields)"
       }
-    }
+    },
+    "processInProgress": "Process in progress",
+    "lastActivity": "Last activity"
   },
   "documentsModule": {
     "title": "Documents",
@@ -462,7 +467,8 @@
     "viewDossier": "View dossier",
     "toasts": {
       "refetchError": "Could not refresh the information. Try reloading the page."
-    }
+    },
+    "draftBadge": "Draft"
   },
   "alertsModule": {
     "title": "Alerts and Restrictions",

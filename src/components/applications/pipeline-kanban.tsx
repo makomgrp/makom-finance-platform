@@ -153,7 +153,14 @@ function LeadCard({ card }: { card: PipelineCard }) {
           {t(`pipeline.leadProgress.${card.stage}` as "pipeline.leadProgress.nuevo")}
         </p>
 
-        {card.documentsRequired > 0 && (
+        {/* MILESTONE 26B-5B — DOCUMENT PROGRESS IS A PASO 3 CONCERN.
+            Requirement slots are snapshotted when the application is created,
+            so a prospect who has only finished Step 2 already has four of them
+            and the card read "0/4 recibidos" — reporting a deficiency against a
+            stage the customer has not reached, and making a perfectly on-track
+            lead look neglected. The counter appears once documents are actually
+            what this person is working on. */}
+        {card.stage === "paso_3" && card.documentsRequired > 0 && (
           <p className="text-[11px] text-muted-foreground tabular-nums">
             {t("applications.documentsReceivedShort", {
               received: card.documentsReceived,

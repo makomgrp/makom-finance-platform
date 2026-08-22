@@ -11,6 +11,7 @@ import { formatCurrency, formatDateTime } from "@/lib/format";
 import type { Locale } from "@/i18n/config";
 import type { ApplicationListItem, Client } from "@/types";
 import type { DossierRequirementsData } from "@/components/dossier/dossier-view";
+import type { ActiveDraftContext } from "@/lib/services/pipeline";
 
 interface SummaryTabProps {
   client: Client;
@@ -22,9 +23,19 @@ interface SummaryTabProps {
    * demo application; see the three-way fallback below, which mirrors
    * RequirementsTab's own fallback states exactly. */
   requirementsData: DossierRequirementsData | null;
+  /**
+   * MILESTONE 26B-5B — the portal process currently running, if any.
+   *
+   * When present it is the AUTHORITY for employer, position, salary, expenses
+   * and payroll deduction, because those belong to the application and can
+   * differ between two applications of the same person (26B-5). The `clients`
+   * columns are a stale profile snapshot and are only consulted when there is
+   * no live process to read from.
+   */
+  activeDraft?: ActiveDraftContext;
 }
 
-export function SummaryTab({ client, application, requirementsData }: SummaryTabProps) {
+export function SummaryTab({ client, application, requirementsData, activeDraft }: SummaryTabProps) {
   const locale = useLocale() as Locale;
   const t = useTranslations();
   // Milestone 14D: companyLegacyId is the same DELIBERATE, TEMPORARY
@@ -36,7 +47,12 @@ export function SummaryTab({ client, application, requirementsData }: SummaryTab
   // MILESTONE 23: employerName (real free text) is authoritative; the
   // static COMPANIES bridge is consulted ONLY as a fallback for fixture
   // rows created before that column existed. Never the other way round.
-  const employerLabel = client.employerName ?? company?.name ?? "—";
+  //
+  // MILESTONE 26B-5B — when a portal process is running, ITS employer is the
+  // current one. Falling through to the client's stale snapshot here is what
+  // showed "—" for a prospect whose draft plainly said Makom Capital Group.
+  const employerLabel =
+    activeDraft?.employerName ?? client.employerName ?? company?.name ?? "—";
 
   // Milestone 12E1: "how many document requirements for this Application
   // require no further action" — document-kind Requirement Slots whose
@@ -73,33 +89,72 @@ export function SummaryTab({ client, application, requirementsData }: SummaryTab
                   renders nothing, leaving a silently blank field. The em dash
                   is the project's convention for "no value", and saying it
                   explicitly is what stops absence from looking like a bug. */}
-              <dd className="text-sm font-medium text-foreground">{client.position ?? "—"}</dd>
+              <dd className="text-sm font-medium text-foreground">
+                {activeDraft?.jobTitle ?? client.position ?? "—"}
+              </dd>
             </div>
             <div>
               <dt className="text-xs text-muted-foreground">
                 {t("dossier.summary.monthlySalary")}
               </dt>
               <dd className="text-sm font-medium text-foreground">
-                {client.monthlySalary === undefined ? "—" : formatCurrency(client.monthlySalary)}
+                {(() => {
+                  const salary = activeDraft?.monthlyIncome ?? client.monthlySalary;
+                  return salary === undefined ? "—" : formatCurrency(salary);
+                })()}
               </dd>
             </div>
             <div>
               <dt className="text-xs text-muted-foreground">
                 {t("dossier.summary.directDiscount")}
               </dt>
+              {/* MILESTONE 26B-5B — three states, not two.
+                  This read `company?.directDiscount ? yes : no`, so a prospect
+                  nobody had asked yet was reported as "La empresa no aplica" —
+                  a definite negative answer manufactured out of missing data.
+                  The applicant's own answer on the live draft comes first, and
+                  "unanswered" is now allowed to say so. */}
               <dd className="text-sm font-medium text-foreground">
-                {company?.directDiscount
-                  ? t("dossier.summary.directDiscountYes")
-                  : t("dossier.summary.directDiscountNo")}
+                {activeDraft?.payrollDeductionAvailable
+                  ? t(`payrollDeduction.${activeDraft.payrollDeductionAvailable}`)
+                  : company?.directDiscount
+                    ? t("dossier.summary.directDiscountYes")
+                    : company
+                      ? t("dossier.summary.directDiscountNo")
+                      : "—"}
               </dd>
             </div>
-            {application && (
+            {(application ?? activeDraft) && (
               <div>
                 <dt className="text-xs text-muted-foreground">{t("dossier.summary.loanType")}</dt>
                 <dd className="text-sm font-medium text-foreground">
-                  {application.productName[locale]}
+                  {(application?.productName ?? activeDraft!.productName)[locale]}
                 </dd>
               </div>
+            )}
+
+            {/* The live process, stated plainly. Only rendered when there is no
+                formal application: once one exists it owns this space, and its
+                own dossier is the place for its detail. */}
+            {!application && activeDraft && (
+              <>
+                <div>
+                  <dt className="text-xs text-muted-foreground">
+                    {t("dossier.summary.currentStage")}
+                  </dt>
+                  <dd className="text-sm font-medium text-foreground">
+                    {t(`pipeline.stages.${activeDraft.stage}`)}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-xs text-muted-foreground">
+                    {t("dossier.summary.requestedAmount")}
+                  </dt>
+                  <dd className="text-sm font-medium text-foreground">
+                    {formatCurrency(activeDraft.requestedAmount)}
+                  </dd>
+                </div>
+              </>
             )}
             <div>
               <dt className="text-xs text-muted-foreground">{t("dossier.summary.nextAction")}</dt>
@@ -120,7 +175,25 @@ export function SummaryTab({ client, application, requirementsData }: SummaryTab
           <CardTitle>{t("dossier.summary.documentStatusTitle")}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          {!application ? (
+          {!application && activeDraft ? (
+            /* MILESTONE 26B-5B — there IS a process, so this must not claim
+               otherwise. What is true is that nothing has been sent yet, and
+               that is what it says. No official number, no implication that a
+               formal application exists. */
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-foreground">
+                {t("dossier.processInProgress")} · {t(`pipeline.stages.${activeDraft.stage}`)}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                {activeDraft.documentsReceived === 0
+                  ? t("dossier.summary.noDocumentsYet")
+                  : t("applications.documentsReceivedShort", {
+                      received: activeDraft.documentsReceived,
+                      total: activeDraft.documentsRequired,
+                    })}
+              </p>
+            </div>
+          ) : !application ? (
             <EmptyState
               icon={FileText}
               title={t("dossier.documents.noApplicationTitle")}

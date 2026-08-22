@@ -16,7 +16,16 @@ import type { RequirementSlot } from "./requirement-slot";
  */
 export interface DocumentWorkspaceApplication {
   id: string;
+  /**
+   * MILESTONE 26B-5B — empty for a DRAFT, which has no official number until it
+   * is submitted (26B-5). Callers must render that absence as draft context
+   * rather than as a blank cell: a requirement belonging to a prospect who has
+   * not submitted is a different thing from one on a live application, and an
+   * empty column says neither.
+   */
   applicationNumber: string;
+  /** True while this requirement belongs to an unsubmitted portal draft. */
+  isDraft: boolean;
   clientId: string;
   assignedAdvisorProfileId?: string;
   assignedAdvisorFullName?: string;

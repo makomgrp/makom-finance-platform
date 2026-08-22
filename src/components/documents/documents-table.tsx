@@ -479,7 +479,19 @@ export function DocumentsTable({
                     <Fragment key={slotId}>
                       <TableRow>
                         <TableCell className="font-medium text-foreground">{row.application.clientFullName}</TableCell>
-                        <TableCell className="text-muted-foreground">{row.application.applicationNumber}</TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {/* MILESTONE 26B-5B — a draft has no official number,
+                              and an empty cell says nothing at all. Naming the
+                              state keeps a prospect's pending requirement from
+                              being read as a live application's. */}
+                          {row.application.isDraft ? (
+                            <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                              {t("documentsModule.draftBadge")}
+                            </span>
+                          ) : (
+                            row.application.applicationNumber
+                          )}
+                        </TableCell>
                         <TableCell className="text-muted-foreground">{name}</TableCell>
                         {showBranchOrigin && (
                           <TableCell>
