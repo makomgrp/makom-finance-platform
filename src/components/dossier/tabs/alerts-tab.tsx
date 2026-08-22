@@ -61,6 +61,9 @@ export function AlertsTab({ clientId, alerts, onAlertsChange, loadError }: Alert
   const [level, setLevel] = useState<AlertLevel>("bajo");
   const [reason, setReason] = useState("");
   const [observation, setObservation] = useState("");
+  // The alert awaiting a resolution note, and the note being typed for it.
+  const [resolveTarget, setResolveTarget] = useState<DossierAlert | null>(null);
+  const [resolutionNote, setResolutionNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [resolvingId, setResolvingId] = useState<string | null>(null);
 
@@ -84,9 +87,21 @@ export function AlertsTab({ clientId, alerts, onAlertsChange, loadError }: Alert
     setOpen(false);
   };
 
-  const toggleResolved = async (alert: DossierAlert) => {
+  /**
+   * MILESTONE 26B-8 — RESOLVING ASKS WHY; REOPENING DOES NOT.
+   *
+   * Clearing a fraud concern or an internal restriction is a supervisory
+   * decision, and the reason is the part a later reader needs. Reactivation
+   * carries no note: it is not a resolution, and the previous one stays on the
+   * record as the context for reopening.
+   */
+  const applyStatus = async (alert: DossierAlert, note?: string) => {
     setResolvingId(alert.id);
-    const result = await setDossierAlertStatus({ alertId: alert.id, targetActive: !alert.active });
+    const result = await setDossierAlertStatus({
+      alertId: alert.id,
+      targetActive: !alert.active,
+      resolutionNote: note,
+    });
     setResolvingId(null);
 
     if (result.status !== "success") {
@@ -96,6 +111,13 @@ export function AlertsTab({ clientId, alerts, onAlertsChange, loadError }: Alert
 
     onAlertsChange(alerts.map((item) => (item.id === alert.id ? result.alert : item)));
     toast.success(alert.active ? t("dossier.alerts.toastResolved") : t("dossier.alerts.toastReactivated"));
+    setResolveTarget(null);
+    setResolutionNote("");
+  };
+
+  const submitResolution = async () => {
+    if (!resolveTarget || !resolutionNote.trim()) return;
+    await applyStatus(resolveTarget, resolutionNote.trim());
   };
 
   return (
@@ -232,6 +254,23 @@ export function AlertsTab({ clientId, alerts, onAlertsChange, loadError }: Alert
                     {formatDate(alert.createdAt, locale)} · {t("dossier.alerts.responsible")}:{" "}
                     {alert.createdByFullName}
                   </p>
+                  {/* MILESTONE 26B-8 — the resolution stays on screen. History
+                      is not hidden once an alert is cleared, and the note is
+                      retained even if the alert is later reopened, which is why
+                      it renders independently of `active`. */}
+                  {alert.resolutionNote && (
+                    <div className="mt-2 rounded-md border border-border bg-muted/40 px-3 py-2">
+                      <p className="text-xs font-medium text-foreground">
+                        {t("dossier.alerts.resolutionNote")}
+                      </p>
+                      <p className="mt-0.5 text-sm text-muted-foreground">{alert.resolutionNote}</p>
+                      {alert.resolvedAt && alert.resolvedByFullName && (
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {formatDate(alert.resolvedAt, locale)} · {alert.resolvedByFullName}
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
                 {canSetAlertStatus && (
                   <Button
@@ -239,7 +278,9 @@ export function AlertsTab({ clientId, alerts, onAlertsChange, loadError }: Alert
                     size="sm"
                     className="shrink-0"
                     disabled={resolvingId === alert.id}
-                    onClick={() => toggleResolved(alert)}
+                    onClick={() =>
+                      alert.active ? setResolveTarget(alert) : void applyStatus(alert)
+                    }
                   >
                     {alert.active ? (
                       <>
@@ -259,6 +300,63 @@ export function AlertsTab({ clientId, alerts, onAlertsChange, loadError }: Alert
           ))}
         </div>
       )}
+
+      {/* MILESTONE 26B-8 — the resolution note is mandatory, so the control
+          that clears an alert is a dialog rather than a one-click toggle. The
+          Server Action and the RPC both re-check it; disabling Save on an
+          empty note is the courtesy, not the enforcement. */}
+      <Dialog
+        open={resolveTarget !== null}
+        onOpenChange={(next) => {
+          if (!next) {
+            setResolveTarget(null);
+            setResolutionNote("");
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t("dossier.alerts.resolveDialogTitle")}</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col gap-3">
+            {resolveTarget && (
+              <p className="text-sm text-muted-foreground">
+                {t(`statuses.alertType.${resolveTarget.type}`)} · {resolveTarget.reason}
+              </p>
+            )}
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="alert-resolution-note">{t("dossier.alerts.resolutionNote")}</Label>
+              <Textarea
+                id="alert-resolution-note"
+                rows={3}
+                value={resolutionNote}
+                onChange={(event) => setResolutionNote(event.target.value)}
+                placeholder={t("dossier.alerts.resolutionNotePlaceholder")}
+              />
+              <p className="text-xs text-muted-foreground">
+                {t("dossier.alerts.resolutionNoteHint")}
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setResolveTarget(null);
+                setResolutionNote("");
+              }}
+            >
+              {t("common.cancel")}
+            </Button>
+            <Button
+              disabled={!resolutionNote.trim() || resolvingId !== null}
+              onClick={() => void submitResolution()}
+            >
+              {t("dossier.alerts.markResolved")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -38,7 +38,11 @@ export async function AttentionCard({ operations }: AttentionCardProps) {
       key: "overdue",
       count: operations.followUpsOverdue,
       label: t("dashboard.attention.overdueFollowUps", { count: operations.followUpsOverdue }),
-      href: "/solicitudes",
+      // MILESTONE 26B-8 — these are now real deep links. The pipeline reads
+      // `view`/`followup`/`advisor` from the query string, so each line opens
+      // the board already filtered to the records it counted. 26B-7 could only
+      // link to the board itself because that state lived in useState.
+      href: "/solicitudes?view=kanban&followup=overdue",
       icon: AlertTriangle,
       tone: "text-warning",
     },
@@ -46,7 +50,7 @@ export async function AttentionCard({ operations }: AttentionCardProps) {
       key: "today",
       count: operations.followUpsToday,
       label: t("dashboard.attention.todayFollowUps", { count: operations.followUpsToday }),
-      href: "/solicitudes",
+      href: "/solicitudes?view=kanban&followup=today",
       icon: CalendarClock,
       tone: "text-navy",
     },
@@ -54,7 +58,7 @@ export async function AttentionCard({ operations }: AttentionCardProps) {
       key: "unassigned",
       count: operations.unassignedActive,
       label: t("dashboard.attention.unassigned", { count: operations.unassignedActive }),
-      href: "/solicitudes",
+      href: "/solicitudes?view=kanban&advisor=unassigned",
       icon: UserX,
       tone: "text-warning",
     },

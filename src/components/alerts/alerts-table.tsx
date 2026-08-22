@@ -23,6 +23,15 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -77,6 +86,9 @@ export function AlertsTable({ initialAlerts, loadError, showBranchOrigin }: Aler
   const [typeFilter, setTypeFilter] = useState<AlertType | "todos">("todos");
   const [statusFilter, setStatusFilter] = useState<"todas" | "activas" | "resueltas">("todas");
   const [resolvingId, setResolvingId] = useState<string | null>(null);
+  // The alert awaiting a resolution note, and the note being typed for it.
+  const [resolveTarget, setResolveTarget] = useState<DossierAlertListItem | null>(null);
+  const [resolutionNote, setResolutionNote] = useState("");
 
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -95,9 +107,19 @@ export function AlertsTable({ initialAlerts, loadError, showBranchOrigin }: Aler
     });
   }, [alerts, search, levelFilter, typeFilter, statusFilter]);
 
-  const toggleResolved = async (alert: DossierAlertListItem) => {
+  /**
+   * MILESTONE 26B-8 — resolving requires a note here for exactly the same
+   * reason it does in the dossier: this is the same Server Action and the same
+   * RPC, and a second entry point that could skip the note would make the rule
+   * a suggestion. Reopening carries none.
+   */
+  const applyStatus = async (alert: DossierAlertListItem, note?: string) => {
     setResolvingId(alert.id);
-    const result = await setDossierAlertStatus({ alertId: alert.id, targetActive: !alert.active });
+    const result = await setDossierAlertStatus({
+      alertId: alert.id,
+      targetActive: !alert.active,
+      resolutionNote: note,
+    });
     setResolvingId(null);
 
     if (result.status !== "success") {
@@ -119,10 +141,13 @@ export function AlertsTable({ initialAlerts, loadError, showBranchOrigin }: Aler
               resolvedAt: result.alert.resolvedAt,
               resolvedByProfileId: result.alert.resolvedByProfileId,
               resolvedByFullName: result.alert.resolvedByFullName,
+              resolutionNote: result.alert.resolutionNote,
             }
           : item
       )
     );
+    setResolveTarget(null);
+    setResolutionNote("");
     toast.success(alert.active ? t("alertsModule.toasts.resolved") : t("alertsModule.toasts.reactivated"));
   };
 
@@ -298,7 +323,11 @@ export function AlertsTable({ initialAlerts, loadError, showBranchOrigin }: Aler
                             {t("alertsModule.viewDossier")}
                           </DropdownMenuItem>
                           {canSetAlertStatus && (
-                            <DropdownMenuItem onClick={() => toggleResolved(alert)}>
+                            <DropdownMenuItem
+                              onClick={() =>
+                                alert.active ? setResolveTarget(alert) : void applyStatus(alert)
+                              }
+                            >
                               {alert.active ? (
                                 <>
                                   <CheckCircle2 className="size-4" />
@@ -322,6 +351,70 @@ export function AlertsTable({ initialAlerts, loadError, showBranchOrigin }: Aler
           </Table>
         </div>
       )}
+
+      {/* MILESTONE 26B-8 — same mandatory resolution note as the dossier tab.
+          Both surfaces call one Server Action, which calls one RPC; this
+          dialog exists so the requirement is met before the request rather
+          than reported as an error afterwards. */}
+      <Dialog
+        open={resolveTarget !== null}
+        onOpenChange={(next) => {
+          if (!next) {
+            setResolveTarget(null);
+            setResolutionNote("");
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t("dossier.alerts.resolveDialogTitle")}</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col gap-3">
+            {resolveTarget && (
+              <p className="text-sm text-muted-foreground">
+                {resolveTarget.clientFullName} · {t(`statuses.alertType.${resolveTarget.type}`)} ·{" "}
+                {resolveTarget.reason}
+              </p>
+            )}
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="alerts-table-resolution-note">
+                {t("dossier.alerts.resolutionNote")}
+              </Label>
+              <Textarea
+                id="alerts-table-resolution-note"
+                rows={3}
+                value={resolutionNote}
+                onChange={(event) => setResolutionNote(event.target.value)}
+                placeholder={t("dossier.alerts.resolutionNotePlaceholder")}
+              />
+              <p className="text-xs text-muted-foreground">
+                {t("dossier.alerts.resolutionNoteHint")}
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setResolveTarget(null);
+                setResolutionNote("");
+              }}
+            >
+              {t("common.cancel")}
+            </Button>
+            <Button
+              disabled={!resolutionNote.trim() || resolvingId !== null}
+              onClick={() => {
+                if (resolveTarget && resolutionNote.trim()) {
+                  void applyStatus(resolveTarget, resolutionNote.trim());
+                }
+              }}
+            >
+              {t("alertsModule.markResolved")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { CalendarClock, Mail, Phone } from "lucide-react";
@@ -10,6 +10,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ApplicationStatusMenu } from "@/components/applications/application-status-menu";
 import { AdvisorAssignMenu } from "@/components/applications/advisor-assign-menu";
+import { useSearchParamState } from "@/lib/hooks/use-search-param-state";
 import { APPLICATION_STATUS_TRANSITIONS } from "@/lib/config/application";
 import { PIPELINE_STAGE_ORDER, isPortalDrivenStage } from "@/lib/config/pipeline";
 import { formatDateTime, formatRelativeTime, getInitials } from "@/lib/format";
@@ -46,6 +47,10 @@ import type { ApplicationStatus, AssignableAdvisor, PipelineCard } from "@/types
 type AdvisorFilter = "all" | "unassigned" | string;
 type FollowUpFilter = "all" | "overdue" | "today" | "none";
 
+/** The query-string vocabulary. Anything else falls back to "all". */
+const FOLLOW_UP_FILTERS = ["all", "overdue", "today", "none"] as const satisfies readonly FollowUpFilter[];
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 interface PipelineKanbanProps {
   cards: PipelineCard[];
   onStatusChange: (applicationId: string, status: ApplicationStatus) => void;
@@ -69,8 +74,24 @@ export function PipelineKanban({
   const canLogFollowUp = useCapability("note:create");
   const t = useTranslations();
 
-  const [advisorFilter, setAdvisorFilter] = useState<AdvisorFilter>("all");
-  const [followUpFilter, setFollowUpFilter] = useState<FollowUpFilter>("all");
+  // MILESTONE 26B-8 — both filters live in the query string so the Dashboard
+  // can link straight to "overdue" or "unassigned", and so a reload or Back
+  // returns to the same board. See use-search-param-state.ts for why a
+  // hand-typed value cannot widen what the viewer is allowed to see.
+  const { read, readGuarded, write } = useSearchParamState();
+  const followUpFilter = read<FollowUpFilter>("followup", FOLLOW_UP_FILTERS, "all");
+  const advisorFilter: AdvisorFilter = readGuarded(
+    "advisor",
+    // "unassigned", or a real advisor id. An id nobody on this board holds is
+    // not an error — it filters to nothing, which is the honest answer to
+    // "show me that person's work" when they have none here.
+    (value) => value === "unassigned" || UUID_PATTERN.test(value),
+    "all"
+  );
+  const setAdvisorFilter = (value: AdvisorFilter) =>
+    write({ advisor: { value, defaultValue: "all" } });
+  const setFollowUpFilter = (value: FollowUpFilter) =>
+    write({ followup: { value, defaultValue: "all" } });
 
   // The filter's option list is the union of everyone assignable anywhere on
   // this board — derived from data already loaded, not a second query.

@@ -439,7 +439,11 @@
       "toastError": "Could not register the alert. Please try again.",
       "toastResolveError": "Could not update the alert. Please try again.",
       "loadErrorTitle": "Alerts could not be loaded",
-      "loadErrorDescription": "There was a problem connecting to the server. Try reloading the page."
+      "loadErrorDescription": "There was a problem connecting to the server. Try reloading the page.",
+      "resolveDialogTitle": "Resolve alert",
+      "resolutionNote": "Resolution note",
+      "resolutionNotePlaceholder": "Explain why this alert is being closed.",
+      "resolutionNoteHint": "Required. It stays on the record even if the alert is reopened."
     },
     "activity": {
       "emptyTitle": "No recorded activity",

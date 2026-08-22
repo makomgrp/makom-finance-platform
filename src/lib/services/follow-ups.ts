@@ -1,6 +1,7 @@
 import "server-only";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { applyBranchScope, isEmptyScope, withScopedParent } from "@/lib/services/branch-scope-query";
+import { isSameBusinessDay } from "@/lib/config/business-time";
 import type {
   ApplicationFollowUp,
   BranchScope,
@@ -82,20 +83,25 @@ function toFollowUp(row: FollowUpRow): ApplicationFollowUp {
 /**
  * Is this pending action late, due today, or still ahead?
  *
- * Compared in the READER's local calendar day rather than UTC: an advisor in
- * Panama asking "what is due today" means their today, and a UTC boundary would
- * move the answer for everyone at 7pm.
+ * THE ONE PLACE THIS IS DECIDED. The pipeline board filters on the value this
+ * returns and the dashboard counts it (26B-7), so both screens agree by
+ * construction rather than by two implementations happening to match.
+ *
+ * OVERDUE IS AN INSTANT COMPARISON and deliberately timezone-free: "the moment
+ * has passed" is true everywhere at once.
+ *
+ * TODAY IS A CALENDAR QUESTION, and MILESTONE 26B-8 pins it to Panama.
+ * It previously compared the runtime's own local Y/M/D, which is correct on a
+ * developer machine in Panama and wrong on a UTC server: with Panama at UTC-5,
+ * anything due after 7pm local already belonged to "tomorrow" in UTC, so
+ * evening commitments silently dropped out of the day's work list. See
+ * src/lib/config/business-time.ts.
  */
 export function deriveUrgency(nextActionAt: string, now: Date = new Date()): NextActionUrgency {
   const due = new Date(nextActionAt);
   if (due.getTime() < now.getTime()) return "overdue";
 
-  const sameDay =
-    due.getFullYear() === now.getFullYear() &&
-    due.getMonth() === now.getMonth() &&
-    due.getDate() === now.getDate();
-
-  return sameDay ? "today" : "upcoming";
+  return isSameBusinessDay(due, now) ? "today" : "upcoming";
 }
 
 export type GetFollowUpsResult =

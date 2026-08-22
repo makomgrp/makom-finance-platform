@@ -439,7 +439,11 @@
       "toastError": "No se pudo registrar la alerta. Intente de nuevo.",
       "toastResolveError": "No se pudo actualizar la alerta. Intente de nuevo.",
       "loadErrorTitle": "No se pudieron cargar las alertas",
-      "loadErrorDescription": "Ocurrió un error al conectar con el servidor. Intente recargar la página."
+      "loadErrorDescription": "Ocurrió un error al conectar con el servidor. Intente recargar la página.",
+      "resolveDialogTitle": "Resolver alerta",
+      "resolutionNote": "Nota de resolución",
+      "resolutionNotePlaceholder": "Explique por qué se cierra esta alerta.",
+      "resolutionNoteHint": "Obligatoria. Queda en el historial aunque la alerta se reactive."
     },
     "activity": {
       "emptyTitle": "Sin actividad registrada",

@@ -23,6 +23,7 @@ import {
 } from "@/app/(app)/solicitudes/actions";
 import { useCapability } from "@/lib/auth/use-capability";
 import { cn } from "@/lib/utils";
+import { useSearchParamState } from "@/lib/hooks/use-search-param-state";
 import type {
   ApplicationListItem,
   ApplicationStatus,
@@ -71,6 +72,8 @@ interface SolicitudesViewProps {
  * full page reload) — the same split already used by expedientes/[id]/
  * page.tsx -> dossier-view.tsx.
  */
+const VIEW_VALUES = ["tabla", "kanban"] as const;
+
 export function SolicitudesView({
   initialApplications,
   pipelineCards,
@@ -88,7 +91,13 @@ export function SolicitudesView({
   // decide it). Enforced server-side by createSolicitudApplication.
   const canCreateApplication = useCapability("application:create");
   const [applications, setApplications] = useState<ApplicationListItem[]>(initialApplications);
-  const [view, setView] = useState<"tabla" | "kanban">("tabla");
+  // MILESTONE 26B-8 — which board the user is on is part of the address, so a
+  // Dashboard link can open the pipeline directly and a reload does not throw
+  // them back to the table.
+  const { read, write } = useSearchParamState();
+  const view = read<"tabla" | "kanban">("view", VIEW_VALUES, "tabla");
+  const setView = (next: "tabla" | "kanban") =>
+    write({ view: { value: next, defaultValue: "tabla" } });
   const [createOpen, setCreateOpen] = useState(false);
 
   const handleStatusChange = async (applicationId: string, status: ApplicationStatus) => {

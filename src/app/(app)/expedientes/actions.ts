@@ -216,6 +216,9 @@ export async function createDossierAlert(
 export interface SetDossierAlertStatusInput {
   alertId: string;
   targetActive: boolean;
+  /** Required when resolving (targetActive === false); must be absent when
+   * reactivating. MILESTONE 26B-8. */
+  resolutionNote?: string;
 }
 
 export type SetDossierAlertStatusResult =
@@ -248,9 +251,26 @@ export async function setDossierAlertStatus(
   if (typeof input.targetActive !== "boolean") {
     return { status: "error", code: "INVALID_INPUT" };
   }
+  // MILESTONE 26B-8 — clearing a risk flag requires a reason, and reopening
+  // one cannot carry a resolution. Re-checked in the RPC, which is where the
+  // write happens and therefore the rule that cannot be routed around.
+  const resolutionNote = isNonEmptyString(input.resolutionNote)
+    ? input.resolutionNote.trim()
+    : undefined;
+  if (!input.targetActive && !resolutionNote) {
+    return { status: "error", code: "INVALID_INPUT" };
+  }
+  if (input.targetActive && resolutionNote) {
+    return { status: "error", code: "INVALID_INPUT" };
+  }
 
   try {
-    const alert = await setAlertStatus(input.alertId, input.targetActive, auth.profile.id);
+    const alert = await setAlertStatus(
+      input.alertId,
+      input.targetActive,
+      auth.profile.id,
+      resolutionNote
+    );
     return { status: "success", alert };
   } catch (error) {
     console.error(

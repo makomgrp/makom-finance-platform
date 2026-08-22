@@ -26,6 +26,14 @@ export interface DossierAlert {
   resolvedAt?: string;
   resolvedByProfileId?: string;
   resolvedByFullName?: string;
+  /**
+   * MILESTONE 26B-8 — why the alert was last stood down.
+   *
+   * Unlike resolvedAt/resolvedBy this is NOT cleared on reactivation: it is the
+   * context whoever reopens the alert most needs. Absent on alerts resolved
+   * before the note existed, and on alerts never resolved at all.
+   */
+  resolutionNote?: string;
 }
 
 /**

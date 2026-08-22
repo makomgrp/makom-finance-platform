@@ -26,12 +26,12 @@ interface PipelineOverviewCardProps {
  * bar is a div whose width is a percentage of the largest stage, which is the
  * same primitive StatusDistributionCard has used since Milestone 13.
  *
- * THE LINKS GO WHERE A FILTER ACTUALLY EXISTS. /solicitudes is a real route
- * and lands on the board these numbers come from. It does NOT carry a stage
- * query parameter, because the board's stage/advisor filters are component
- * state with no URL representation — inventing `?stage=paso_2` here would
- * produce a link that silently does nothing, which is worse than a link that
- * honestly goes to the board.
+ * THE LINKS GO WHERE A FILTER ACTUALLY EXISTS. 26B-8 made the board's view and
+ * its advisor/follow-up filters URL-addressable, so `?view=kanban` opens the
+ * pipeline itself rather than the table. There is still deliberately NO
+ * `?stage=` parameter: the board renders every stage as a column, so a stage
+ * link has nothing to filter — the column is already on screen. Inventing one
+ * would produce a parameter the page ignores.
  */
 export async function PipelineOverviewCard({ stageCounts }: PipelineOverviewCardProps) {
   const t = await getTranslations();
@@ -54,7 +54,7 @@ export async function PipelineOverviewCard({ stageCounts }: PipelineOverviewCard
           return (
             <Link
               key={stage}
-              href="/solicitudes"
+              href="/solicitudes?view=kanban"
               className="block rounded-sm focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
             >
               <div className="mb-1 flex items-center justify-between text-sm">

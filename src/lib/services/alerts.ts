@@ -44,6 +44,7 @@ interface DossierAlertRow {
   created_at: string;
   resolved_at: string | null;
   resolved_by_profile_id: string | null;
+  resolution_note: string | null;
   created_by: { full_name: string } | null;
   resolved_by: { full_name: string } | null;
 }
@@ -57,7 +58,7 @@ interface DossierAlertRow {
 // getAlertsByClientId/createAlert/setAlertStatus are never display reads
 // across multiple different clients, so none of them need it.
 const ALERT_SELECT =
-  "id, client_id, created_by_profile_id, type, level, reason, observation, active, created_at, resolved_at, resolved_by_profile_id, " +
+  "id, client_id, created_by_profile_id, type, level, reason, observation, active, created_at, resolved_at, resolved_by_profile_id, resolution_note, " +
   "created_by:profiles!dossier_alerts_created_by_profile_id_fkey(full_name), " +
   "resolved_by:profiles!dossier_alerts_resolved_by_profile_id_fkey(full_name)";
 
@@ -76,6 +77,7 @@ function toDossierAlert(row: DossierAlertRow): DossierAlert {
     resolvedAt: row.resolved_at ?? undefined,
     resolvedByProfileId: row.resolved_by_profile_id ?? undefined,
     resolvedByFullName: row.resolved_by?.full_name ?? undefined,
+    resolutionNote: row.resolution_note ?? undefined,
   };
 }
 
@@ -338,7 +340,10 @@ export async function createAlert(input: CreateDossierAlertInput): Promise<Dossi
 export async function setAlertStatus(
   alertId: string,
   targetActive: boolean,
-  actorProfileId: string
+  actorProfileId: string,
+  /** MILESTONE 26B-8 — required when resolving, rejected when reactivating.
+   * The RPC enforces both; passing it here is not the guarantee. */
+  resolutionNote?: string
 ): Promise<DossierAlert> {
   const supabase = getSupabaseServerClient();
 
@@ -352,6 +357,7 @@ export async function setAlertStatus(
     p_alert_id: alertId,
     p_target_active: targetActive,
     p_actor_profile_id: actorProfileId,
+    p_resolution_note: resolutionNote ?? null,
   });
 
   if (rpcError) {
