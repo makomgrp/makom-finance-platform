@@ -6,46 +6,71 @@ import {
   resolveBranchViewScope,
 } from "@/lib/services/branch-view-context";
 import { getCurrentProfile } from "@/lib/auth/get-current-profile";
-import { Users, FilePlus2, FileClock, Scale, CheckCircle2, XCircle } from "lucide-react";
+import {
+  AlarmClock,
+  CalendarClock,
+  FileClock,
+  Scale,
+  UserRoundSearch,
+  Users,
+  UserX,
+} from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { KpiCard } from "@/components/dashboard/kpi-card";
 import { StatusDistributionCard } from "@/components/dashboard/status-distribution-card";
+import { PipelineOverviewCard } from "@/components/dashboard/pipeline-overview-card";
+import { AdvisorWorkloadCard } from "@/components/dashboard/advisor-workload-card";
+import { AttentionCard } from "@/components/dashboard/attention-card";
 import { getClients } from "@/lib/services/clients";
 import { getApplications } from "@/lib/services/applications";
-import { getDocumentSlotsAwaitingReviewCount } from "@/lib/services/requirement-slots";
+import { getDashboardOperations } from "@/lib/services/dashboard-operations";
 import type { ApplicationListItem } from "@/types";
 
 /**
  * Server Component -> service, direct — same posture as every other
  * initial page load in this app (Milestone 13D; see the Milestone 13A
- * architecture review and its final validation). Reuses getApplications()
- * unchanged (extended in 13B, already used by Solicitudes in 13C) — one
- * fetch, shared between the four Application-status KPIs below and
- * StatusDistributionCard, which now receives the list as a prop instead
- * of independently importing demo data. No new service, no workspace
- * abstraction: getApplications() already carries everything a
- * status-count needs.
+ * architecture review and its final validation).
  *
- * registeredClients now reads the real Client Engine (Milestone 14E —
- * previously the demo CLIENTS array, migrated here since it's a one-line
- * data-source swap, not a redesign). documentsAwaitingReview (Requirement
- * Slot Engine, migrated in 12E1b) is untouched — it derives from neither
- * demo Applications nor demo Clients.
- *
- * MILESTONE 18: every panel remaining on this page reads real Supabase
- * data. RecentActivityCard (fabricated events about demo clients) and
+ * MILESTONE 18: every panel on this page reads real Supabase data.
+ * RecentActivityCard (fabricated events about demo clients) and
  * PendingTasksCard (four invented tasks with checkboxes that persisted
- * nothing — there is no tasks table in this schema) were removed rather
- * than re-sourced. Neither was replaced: a real activity feed is a later
- * milestone, and inventing "tasks" out of alerts or documents would have
- * been the same fabrication in a new costume. /documentos and /alertas
- * are already the real operational queues and are one click away.
+ * nothing) were removed rather than re-sourced. Error states stay honest: a
+ * failed read renders "—" plus an explanatory hint, never a fabricated 0.
  *
- * Error states stay honest: a failed read renders "—" plus an
- * explanatory hint, never a fabricated 0.
+ * ----------------------------------------------------------------------------
+ * MILESTONE 26B-7 — FROM SUMMARY TO CONTROL SCREEN
+ * ----------------------------------------------------------------------------
+ * The page previously answered six questions, all of them about FORMAL
+ * applications, and was therefore blind to the entire pre-submission funnel —
+ * which, since the portal shipped, is where most of the day's work actually
+ * sits. Someone could open the CRM to "0 solicitudes nuevas" while three leads
+ * were stuck at Paso 2 with nobody assigned.
+ *
+ * The operational figures now come from getDashboardOperations(), which
+ * aggregates the SAME pipeline cards /solicitudes renders rather than counting
+ * a status column. See that module for why re-deriving stages in SQL would be
+ * both cheaper and wrong.
+ *
+ * WHAT WAS DROPPED FROM THE KPI ROW, AND WHY IT IS NOT LOST: the "Aprobadas"
+ * and "No aplican" cards. Both are outcome totals, and both are still on this
+ * screen — StatusDistributionCard directly below lists every formal status
+ * with its count. They were duplicate renderings of the same two numbers, and
+ * the row needed the space for figures that appear nowhere else.
+ *
+ * WHAT CHANGED MEANING: the document KPI counted requirement SLOTS awaiting
+ * review. "17" is a pile, not a queue; a reviewer works application by
+ * application, so it now counts applications with at least one received-but-
+ * unreviewed requirement. getDocumentSlotsAwaitingReviewCount() is left in the
+ * requirement-slots service, unreferenced, rather than deleted in a dashboard
+ * milestone.
+ *
+ * QUERY BUDGET: getClients, getApplications, and getDashboardOperations (which
+ * is the pipeline read plus, only for a viewer authorized to see it, the staff
+ * roster). Fixed, regardless of how many leads or advisors exist.
  */
 export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ sucursal?: string }> }) {
-  const t = await getTranslations("dashboard");  // MILESTONE 25B-1 — effective branch scope, resolved server-side ONCE by
+  const t = await getTranslations("dashboard");
+  // MILESTONE 25B-1 — effective branch scope, resolved server-side ONCE by
   // getCurrentProfile() (cached per request) and passed explicitly to every
   // scoped read. Services never resolve scope themselves, and the client never
   // supplies it. The (app) layout has already guaranteed an active profile.
@@ -62,11 +87,9 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     profile?.branchScope ?? EMPTY_BRANCH_SCOPE,
     sucursal
   );
-  // MILESTONE 25C-1 — the heading states the DENOMINATOR. Five KPI numbers with
-  // no stated context are actively misleading in a multi-branch company: "12
+  // MILESTONE 25C-1 — the heading states the DENOMINATOR. KPI numbers with no
+  // stated context are actively misleading in a multi-branch company: "12
   // clientes" means something different for Panamá Centro than for all of ODL.
-  // The label is resolved from the SELECTION the server actually applied, not
-  // from what the URL asked for, so a request that fell back reads honestly.
   const branchOptions = await getBranchContextOptions(profile?.branchScope ?? EMPTY_BRANCH_SCOPE);
   const tBranch = await getTranslations("branchContext");
   const selectedBranch = branchOptions.find((option) => option.value === branchSelection);
@@ -78,16 +101,32 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         : isNationalScope(profile?.branchScope ?? EMPTY_BRANCH_SCOPE)
           ? tBranch("allBranches")
           : tBranch("allMyBranches");
-  // Only worth stating when there is more than one thing it could have been.
   const showContext = branchOptions.length > 1;
-  // No authorized branch at all — distinct from "national with no branches
-  // created yet", which is why this tests the SCOPE rather than the option list.
   const showNoBranchNotice = isEmptyScope(profile?.branchScope ?? EMPTY_BRANCH_SCOPE);
 
-  const [documentsAwaitingReviewResult, applicationsResult, clientsResult] = await Promise.all([
-    getDocumentSlotsAwaitingReviewCount(scope),
+  // MILESTONE 26B-7 — WHO MAY SEE OTHER PEOPLE'S WORKLOAD.
+  //
+  // Gated on `application:assign_advisor`, which is already the authority to
+  // decide who owns a process — deciding that and seeing what each person is
+  // carrying are the same job. Reusing it rather than minting a capability
+  // keeps the matrix the single answer, and it grants nothing new: the two
+  // roles holding it (administrador, gerente) can already see every advisor in
+  // Configuración.
+  //
+  // An `asesor` sees ONLY THEIR OWN row. That is a narrowing, not a widening —
+  // their own caseload is data they already work from — and it keeps the screen
+  // useful for them without exposing the team.
+  const canSeeTeamWorkload = profile?.capabilities.includes("application:assign_advisor") ?? false;
+  const workloadFor = canSeeTeamWorkload
+    ? ("all" as const)
+    : profile?.role === "asesor" && profile.id
+      ? ({ selfProfileId: profile.id } as const)
+      : ("none" as const);
+
+  const [applicationsResult, clientsResult, operationsResult] = await Promise.all([
     getApplications(scope),
     getClients(scope),
+    getDashboardOperations(scope, workloadFor),
   ]);
 
   const applications: ApplicationListItem[] =
@@ -95,24 +134,19 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const applicationsUnavailable = applicationsResult.status === "error";
   const applicationsUnavailableHint = applicationsUnavailable ? t("kpis.applicationsUnavailable") : undefined;
 
+  const operations = operationsResult.status === "ok" ? operationsResult.operations : null;
+  const workload = operationsResult.status === "ok" ? operationsResult.workload : [];
+  // A failed pipeline read must not become a confident zero. Every figure it
+  // feeds renders "—" with the same hint the application KPIs use.
+  const opsHint = operations ? undefined : t("kpis.operationsUnavailable");
+  const ops = (value: number) => (operations ? value : "—");
+
   const kpis = [
     {
-      label: t("kpis.registeredClients"),
-      value: clientsResult.status === "ok" ? clientsResult.clients.length : "—",
-      icon: Users,
-    },
-    {
-      label: t("kpis.newApplications"),
-      value: applicationsUnavailable ? "—" : applications.filter((app) => app.status === "new").length,
-      hint: applicationsUnavailableHint,
-      icon: FilePlus2,
-    },
-    {
-      label: t("kpis.documentsAwaitingReview"),
-      value: documentsAwaitingReviewResult.status === "ok" ? documentsAwaitingReviewResult.count : "—",
-      hint: documentsAwaitingReviewResult.status === "error" ? t("kpis.documentsAwaitingReviewUnavailable") : undefined,
-      icon: FileClock,
-      accentClass: "bg-warning/10 text-warning",
+      label: t("kpis.activeLeads"),
+      value: ops(operations?.activeLeads ?? 0),
+      hint: opsHint,
+      icon: UserRoundSearch,
     },
     {
       label: t("kpis.applicationsUnderReview"),
@@ -122,18 +156,36 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       accentClass: "bg-navy/10 text-navy",
     },
     {
-      label: t("kpis.approvedApplications"),
-      value: applicationsUnavailable ? "—" : applications.filter((app) => app.status === "approved").length,
-      hint: applicationsUnavailableHint,
-      icon: CheckCircle2,
-      accentClass: "bg-success/10 text-success",
+      label: t("kpis.unassigned"),
+      value: ops(operations?.unassignedActive ?? 0),
+      hint: opsHint,
+      icon: UserX,
+      accentClass: "bg-warning/10 text-warning",
     },
     {
-      label: t("kpis.notEligibleApplications"),
-      value: applicationsUnavailable ? "—" : applications.filter((app) => app.status === "not_eligible").length,
-      hint: applicationsUnavailableHint,
-      icon: XCircle,
-      accentClass: "bg-muted text-muted-foreground",
+      label: t("kpis.overdueFollowUps"),
+      value: ops(operations?.followUpsOverdue ?? 0),
+      hint: opsHint,
+      icon: AlarmClock,
+      accentClass: "bg-warning/10 text-warning",
+    },
+    {
+      label: t("kpis.todayFollowUps"),
+      value: ops(operations?.followUpsToday ?? 0),
+      hint: opsHint,
+      icon: CalendarClock,
+    },
+    {
+      label: t("kpis.applicationsWithDocumentsToReview"),
+      value: ops(operations?.applicationsWithDocumentsToReview ?? 0),
+      hint: opsHint,
+      icon: FileClock,
+      accentClass: "bg-warning/10 text-warning",
+    },
+    {
+      label: t("kpis.registeredClients"),
+      value: clientsResult.status === "ok" ? clientsResult.clients.length : "—",
+      icon: Users,
     },
   ];
 
@@ -147,25 +199,44 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       {/* MILESTONE 25C-1 — an employee with no branch membership sees zeros
           everywhere, which on its own reads as "the system is broken". This
           says what is actually true and what to do about it. Deliberately NOT
-          styled as an error: it is a configuration state, not a failure, and it
-          names no internal concept. The KPIs below still render (as real zeros
-          from scoped reads) rather than being hidden — hiding them would look
-          like a load failure. */}
+          styled as an error: it is a configuration state, not a failure. */}
       {showNoBranchNotice && (
         <div className="mb-6 rounded-md border border-border bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
           {tBranch("noBranchAssigned")}
         </div>
       )}
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {kpis.map((kpi) => (
           <KpiCard key={kpi.label} {...kpi} />
         ))}
       </div>
 
-      <div className="mt-6">
+      {/* Where the work is, and what is late — side by side, because the second
+          is almost always a consequence of the first. */}
+      <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <PipelineOverviewCard stageCounts={operations?.stageCounts ?? EMPTY_STAGE_COUNTS} />
+        {operations && <AttentionCard operations={operations} />}
+      </div>
+
+      <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
+        {workloadFor !== "none" && (
+          <AdvisorWorkloadCard rows={workload} selfOnly={workloadFor !== "all"} />
+        )}
         <StatusDistributionCard applications={applications} />
       </div>
     </div>
   );
 }
+
+/** Rendered only when the pipeline read failed; the card then shows its own
+ * empty state rather than four bars claiming zero. */
+const EMPTY_STAGE_COUNTS = {
+  nuevo: 0,
+  paso_2: 0,
+  paso_3: 0,
+  en_evaluacion: 0,
+  aprobado: 0,
+  cancelado: 0,
+  descartado: 0,
+} as const;

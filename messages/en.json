@@ -99,16 +99,36 @@
     "description": "General overview of ODL LoanFlow CRM operations.",
     "kpis": {
       "registeredClients": "Registered clients",
-      "newApplications": "New applications",
-      "documentsAwaitingReview": "Documents awaiting review",
-      "documentsAwaitingReviewUnavailable": "Unavailable",
       "applicationsUnavailable": "Unavailable",
       "applicationsUnderReview": "Applications under review",
-      "approvedApplications": "Approved applications",
-      "notEligibleApplications": "Not eligible applications"
+      "activeLeads": "Active leads",
+      "unassigned": "Unassigned",
+      "overdueFollowUps": "Overdue follow-ups",
+      "todayFollowUps": "Follow-ups today",
+      "applicationsWithDocumentsToReview": "Applications with documents to review",
+      "operationsUnavailable": "Unavailable"
     },
     "statusDistribution": "Applications by status",
-    "contextTitle": "Dashboard — {branch}"
+    "contextTitle": "Dashboard — {branch}",
+    "pipeline": {
+      "title": "Pipeline",
+      "empty": "No active processes right now."
+    },
+    "workload": {
+      "title": "Advisor workload",
+      "titleSelf": "My workload",
+      "empty": "No advisors available to show workload for.",
+      "activeCount": "{count, plural, =0 {No active processes} one {# active process} other {# active processes}}",
+      "noActive": "No work assigned"
+    },
+    "attention": {
+      "title": "Needs attention",
+      "allClear": "All clear. Nothing needs attention right now.",
+      "overdueFollowUps": "{count, plural, one {# overdue follow-up} other {# overdue follow-ups}}",
+      "todayFollowUps": "{count, plural, one {# follow-up due today} other {# follow-ups due today}}",
+      "unassigned": "{count, plural, one {# active process with no advisor} other {# active processes with no advisor}}",
+      "documentsToReview": "{count, plural, one {# application with documents to review} other {# applications with documents to review}}"
+    }
   },
   "clients": {
     "title": "Clients",

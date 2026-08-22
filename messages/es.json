@@ -99,16 +99,36 @@
     "description": "Resumen general de la operación de ODL LoanFlow CRM.",
     "kpis": {
       "registeredClients": "Clientes registrados",
-      "newApplications": "Solicitudes nuevas",
-      "documentsAwaitingReview": "Documentos por revisar",
-      "documentsAwaitingReviewUnavailable": "No disponible",
       "applicationsUnavailable": "No disponible",
       "applicationsUnderReview": "Solicitudes en evaluación",
-      "approvedApplications": "Solicitudes aprobadas",
-      "notEligibleApplications": "Solicitudes que no aplican"
+      "activeLeads": "Leads activos",
+      "unassigned": "Sin asignar",
+      "overdueFollowUps": "Seguimientos vencidos",
+      "todayFollowUps": "Seguimientos para hoy",
+      "applicationsWithDocumentsToReview": "Solicitudes con documentos por revisar",
+      "operationsUnavailable": "No disponible"
     },
     "statusDistribution": "Solicitudes por estado",
-    "contextTitle": "Panel — {branch}"
+    "contextTitle": "Panel — {branch}",
+    "pipeline": {
+      "title": "Pipeline",
+      "empty": "No hay procesos activos en este momento."
+    },
+    "workload": {
+      "title": "Carga por asesor",
+      "titleSelf": "Mi carga de trabajo",
+      "empty": "No hay asesores disponibles para mostrar carga de trabajo.",
+      "activeCount": "{count, plural, =0 {Sin procesos activos} one {# proceso activo} other {# procesos activos}}",
+      "noActive": "Sin carga asignada"
+    },
+    "attention": {
+      "title": "Requiere atención",
+      "allClear": "Todo al día. No hay nada pendiente de atención.",
+      "overdueFollowUps": "{count, plural, one {# seguimiento vencido} other {# seguimientos vencidos}}",
+      "todayFollowUps": "{count, plural, one {# seguimiento para hoy} other {# seguimientos para hoy}}",
+      "unassigned": "{count, plural, one {# proceso activo sin asesor} other {# procesos activos sin asesor}}",
+      "documentsToReview": "{count, plural, one {# solicitud con documentos por revisar} other {# solicitudes con documentos por revisar}}"
+    }
   },
   "clients": {
     "title": "Clientes",
