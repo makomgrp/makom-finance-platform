@@ -648,3 +648,50 @@ export async function getApplicationListItemById(
 export type GetApplicationListItemByIdResult =
   | { status: "ok"; application: ApplicationListItem }
   | { status: "error"; code: "NOT_FOUND" | "QUERY_FAILED" };
+
+/**
+ * ============================================================================
+ * MILESTONE 26B-6B — AUTOMATIC LEAD DISTRIBUTION
+ * ============================================================================
+ *
+ * Hands one newly captured lead to the next advisor in the rotation.
+ *
+ * ALL OF THE LOGIC IS IN THE DATABASE, deliberately. Choosing an advisor means
+ * reading a shared cursor, picking from a pool and writing both — and two
+ * customers can finish Step 1 in the same instant. Doing that in application
+ * code would need its own locking to be correct; `auto_assign_lead_advisor`
+ * already holds a row lock for the whole operation, so this is a call-through
+ * rather than a second implementation of the same decision.
+ *
+ * NEVER FAILS THE CUSTOMER. A missing advisor pool, or an error reaching the
+ * database, must not turn into a failed portal submission — the lead is the
+ * valuable thing and it already exists by this point. Both cases are logged and
+ * reported as "nobody assigned", which is a legitimate state the CRM shows as
+ * Sin asignar and staff can resolve by hand.
+ */
+export async function autoAssignLeadAdvisor(
+  applicationId: string
+): Promise<{ status: "ok"; advisorProfileId?: string }> {
+  try {
+    const supabase = getSupabaseServerClient();
+    const { data, error } = await supabase.rpc("auto_assign_lead_advisor", {
+      p_application_id: applicationId,
+    });
+
+    if (error) {
+      console.error(
+        "[applications service] Automatic advisor distribution failed:",
+        error.message
+      );
+      return { status: "ok" };
+    }
+
+    return { status: "ok", advisorProfileId: typeof data === "string" ? data : undefined };
+  } catch (error) {
+    console.error(
+      "[applications service] Unexpected failure during automatic advisor distribution:",
+      error instanceof Error ? error.message : "unknown error"
+    );
+    return { status: "ok" };
+  }
+}

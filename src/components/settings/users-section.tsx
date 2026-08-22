@@ -11,6 +11,7 @@ import {
   Power,
   RotateCcw,
   Send,
+  Shuffle,
   SlidersHorizontal,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -37,6 +38,7 @@ import { UserPermissionsDialog } from "@/components/settings/user-permissions-di
 import { UserBranchesDialog } from "@/components/settings/user-branches-dialog";
 import {
   resendStaffInvitation,
+  setStaffAutoAssignmentAction,
   setStaffUserActive,
   setStaffUserRole,
 } from "@/app/(app)/configuracion/actions";
@@ -122,6 +124,9 @@ export function UsersSection({
   const canInviteUsers = useCapability("user:invite");
   const canSetUserRole = useCapability("user:set_role");
   const canSetUserActive = useCapability("user:set_active");
+  // MILESTONE 26B-6B — the same authority that decides who owns a process
+  // decides who is fed new ones. Held by administrador and gerente.
+  const canAssignAdvisor = useCapability("application:assign_advisor");
   // Administrador only — never delegatable, in TypeScript or in the database.
   const canManagePermissions = useCapability("user:manage_permissions");
   // Milestone 25A — branch scope is a THIRD axis, not a capability. The
@@ -163,6 +168,33 @@ export function UsersSection({
     toast.success(
       t("settings.users.toasts.roleChanged", { name: user.fullName, role: t(`roles.${role}`) })
     );
+    router.refresh();
+  };
+
+  const handleAutoAssignmentToggle = async (user: StaffUser) => {
+    setBusyProfileId(user.id);
+    const result = await setStaffAutoAssignmentAction({
+      profileId: user.id,
+      enabled: !user.autoAssignmentEnabled,
+    });
+    setBusyProfileId(null);
+
+    if (result.status !== "success") {
+      toast.error(t("settings.users.autoAssignment.error"));
+      return;
+    }
+
+    toast.success(
+      t(
+        user.autoAssignmentEnabled
+          ? "settings.users.autoAssignment.disabled"
+          : "settings.users.autoAssignment.enabled",
+        { name: user.fullName }
+      )
+    );
+    // Re-read rather than patch: the badge, the button label and the rotation
+    // pool all derive from this one flag, and a local guess would disagree with
+    // the next load.
     router.refresh();
   };
 
@@ -336,6 +368,18 @@ export function UsersSection({
                               reach any operational data. Stated plainly rather
                               than left as a silent blank — an administrator
                               reading this list needs to notice it. */}
+                          {/* MILESTONE 26B-6B — being in the automatic lead
+                              rotation is a distinct fact from being active, and
+                              an administrator has to be able to answer "who is
+                              receiving leads right now?" by reading this list.
+                              Shown only for advisors, since nobody else can be
+                              in an advisor rotation. */}
+                          {user.role === "asesor" && user.autoAssignmentEnabled && (
+                            <StatusBadge
+                              label={t("settings.users.autoAssignment.badge")}
+                              className="border-navy/20 bg-navy/10 text-navy"
+                            />
+                          )}
                           {user.role !== "administrador" &&
                             user.branchScopeMode !== "national" &&
                             membershipsFor(user.id).length === 0 && (
@@ -349,6 +393,26 @@ export function UsersSection({
                       {canUseAnyRowAction && (
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
+                            {/* MILESTONE 26B-6B — participation in automatic
+                                lead distribution. Offered only for advisors
+                                (nobody else can be in an advisor rotation) and
+                                only to management; `application:assign_advisor`
+                                is the same authority that decides who owns a
+                                process, and the Server Action re-checks it. */}
+                            {canAssignAdvisor && user.role === "asesor" && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                disabled={isBusy}
+                                onClick={() => handleAutoAssignmentToggle(user)}
+                                title={t("settings.users.autoAssignment.hint")}
+                              >
+                                <Shuffle className="size-3.5" />
+                                {user.autoAssignmentEnabled
+                                  ? t("settings.users.autoAssignment.disable")
+                                  : t("settings.users.autoAssignment.enable")}
+                              </Button>
+                            )}
                             {canInviteUsers && !user.authLinked && (
                               <Button
                                 variant="outline"
@@ -382,6 +446,8 @@ export function UsersSection({
                                     {t("settings.users.reactivate")}
                                   </>
                                 )}
+                              </Button>
+                            )}
                             {/* Milestone 24 — administrador only. Never shown
                                 for one's own row: A5 refuses self-grant at the
                                 database, and offering the control would imply
@@ -409,8 +475,6 @@ export function UsersSection({
                               >
                                 <Building2 className="size-3.5" />
                                 {t("settings.branches.scope.trigger")}
-                              </Button>
-                            )}
                               </Button>
                             )}
                           </div>

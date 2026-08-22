@@ -8,7 +8,7 @@ import {
   releaseApplicationIntakeProcessingClaim,
 } from "./application-intakes";
 import { matchClientForIntake } from "./client-matching";
-import { createApplication } from "./applications";
+import { autoAssignLeadAdvisor, createApplication } from "./applications";
 import { createClient, findClientByIdentification } from "./clients";
 import { getAllProducts } from "./products";
 import { recordAutomationEvent } from "./automation-events";
@@ -473,6 +473,18 @@ async function runApplicationCreationStep(
   if (createResult.status === "error") {
     throw new Error(`Failed to create application for intake ${intake.id}: ${createResult.code}`);
   }
+
+  // MILESTONE 26B-6B — the lead gets an owner the moment it is captured.
+  //
+  // Here rather than in createApplication(): a staff member originating an
+  // application in the CRM is choosing to work it themselves or assign it
+  // deliberately, and silently handing it to the rotation would take that
+  // decision away from them. This path is the one where nobody has decided yet.
+  //
+  // Its result is deliberately ignored. An empty rotation returns "nobody",
+  // which is a normal outcome that leaves the lead Sin asignar — and failing a
+  // customer's submission over an internal staffing gap would be absurd.
+  await autoAssignLeadAdvisor(createResult.application.id);
   if (createResult.status === "partial") {
     console.error(
       `[application-intake-processing] Application ${createResult.application.id} created for intake ${intake.id} ` +

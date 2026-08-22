@@ -249,3 +249,47 @@ export async function setStaffActiveStatus(
 
   return { status: "ok" };
 }
+
+/**
+ * ============================================================================
+ * MILESTONE 26B-6B — WHO PARTICIPATES IN AUTOMATIC DISTRIBUTION
+ * ============================================================================
+ *
+ * Toggles one advisor in or out of the round-robin.
+ *
+ * A PLAIN COLUMN UPDATE, not a lifecycle transition. It changes who future
+ * leads go to and nothing else: it does not touch existing ownership, does not
+ * reassign anything already allocated, and does not affect the person's access
+ * to the CRM. Someone removed from the rotation keeps every lead they already
+ * hold, which is exactly what you want when covering a holiday.
+ *
+ * AUTHORIZATION IS THE CALLER'S JOB — the Server Action checks
+ * `application:assign_advisor` before reaching this. This is the write.
+ */
+export type SetStaffAutoAssignmentResult =
+  | { status: "ok" }
+  | { status: "error"; code: "NOT_FOUND" | "FORBIDDEN" | "INVALID_INPUT" | "UPDATE_FAILED" };
+
+export async function setStaffAutoAssignment(
+  profileId: string,
+  enabled: boolean,
+  actorProfileId: string
+): Promise<SetStaffAutoAssignmentResult> {
+  const outcome = await callRpc("set_staff_auto_assignment", {
+    p_profile_id: profileId,
+    p_enabled: enabled,
+    p_actor_profile_id: actorProfileId,
+  });
+
+  if (outcome.errorCode) {
+    // Same mapping the sibling staff mutations use: 42501 is an authorization
+    // refusal (inactive actor, or target outside the actor's branch scope),
+    // 22023 is a rejected input (the target is not an advisor).
+    if (outcome.errorCode === "42501") return { status: "error", code: "FORBIDDEN" };
+    if (outcome.errorCode === "22023") return { status: "error", code: "INVALID_INPUT" };
+    return { status: "error", code: "UPDATE_FAILED" };
+  }
+  if (!outcome.profileId) return { status: "error", code: "NOT_FOUND" };
+
+  return { status: "ok" };
+}

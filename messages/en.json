@@ -642,6 +642,15 @@
         "national": "National scope",
         "none": "No branch assigned",
         "more": "+{count} branches"
+      },
+      "autoAssignment": {
+        "badge": "Receives leads",
+        "enable": "Enable automatic leads",
+        "disable": "Disable automatic leads",
+        "hint": "When enabled, this advisor participates in automatic distribution of new portal leads.",
+        "enabled": "{name} now receives automatic leads.",
+        "disabled": "{name} no longer receives automatic leads.",
+        "error": "We could not update automatic distribution."
       }
     },
     "products": {

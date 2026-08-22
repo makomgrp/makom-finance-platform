@@ -40,6 +40,7 @@ import {
   linkStaffProfileAuth,
   setStaffActiveStatus,
   updateStaffRole,
+  setStaffAutoAssignment,
 } from "@/lib/services/staff-admin";
 import { inviteStaffAuthUser } from "@/lib/services/auth-admin";
 import { USER_ROLE_VALUES } from "@/lib/config/user-role";
@@ -1208,5 +1209,56 @@ export async function setProfileBranchScopeModeAction(
   if (result.status !== "ok") {
     return { status: "error", code: result.code };
   }
+  return { status: "success" };
+}
+
+// ============================================================================
+// MILESTONE 26B-6B — AUTOMATIC LEAD DISTRIBUTION PARTICIPATION
+// ============================================================================
+//
+// CAPABILITY: `application:assign_advisor`, held by administrador and gerente.
+//
+// Deciding WHO RECEIVES LEADS is the same authority as deciding who owns one,
+// so it reuses that capability rather than inventing a second permission with
+// identical holders. Deliberately NOT `user:set_active` (administrador only):
+// that switch is the offboarding mechanism and means something entirely
+// different — being out of the rotation is not being locked out of the CRM.
+//
+// A normal `asesor` holds neither, so an advisor can neither reassign a process
+// nor quietly add themselves to the rotation. Enforced here, server-side; the
+// UI hiding the control is a convenience, not the boundary.
+
+export interface SetStaffAutoAssignmentInput {
+  profileId: string;
+  enabled: boolean;
+}
+
+export type SetStaffAutoAssignmentActionResult =
+  | { status: "success" }
+  | {
+      status: "error";
+      code: "UNAUTHENTICATED" | "FORBIDDEN" | "INVALID_INPUT" | "NOT_FOUND" | "UPDATE_FAILED";
+    };
+
+export async function setStaffAutoAssignmentAction(
+  input: SetStaffAutoAssignmentInput
+): Promise<SetStaffAutoAssignmentActionResult> {
+  const auth = await requireCapability("application:assign_advisor");
+  if (auth.status === "denied") {
+    return { status: "error", code: auth.code };
+  }
+
+  if (!isNonEmptyString(input.profileId) || !UUID_PATTERN.test(input.profileId)) {
+    return { status: "error", code: "INVALID_INPUT" };
+  }
+  if (typeof input.enabled !== "boolean") {
+    return { status: "error", code: "INVALID_INPUT" };
+  }
+
+  const result = await setStaffAutoAssignment(input.profileId, input.enabled, auth.profile.id);
+  if (result.status === "error") {
+    return { status: "error", code: result.code };
+  }
+
   return { status: "success" };
 }

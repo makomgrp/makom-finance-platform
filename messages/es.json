@@ -642,6 +642,15 @@
         "national": "Alcance nacional",
         "none": "Sin sucursal asignada",
         "more": "+{count} sucursales"
+      },
+      "autoAssignment": {
+        "badge": "Recibe leads",
+        "enable": "Activar leads automáticos",
+        "disable": "Desactivar leads automáticos",
+        "hint": "Cuando está activo, este asesor participa en la distribución automática de nuevos leads del portal.",
+        "enabled": "{name} ahora recibe leads automáticamente.",
+        "disabled": "{name} ya no recibe leads automáticamente.",
+        "error": "No pudimos actualizar la distribución automática."
       }
     },
     "products": {

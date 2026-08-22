@@ -55,6 +55,16 @@ export interface StaffUser {
    * without opening each profile. Changed only by an administrador (B4).
    */
   branchScopeMode: BranchScopeMode;
+  /**
+   * MILESTONE 26B-6B — does this advisor receive automatically distributed
+   * portal leads?
+   *
+   * Deliberately independent of `active`. Someone can work here full time and
+   * still be outside the rotation — handling only walk-ins, covering a
+   * different product, or away this month — and excluding them from
+   * distribution must not require locking them out of the CRM.
+   */
+  autoAssignmentEnabled: boolean;
 }
 
 /**
