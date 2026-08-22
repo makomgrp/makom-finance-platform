@@ -38,7 +38,8 @@
       "en": "EN",
       "spanish": "Español",
       "english": "English"
-    }
+    },
+    "saving": "Saving…"
   },
   "navigation": {
     "dashboard": "Dashboard",
@@ -1547,5 +1548,56 @@
     },
     "sourcePortal": "Portal",
     "emptyColumn": "Nothing at this stage."
+  },
+  "followUp": {
+    "advisor": "Advisor",
+    "unassigned": "Unassigned",
+    "assignAdvisor": "Assign advisor",
+    "reassign": "Reassign",
+    "logFollowUp": "Log follow-up",
+    "contactMethod": "Contact method",
+    "outcome": "Outcome",
+    "note": "Note",
+    "save": "Save follow-up",
+    "nextAction": "Next action",
+    "nextActionDate": "Next action date",
+    "nextActionPlaceholder": "e.g. Call to remind about documents",
+    "lastContact": "Last contact",
+    "noContactRecorded": "No contact recorded",
+    "today": "Today",
+    "overdue": "Overdue",
+    "noNextAction": "No next action",
+    "completeAction": "Complete action",
+    "followUpLabel": "Follow-up",
+    "history": "Follow-up history",
+    "methods": {
+      "call": "Call",
+      "whatsapp": "WhatsApp",
+      "email": "Email",
+      "other": "Other"
+    },
+    "outcomes": {
+      "contacted": "Contacted",
+      "no_answer": "No answer",
+      "customer_responded": "Customer responded",
+      "waiting_customer": "Waiting for customer",
+      "follow_up_scheduled": "Follow-up scheduled",
+      "other": "Other"
+    },
+    "filters": {
+      "allAdvisors": "All advisors",
+      "allFollowUps": "All"
+    },
+    "errors": {
+      "noteRequiredForOther": "Describe the outcome when choosing Other.",
+      "nextActionPair": "Provide both the action and its date, or neither.",
+      "saveFailed": "We could not save the follow-up."
+    },
+    "toasts": {
+      "saved": "Follow-up recorded.",
+      "saveError": "We could not record the follow-up.",
+      "completed": "Action completed.",
+      "completeError": "We could not complete the action."
+    }
   }
 }

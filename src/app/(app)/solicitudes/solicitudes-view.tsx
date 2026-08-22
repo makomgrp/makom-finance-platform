@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { List, LayoutGrid, FilePlus2 } from "lucide-react";
@@ -9,9 +10,15 @@ import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ApplicationsTable } from "@/components/applications/applications-table";
 import { PipelineKanban } from "@/components/applications/pipeline-kanban";
+import {
+  LogFollowUpDialog,
+  type LogFollowUpSubmit,
+} from "@/components/applications/log-follow-up-dialog";
 import { NewApplicationDialog } from "@/components/applications/new-application-dialog";
 import {
   assignSolicitudAdvisor,
+  completeFollowUpActionAction,
+  logFollowUpAction,
   setSolicitudApplicationStatus,
 } from "@/app/(app)/solicitudes/actions";
 import { useCapability } from "@/lib/auth/use-capability";
@@ -126,6 +133,42 @@ export function SolicitudesView({
   // them. The advisor's display name is not returned by the mutation either —
   // it is resolved here from the same list the menu rendered from, which is
   // the only place the UI already legitimately knows it.
+  const router = useRouter();
+
+  // Which card asked to log a follow-up. Null closes the dialog.
+  const [followUpTarget, setFollowUpTarget] = useState<PipelineCard | null>(null);
+
+  const handleLogFollowUp = async (values: LogFollowUpSubmit) => {
+    if (!followUpTarget) return;
+    const result = await logFollowUpAction({
+      applicationId: followUpTarget.id,
+      ...values,
+    });
+
+    if (result.status !== "success") {
+      toast.error(t("followUp.toasts.saveError"));
+      return;
+    }
+
+    toast.success(t("followUp.toasts.saved"));
+    // Re-read from the server rather than patching the card locally: last
+    // contact and next action are DERIVED from the whole follow-up history, and
+    // a local guess would disagree with the next refresh.
+    router.refresh();
+  };
+
+  const handleCompleteAction = async (applicationId: string, followUpId: string) => {
+    const result = await completeFollowUpActionAction({ applicationId, followUpId });
+    if (result.status !== "success") {
+      toast.error(t("followUp.toasts.completeError"));
+      return;
+    }
+    toast.success(t("followUp.toasts.completed"));
+    // Re-read: the card's next action is the OLDEST outstanding one, so
+    // completing this one may promote a different action into its place.
+    router.refresh();
+  };
+
   const handleAdvisorChange = async (
     applicationId: string,
     advisorProfileId: string | null
@@ -231,8 +274,26 @@ export function SolicitudesView({
           onAdvisorChange={handleAdvisorChange}
         />
       ) : (
-        <PipelineKanban cards={pipelineCards} onStatusChange={handleStatusChange} />
+        <PipelineKanban
+          cards={pipelineCards}
+          onStatusChange={handleStatusChange}
+          assignableAdvisorsByApplication={assignableAdvisorsByApplication}
+          onAdvisorChange={handleAdvisorChange}
+          onLogFollowUp={setFollowUpTarget}
+          onCompleteAction={handleCompleteAction}
+        />
       )}
+
+      {/* MILESTONE 26B-6 — one dialog for the whole board. Which process it
+          writes to is state, not a dialog per card. */}
+      <LogFollowUpDialog
+        open={followUpTarget !== null}
+        onOpenChange={(next) => {
+          if (!next) setFollowUpTarget(null);
+        }}
+        subjectName={followUpTarget?.fullName}
+        onSubmit={handleLogFollowUp}
+      />
     </div>
   );
 }

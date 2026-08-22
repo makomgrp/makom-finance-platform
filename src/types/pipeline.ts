@@ -1,5 +1,6 @@
 import type { ApplicationStatus } from "@/types/application";
 import type { BranchOrigin } from "@/types/branch";
+import type { FollowUpSummary } from "@/types/follow-up";
 import type { LocalizedText } from "@/types/product";
 
 /**
@@ -54,6 +55,8 @@ export interface PipelineCard {
   formalStatus?: ApplicationStatus;
   /** The raw lifecycle status, including `draft`. */
   status: ApplicationStatus;
+  /** The process's operational owner. Undefined means Sin asignar. */
+  advisorProfileId?: string;
   advisorFullName?: string;
   branchOrigin: BranchOrigin;
   createdAt: string;
@@ -61,4 +64,13 @@ export interface PipelineCard {
   documentsReceived: number;
   documentsReviewed: number;
   documentsRequired: number;
+
+  /**
+   * MILESTONE 26B-6 — WHAT ODL IS DOING ABOUT THIS PERSON.
+   *
+   * Strictly separate from `stage`, which is what the CUSTOMER has done. An
+   * advisor calling a prospect does not move them along the pipeline, and
+   * reaching Paso 3 does not mean anyone has spoken to them.
+   */
+  followUp?: FollowUpSummary;
 }

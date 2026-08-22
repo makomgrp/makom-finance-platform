@@ -24,3 +24,4 @@ export * from "./application-analysis";
 export * from "./portal-continuation";
 export * from "./application-declaration";
 export * from "./pipeline";
+export * from "./follow-up";

@@ -3,6 +3,7 @@ import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { applyBranchScope, isEmptyScope } from "@/lib/services/branch-scope-query";
 import { branchOriginEmbed, toBranchOrigin, type BranchOriginRow } from "@/lib/services/branch-origin";
 import { getApplicationDocumentProgress } from "@/lib/services/requirement-slots";
+import { getFollowUpSummaries } from "@/lib/services/follow-ups";
 import { isStep2Complete } from "@/lib/services/portal-progress";
 import { stageForFormalStatus } from "@/lib/config/pipeline";
 import type {
@@ -15,6 +16,7 @@ import type {
   CollateralType,
   EmploymentStatus,
   LoanPurpose,
+  FollowUpSummary,
   LocalizedText,
   PayrollDeductionAvailability,
 } from "@/types";
@@ -67,7 +69,7 @@ import type {
 export type GetPipelineResult = { status: "ok"; cards: PipelineCard[] } | { status: "error" };
 
 const PIPELINE_SELECT =
-  "id, application_number, status, created_at, client_id, product_id, " +
+  "id, application_number, status, created_at, client_id, product_id, assigned_advisor_profile_id, " +
   "product:products!applications_product_id_fkey(code, application_code, name), " +
   "advisor:profiles!applications_assigned_advisor_profile_id_fkey(full_name), " +
   "client:clients!applications_client_id_fkey(full_name, email, phone), " +
@@ -81,6 +83,7 @@ interface PipelineRow {
   created_at: string;
   client_id: string;
   product_id: string;
+  assigned_advisor_profile_id: string | null;
   product: { code: string; application_code: string | null; name: LocalizedText } | null;
   advisor: { full_name: string } | null;
   client: { full_name: string; email: string | null; phone: string | null } | null;
@@ -119,12 +122,17 @@ export async function getPipelineCards(scope: BranchScope): Promise<GetPipelineR
     // answer is already known.
     const draftIds = rows.filter((row) => row.status === "draft").map((row) => row.id);
 
-    const [step2ByApplication, progressResult] = await Promise.all([
+    // MILESTONE 26B-6 — the follow-up summaries join the same fixed set of
+    // queries. One read covers every card's advisor context; asking per card
+    // would be the textbook N+1 the board must not have.
+    const [step2ByApplication, progressResult, followUpResult] = await Promise.all([
       loadStep2ForApplications(draftIds),
       getApplicationDocumentProgress(scope),
+      getFollowUpSummaries(scope),
     ]);
 
     const progress = progressResult.status === "ok" ? progressResult.progress : {};
+    const followUps = followUpResult.status === "ok" ? followUpResult.summaries : {};
 
     const cards = rows.map((row): PipelineCard => {
       const docs = progress[row.id] ?? { received: 0, reviewed: 0, total: 0 };
@@ -146,6 +154,7 @@ export async function getPipelineCards(scope: BranchScope): Promise<GetPipelineR
           : stageForFormalStatus(row.status),
         formalStatus: isDraft ? undefined : row.status,
         status: row.status,
+        advisorProfileId: row.assigned_advisor_profile_id ?? undefined,
         advisorFullName: row.advisor?.full_name ?? undefined,
         branchOrigin: toBranchOrigin(row.branch),
         createdAt: row.created_at,
@@ -155,6 +164,7 @@ export async function getPipelineCards(scope: BranchScope): Promise<GetPipelineR
         documentsReceived: docs.received,
         documentsReviewed: docs.reviewed,
         documentsRequired: docs.total,
+        followUp: followUps[row.id],
       };
     });
 
@@ -369,6 +379,12 @@ export interface ActiveDraftContext {
   documentsReceived: number;
   documentsRequired: number;
   lastActivityAt: string;
+
+  /** MILESTONE 26B-6 — the process's operational owner. */
+  advisorProfileId?: string;
+  advisorFullName?: string;
+  /** What ODL has done and promised. Absent until someone logs a contact. */
+  followUp?: FollowUpSummary;
 }
 
 /**
@@ -396,7 +412,8 @@ export async function getActiveDraftForClient(
       supabase
         .from("applications")
         .select(
-          "id, requested_amount, requested_term_months, created_at, " +
+          "id, requested_amount, requested_term_months, created_at, assigned_advisor_profile_id, " +
+            "advisor:profiles!applications_assigned_advisor_profile_id_fkey(full_name), " +
             "product:products!applications_product_id_fkey(code, application_code, name), " +
             "intake:application_intakes!application_intakes_created_application_id_fkey(last_activity_at)"
         )
@@ -417,6 +434,8 @@ export async function getActiveDraftForClient(
           id: string;
           requested_amount: number;
           requested_term_months: number | null;
+          assigned_advisor_profile_id: string | null;
+          advisor: { full_name: string } | null;
           product: { code: string; application_code: string | null; name: LocalizedText } | null;
           intake: { last_activity_at: string }[] | { last_activity_at: string } | null;
           created_at: string;
@@ -425,10 +444,11 @@ export async function getActiveDraftForClient(
 
     if (!row) return undefined;
 
-    const [step2ByApplication, progressResult, employmentResult, financialResult] =
+    const [step2ByApplication, progressResult, followUpResult, employmentResult, financialResult] =
       await Promise.all([
         loadStep2ForApplications([row.id]),
         getApplicationDocumentProgress(scope),
+        getFollowUpSummaries(scope),
         supabase
           .from("application_employment")
           .select(
@@ -481,6 +501,10 @@ export async function getActiveDraftForClient(
       documentsReceived: docs.received,
       documentsRequired: docs.total,
       lastActivityAt: intake?.last_activity_at ?? row.created_at,
+
+      advisorProfileId: row.assigned_advisor_profile_id ?? undefined,
+      advisorFullName: row.advisor?.full_name ?? undefined,
+      followUp: followUpResult.status === "ok" ? followUpResult.summaries[row.id] : undefined,
     };
   } catch (error) {
     console.error(

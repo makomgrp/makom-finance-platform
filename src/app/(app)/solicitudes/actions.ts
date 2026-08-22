@@ -14,8 +14,20 @@ import {
 import { getApplicationCreatableProducts } from "@/lib/services/products";
 import { getClientById } from "@/lib/services/clients";
 import { requireCapability } from "@/lib/auth/authorize";
+import {
+  completeFollowUpAction,
+  getFollowUpsByApplicationId,
+  logFollowUp,
+} from "@/lib/services/follow-ups";
+import { CONTACT_METHODS, CONTACT_OUTCOMES } from "@/lib/config/follow-up";
 import { APPLICATION_STATUS_TRANSITIONABLE } from "@/lib/config/application";
-import type { Application, ApplicationStatus } from "@/types";
+import type {
+  Application,
+  ApplicationFollowUp,
+  ApplicationStatus,
+  ContactMethod,
+  ContactOutcome,
+} from "@/types";
 
 /**
  * Thin Server Action wrapper around src/lib/services/applications.ts,
@@ -500,4 +512,151 @@ export async function getApplicationTransferOptionsAction(
     currentBranchName: result.context.currentBranchName,
     destinations: result.context.destinations,
   };
+}
+
+// ============================================================================
+// FOLLOW-UP ACTIONS (Milestone 26B-6)
+// ============================================================================
+//
+// The operational layer: recording what ODL did about a customer, and what it
+// promised to do next.
+//
+// CAPABILITY: `note:create`, reused deliberately rather than invented. Logging
+// a call is the same class of act as writing an internal note — collaborative
+// dossier work — and it is held by administrador, gerente, analista AND asesor,
+// which is exactly the set who must be able to record their own calls. Adding a
+// `follow_up:create` capability would have produced a second permission with
+// the same holders and the same meaning.
+//
+// Assignment keeps `application:assign_advisor` (administrador, gerente) and is
+// entirely unchanged: deciding WHO OWNS a file is a supervisory act, deciding
+// what happened on a phone call is not.
+//
+// ORDERING, as everywhere else: requireCapability() first, before validation
+// and before any read, so an unauthorized caller cannot use the difference
+// between NOT_FOUND and INVALID_INPUT to probe for processes they cannot see.
+//
+// NOTHING HERE SENDS ANYTHING. These record outward contact a human already
+// made by phone, WhatsApp or email.
+
+export interface LogFollowUpActionInput {
+  applicationId: string;
+  contactMethod: ContactMethod;
+  outcome: ContactOutcome;
+  note?: string;
+  nextAction?: string;
+  /** ISO instant. Both this and nextAction, or neither. */
+  nextActionAt?: string;
+}
+
+export type LogFollowUpActionResult =
+  | { status: "success"; followUp: ApplicationFollowUp }
+  | {
+      status: "error";
+      code: "UNAUTHENTICATED" | "FORBIDDEN" | "INVALID_INPUT" | "NOT_FOUND" | "SAVE_FAILED";
+    };
+
+export async function logFollowUpAction(
+  input: LogFollowUpActionInput
+): Promise<LogFollowUpActionResult> {
+  const auth = await requireCapability("note:create");
+  if (auth.status === "denied") {
+    return { status: "error", code: auth.code };
+  }
+
+  if (!isNonEmptyString(input.applicationId) || !UUID_PATTERN.test(input.applicationId)) {
+    return { status: "error", code: "INVALID_INPUT" };
+  }
+  if (!CONTACT_METHODS.includes(input.contactMethod)) {
+    return { status: "error", code: "INVALID_INPUT" };
+  }
+  if (!CONTACT_OUTCOMES.includes(input.outcome)) {
+    return { status: "error", code: "INVALID_INPUT" };
+  }
+
+  // MAY THIS CALLER OPERATE ON THIS PROCESS? The caller's own effective branch
+  // scope, checked here against the owning application. A capability says WHAT
+  // you may do, never WHERE — so holding note:create does not let an advisor
+  // log calls against another branch's prospects.
+  //
+  // Deliberately NOT filtered to formal applications: the whole point of 26B-6
+  // is working a lead before it is submitted, and a draft is a real process.
+  const target = await getApplicationById(auth.profile.branchScope, input.applicationId);
+  if (target.status !== "ok") {
+    return { status: "error", code: "NOT_FOUND" };
+  }
+
+  const result = await logFollowUp({
+    applicationId: input.applicationId,
+    authorProfileId: auth.profile.id,
+    contactMethod: input.contactMethod,
+    outcome: input.outcome,
+    note: input.note,
+    nextAction: input.nextAction,
+    nextActionAt: input.nextActionAt,
+  });
+
+  if (result.status !== "ok") {
+    return {
+      status: "error",
+      code: result.code === "INVALID_INPUT" ? "INVALID_INPUT" : "SAVE_FAILED",
+    };
+  }
+
+  return { status: "success", followUp: result.followUp };
+}
+
+export type CompleteFollowUpActionResultShape =
+  | { status: "success"; followUp: ApplicationFollowUp }
+  | {
+      status: "error";
+      code: "UNAUTHENTICATED" | "FORBIDDEN" | "INVALID_INPUT" | "NOT_FOUND" | "SAVE_FAILED";
+    };
+
+/**
+ * Mark a promised action done.
+ *
+ * The application id travels with the request so the branch check has something
+ * to check: a follow-up id alone would authorize by knowing a UUID, which is
+ * not authorization. The service still verifies the follow-up belongs to a row
+ * that is genuinely uncompleted.
+ */
+export async function completeFollowUpActionAction(input: {
+  applicationId: string;
+  followUpId: string;
+}): Promise<CompleteFollowUpActionResultShape> {
+  const auth = await requireCapability("note:create");
+  if (auth.status === "denied") {
+    return { status: "error", code: auth.code };
+  }
+
+  if (!isNonEmptyString(input.applicationId) || !UUID_PATTERN.test(input.applicationId)) {
+    return { status: "error", code: "INVALID_INPUT" };
+  }
+  if (!isNonEmptyString(input.followUpId) || !UUID_PATTERN.test(input.followUpId)) {
+    return { status: "error", code: "INVALID_INPUT" };
+  }
+
+  const target = await getApplicationById(auth.profile.branchScope, input.applicationId);
+  if (target.status !== "ok") {
+    return { status: "error", code: "NOT_FOUND" };
+  }
+
+  // Belt and braces: confirm the follow-up really hangs off the application the
+  // caller was authorized against, so a valid application id cannot be paired
+  // with someone else's follow-up id.
+  const existing = await getFollowUpsByApplicationId(auth.profile.branchScope, input.applicationId);
+  if (existing.status !== "ok" || !existing.followUps.some((f) => f.id === input.followUpId)) {
+    return { status: "error", code: "NOT_FOUND" };
+  }
+
+  const result = await completeFollowUpAction(input.followUpId, auth.profile.id);
+  if (result.status !== "ok") {
+    return {
+      status: "error",
+      code: result.code === "NOT_FOUND" ? "NOT_FOUND" : "SAVE_FAILED",
+    };
+  }
+
+  return { status: "success", followUp: result.followUp };
 }

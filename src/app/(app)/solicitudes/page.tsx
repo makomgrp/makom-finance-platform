@@ -70,16 +70,25 @@ export default async function SolicitudesPage({ searchParams }: { searchParams: 
   // the applications through the same scope so no branch is taken on trust
   // from this list.
   const applications = applicationsResult.status === "ok" ? applicationsResult.applications : [];
-  const advisorsResult = await getAssignableAdvisorsForApplications(
-    scope,
-    applications.map((application) => application.id)
-  );
+  const pipelineCards = pipelineResult.status === "ok" ? pipelineResult.cards : [];
+
+  // MILESTONE 26B-6 — the directory must cover DRAFTS too, because a prospect
+  // can be assigned an owner long before they submit. The union is deduped so
+  // an application appearing in both the table and the board is still resolved
+  // once; this remains two queries in total, never one per row.
+  const advisorTargetIds = [
+    ...new Set([
+      ...applications.map((application) => application.id),
+      ...pipelineCards.map((card) => card.id),
+    ]),
+  ];
+  const advisorsResult = await getAssignableAdvisorsForApplications(scope, advisorTargetIds);
 
   return (
     <SolicitudesView
       showBranchOrigin={showBranchOrigin}
       initialApplications={applications}
-      pipelineCards={pipelineResult.status === "ok" ? pipelineResult.cards : []}
+      pipelineCards={pipelineCards}
       documentProgress={progressResult.status === "ok" ? progressResult.progress : {}}
       loadError={applicationsResult.status === "error"}
       creatableProducts={productsResult.status === "ok" ? productsResult.products : []}

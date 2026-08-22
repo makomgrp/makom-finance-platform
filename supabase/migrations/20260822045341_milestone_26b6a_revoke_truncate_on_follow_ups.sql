@@ -1,0 +1,13 @@
+-- ============================================================================
+-- MILESTONE 26B-6A — WITHHOLD TRUNCATE ON CONTACT HISTORY
+-- ============================================================================
+--
+-- application_follow_ups was created with DELETE deliberately withheld, because
+-- a record of what ODL told a customer is evidence and must not be editable
+-- away. TRUNCATE arrives by default with table creation, however, and it
+-- removes every row at once — defeating that guarantee wholesale rather than
+-- one row at a time.
+--
+-- The same correction 26A-4A made for crm_events and application_declarations,
+-- applied to the same class of promise.
+revoke truncate on table public.application_follow_ups from service_role;

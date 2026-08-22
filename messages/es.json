@@ -38,7 +38,8 @@
       "en": "EN",
       "spanish": "Español",
       "english": "English"
-    }
+    },
+    "saving": "Guardando…"
   },
   "navigation": {
     "dashboard": "Dashboard",
@@ -1547,5 +1548,56 @@
     },
     "sourcePortal": "Portal",
     "emptyColumn": "Sin registros en esta etapa."
+  },
+  "followUp": {
+    "advisor": "Asesor",
+    "unassigned": "Sin asignar",
+    "assignAdvisor": "Asignar asesor",
+    "reassign": "Reasignar",
+    "logFollowUp": "Registrar seguimiento",
+    "contactMethod": "Método de contacto",
+    "outcome": "Resultado",
+    "note": "Nota",
+    "save": "Guardar seguimiento",
+    "nextAction": "Próxima acción",
+    "nextActionDate": "Fecha de próxima acción",
+    "nextActionPlaceholder": "Ej. Llamar para recordar documentos",
+    "lastContact": "Último contacto",
+    "noContactRecorded": "Sin contacto registrado",
+    "today": "Hoy",
+    "overdue": "Vencido",
+    "noNextAction": "Sin próxima acción",
+    "completeAction": "Completar acción",
+    "followUpLabel": "Seguimiento",
+    "history": "Historial de seguimiento",
+    "methods": {
+      "call": "Llamada",
+      "whatsapp": "WhatsApp",
+      "email": "Correo electrónico",
+      "other": "Otro"
+    },
+    "outcomes": {
+      "contacted": "Contactado",
+      "no_answer": "No respondió",
+      "customer_responded": "Cliente respondió",
+      "waiting_customer": "Pendiente del cliente",
+      "follow_up_scheduled": "Seguimiento programado",
+      "other": "Otro"
+    },
+    "filters": {
+      "allAdvisors": "Todos los asesores",
+      "allFollowUps": "Todos"
+    },
+    "errors": {
+      "noteRequiredForOther": "Describe el resultado cuando eliges Otro.",
+      "nextActionPair": "Indica la acción y su fecha, o ninguna de las dos.",
+      "saveFailed": "No pudimos guardar el seguimiento."
+    },
+    "toasts": {
+      "saved": "Seguimiento registrado.",
+      "saveError": "No pudimos registrar el seguimiento.",
+      "completed": "Acción completada.",
+      "completeError": "No pudimos completar la acción."
+    }
   }
 }

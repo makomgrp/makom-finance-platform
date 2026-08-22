@@ -156,16 +156,57 @@ export function SummaryTab({ client, application, requirementsData, activeDraft 
                 </div>
               </>
             )}
+            {/* MILESTONE 26B-6 — WHO IS WORKING THIS, AND WHAT IS PROMISED.
+                Operational facts, deliberately beside — never merged into —
+                the customer's portal stage above. Calling someone does not
+                advance them, and advancing does not mean anyone called. */}
+            {activeDraft && (
+              <div>
+                <dt className="text-xs text-muted-foreground">{t("followUp.advisor")}</dt>
+                <dd className="text-sm font-medium text-foreground">
+                  {activeDraft.advisorFullName ?? t("followUp.unassigned")}
+                </dd>
+              </div>
+            )}
+
+            {activeDraft && (
+              <div>
+                <dt className="text-xs text-muted-foreground">{t("followUp.lastContact")}</dt>
+                <dd className="text-sm font-medium text-foreground">
+                  {activeDraft.followUp?.lastContactAt
+                    ? `${formatDateTime(activeDraft.followUp.lastContactAt, locale)} · ${t(`followUp.methods.${activeDraft.followUp.lastContactMethod}` as "followUp.methods.call")} · ${t(`followUp.outcomes.${activeDraft.followUp.lastContactOutcome}` as "followUp.outcomes.contacted")}`
+                    : t("followUp.noContactRecorded")}
+                </dd>
+              </div>
+            )}
+
             <div>
               <dt className="text-xs text-muted-foreground">{t("dossier.summary.nextAction")}</dt>
+              {/* Real now, and derived from the oldest outstanding commitment
+                  rather than stored twice. */}
               <dd className="text-sm font-medium text-foreground">
-                {/* nextAction has no home on the real Application (Milestone
-                    13A architecture review: a workflow/task-engine concept,
-                    deliberately not recreated here) — always the fallback
-                    until a future CRM-workflow milestone. */}
-                {t("dossier.summary.noNextAction")}
+                {activeDraft?.followUp?.nextAction ?? t("dossier.summary.noNextAction")}
               </dd>
             </div>
+
+            {activeDraft?.followUp?.nextActionAt && (
+              <div>
+                <dt className="text-xs text-muted-foreground">{t("followUp.nextActionDate")}</dt>
+                <dd className="text-sm font-medium text-foreground">
+                  {formatDateTime(activeDraft.followUp.nextActionAt, locale)}
+                  {activeDraft.followUp.nextActionUrgency === "overdue" && (
+                    <span className="ml-2 rounded-full bg-warning/10 px-2 py-0.5 text-xs font-medium text-warning">
+                      {t("followUp.overdue")}
+                    </span>
+                  )}
+                  {activeDraft.followUp.nextActionUrgency === "today" && (
+                    <span className="ml-2 rounded-full bg-navy/10 px-2 py-0.5 text-xs font-medium text-navy">
+                      {t("followUp.today")}
+                    </span>
+                  )}
+                </dd>
+              </div>
+            )}
           </dl>
         </CardContent>
       </Card>
