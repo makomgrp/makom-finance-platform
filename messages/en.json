@@ -700,6 +700,7 @@
       "createProduct": "Create product",
       "saveChanges": "Save changes",
       "edit": "Edit",
+      "viewRequirements": "View requirements",
       "activate": "Activate",
       "deactivate": "Deactivate",
       "reactivate": "Reactivate",
@@ -726,8 +727,7 @@
         "updated": "{name}: product updated successfully.",
         "statusChangeError": "Couldn't update the product's status. Please try again.",
         "statusUpdated": "{name}: status updated to \"{status}\".",
-        "reorderError": "Couldn't reorder the product. Please try again.",
-        "viewRequirements": "Requirements"
+        "reorderError": "Couldn't reorder the product. Please try again."
       }
     },
     "productDetail": {
