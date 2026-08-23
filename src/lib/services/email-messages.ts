@@ -1007,14 +1007,21 @@ export async function isApplicationAccessible(
 /**
  * Records "we wrote to them" in the customer's activity.
  *
+ * THROUGH AN RPC, NOT A DIRECT INSERT. `crm_events` grants service_role SELECT
+ * only — every event in this system is written from inside a SECURITY DEFINER
+ * function, which is what keeps the audit log closed to ordinary application
+ * code. A first attempt here inserted directly and was silently refused: the
+ * email sent, the row saved, and the customer's activity stayed empty. Widening
+ * the grant would have fixed the symptom by opening the audit log to anything
+ * holding the service role; calling an RPC gives email the same treatment
+ * alerts and advisor assignments already get.
+ *
  * SUBJECT AND ID ONLY — never the body. `crm_events` is append-only with no
  * delete path, so a message copied into it could never be corrected or erased.
- * A subject is enough to recognise the message; the message itself is one click
- * away in the mailbox.
  *
  * NON-FATAL BY DESIGN. The email has already been sent and recorded; failing
- * the whole operation because a history row did not write would be reporting a
- * success as a failure.
+ * the operation because a history row did not write would report a success as
+ * a failure.
  */
 export async function recordEmailSentEvent(input: {
   emailId: string;
@@ -1023,31 +1030,22 @@ export async function recordEmailSentEvent(input: {
   subject: string;
   actorProfileId: string;
 }): Promise<void> {
-  // No customer means no customer activity to append to. The message is still
-  // in the mailbox; it simply has no dossier to appear in.
+  // No customer means no customer activity to append to. The RPC also guards
+  // this; returning early saves a round trip.
   if (!input.clientId) return;
 
   try {
     const supabase = getSupabaseServerClient();
-    const { data: client } = await supabase
-      .from("clients")
-      .select("branch_id")
-      .eq("id", input.clientId)
-      .maybeSingle<{ branch_id: string | null }>();
-
-    await supabase.from("crm_events").insert({
-      event_type: "email_sent",
-      entity_type: "email_message",
-      entity_id: input.emailId,
-      client_id: input.clientId,
-      application_id: input.applicationId,
-      actor_profile_id: input.actorProfileId,
-      actor_kind: "human",
-      source: "crm_manual",
-      previous_value: null,
-      new_value: { subject: input.subject },
-      branch_id: client?.branch_id ?? null,
+    const { error } = await supabase.rpc("record_email_sent_event", {
+      p_email_id: input.emailId,
+      p_client_id: input.clientId,
+      p_application_id: input.applicationId,
+      p_subject: input.subject,
+      p_actor_profile_id: input.actorProfileId,
     });
+    if (error) {
+      console.error("[email service] Failed to record email_sent activity:", error.message);
+    }
   } catch (error) {
     console.error(
       "[email service] Failed to record email_sent activity:",
