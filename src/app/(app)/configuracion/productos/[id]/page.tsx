@@ -63,9 +63,6 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
       </div>
 
       <div className="-mt-4 mb-6 flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
-        <span>
-          {t("settings.productDetail.code")}: <span className="font-mono text-xs">{product.code}</span>
-        </span>
         <span className="flex items-center gap-1.5">
           {t("settings.productDetail.status")}:
           <StatusBadge
