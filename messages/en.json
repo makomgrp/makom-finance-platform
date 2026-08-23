@@ -732,7 +732,6 @@
     },
     "productDetail": {
       "backToProducts": "Back to products",
-      "code": "Code",
       "status": "Status",
       "loadErrorTitle": "Couldn't load the product",
       "loadErrorDescription": "We weren't able to connect to the database, or the product doesn't exist. Try reloading the page; if the problem continues, contact the technical team.",
@@ -761,7 +760,6 @@
         "moveUp": "Move up",
         "moveDown": "Move down",
         "columns": {
-          "code": "Code",
           "name": "Name",
           "kind": "Kind",
           "required": "Required",

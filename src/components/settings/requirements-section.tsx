@@ -397,7 +397,6 @@ export function RequirementsSection({ productId, requirementTemplates: initial, 
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>{t("settings.productDetail.requirements.columns.code")}</TableHead>
                   <TableHead>{t("settings.productDetail.requirements.columns.name")}</TableHead>
                   <TableHead>{t("settings.productDetail.requirements.columns.kind")}</TableHead>
                   <TableHead>{t("settings.productDetail.requirements.columns.required")}</TableHead>
@@ -415,7 +414,6 @@ export function RequirementsSection({ productId, requirementTemplates: initial, 
 
                   return (
                     <TableRow key={requirement.id}>
-                      <TableCell className="font-mono text-xs text-muted-foreground">{requirement.code}</TableCell>
                       <TableCell className="font-medium text-foreground">{requirement.name[locale]}</TableCell>
                       <TableCell className="text-muted-foreground">
                         {t(`statuses.requirementKind.${requirement.requirementKind}`)}

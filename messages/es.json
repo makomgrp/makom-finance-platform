@@ -732,7 +732,6 @@
     },
     "productDetail": {
       "backToProducts": "Volver a productos",
-      "code": "Código",
       "status": "Estado",
       "loadErrorTitle": "No se pudo cargar el producto",
       "loadErrorDescription": "No fue posible conectar con la base de datos, o el producto no existe. Intenta recargar la página; si el problema persiste, contacta al equipo técnico.",
@@ -761,7 +760,6 @@
         "moveUp": "Mover hacia arriba",
         "moveDown": "Mover hacia abajo",
         "columns": {
-          "code": "Código",
           "name": "Nombre",
           "kind": "Tipo",
           "required": "Obligatorio",
