@@ -9,6 +9,7 @@ import { getApplications } from "@/lib/services/applications";
 import { getClientEmails } from "@/lib/services/email-messages";
 import { getMailboxAddress } from "@/lib/config/mail";
 import { getActiveDraftForClient } from "@/lib/services/pipeline";
+import { getClientFollowUpContext } from "@/lib/services/follow-ups";
 import { getRequirementSlotsByApplicationId } from "@/lib/services/requirement-slots";
 import { getEvidenceByApplicationId } from "@/lib/services/document-evidence";
 import { getClientCrmEvents } from "@/lib/services/crm-events";
@@ -101,13 +102,17 @@ export default async function ExpedientePage({
   // like someone with no process at all. The draft is read separately, through
   // its own branch predicate, so knowing a client id never becomes authority to
   // see an application.
-  const [notesResult, alertsResult, applicationsResult, crmEventsResult, activeDraft, emailsResult] =
+  const [notesResult, alertsResult, applicationsResult, crmEventsResult, activeDraft, clientFollowUp, emailsResult] =
     await Promise.all([
       getNotesByClientId(scope, client.id),
       getAlertsByClientId(scope, client.id),
       getApplications(scope),
       getClientCrmEvents(scope, client.id),
       getActiveDraftForClient(scope, client.id),
+      // MILESTONE 26B-15 — de qué solicitud sale el seguimiento cuando el
+      // cliente ya no tiene un proceso abierto. Devuelve undefined si hay
+      // borrador, para que ese caso siga comportándose igual que siempre.
+      getClientFollowUpContext(scope, client.id),
       // MILESTONE 26B-9B — this customer's correspondence. Scoped through the
       // client inside the service, so it inherits the dossier's own boundary
       // rather than introducing one of its own.
@@ -154,6 +159,7 @@ export default async function ExpedientePage({
       initialApplications={applications}
       initialRequirementsByApplicationId={requirementsByApplicationId}
       activeDraft={activeDraft}
+      clientFollowUp={clientFollowUp}
       activities={activities}
       emails={emailsResult.status === "ok" ? emailsResult.messages : []}
       mailbox={getMailboxAddress()}

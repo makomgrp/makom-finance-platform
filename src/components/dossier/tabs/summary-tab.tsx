@@ -22,6 +22,7 @@ import type { Locale } from "@/i18n/config";
 import type { ApplicationListItem, Client } from "@/types";
 import type { DossierRequirementsData } from "@/components/dossier/dossier-view";
 import type { ActiveDraftContext } from "@/lib/services/pipeline";
+import type { ClientFollowUpContext } from "@/lib/services/follow-ups";
 
 interface SummaryTabProps {
   client: Client;
@@ -43,10 +44,34 @@ interface SummaryTabProps {
    * no live process to read from.
    */
   activeDraft?: ActiveDraftContext;
+  /**
+   * MILESTONE 26B-15 — el seguimiento cuando ya no hay proceso abierto.
+   * Mutuamente excluyente con activeDraft por construcción: el servicio
+   * devuelve undefined si existe un borrador.
+   */
+  clientFollowUp?: ClientFollowUpContext;
 }
 
-export function SummaryTab({ client, application, requirementsData, activeDraft }: SummaryTabProps) {
+export function SummaryTab({ client, application, requirementsData, activeDraft, clientFollowUp }: SummaryTabProps) {
   const router = useRouter();
+
+  // UNA SOLA SOLICITUD ALIMENTA TODO EL BLOQUE. Si "Última interacción"
+  // viniera de una solicitud y "Próxima acción" de otra, el resumen contaría
+  // dos historias distintas como si fueran una. El borrador manda cuando
+  // existe; si no, manda la solicitud que el servicio ya eligió.
+  const seguimiento = activeDraft
+    ? {
+        applicationId: activeDraft.applicationId,
+        advisorFullName: activeDraft.advisorFullName,
+        followUp: activeDraft.followUp,
+      }
+    : clientFollowUp
+      ? {
+          applicationId: clientFollowUp.applicationId,
+          advisorFullName: clientFollowUp.advisorFullName,
+          followUp: clientFollowUp.followUp,
+        }
+      : undefined;
   // MILESTONE 26B-15 — registrar seguimiento SIN salir del expediente.
   //
   // Reutiliza el mismo diálogo y la misma Server Action que el Kanban ya usa
@@ -60,10 +85,11 @@ export function SummaryTab({ client, application, requirementsData, activeDraft 
   const canLogFollowUp = useCapability("note:create");
   const [followUpOpen, setFollowUpOpen] = useState(false);
 
+
   const handleLogFollowUp = async (values: LogFollowUpSubmit) => {
-    if (!activeDraft) return;
+    if (!seguimiento) return;
     const result = await logFollowUpAction({
-      applicationId: activeDraft.applicationId,
+      applicationId: seguimiento.applicationId,
       contactMethod: values.contactMethod,
       outcome: values.outcome,
       note: values.note,
@@ -224,21 +250,21 @@ export function SummaryTab({ client, application, requirementsData, activeDraft 
                 Operational facts, deliberately beside — never merged into —
                 the customer's portal stage above. Calling someone does not
                 advance them, and advancing does not mean anyone called. */}
-            {activeDraft && (
+            {seguimiento && (
               <div>
                 <dt className="text-xs text-muted-foreground">{t("followUp.advisor")}</dt>
                 <dd className="text-sm font-medium text-foreground">
-                  {activeDraft.advisorFullName ?? t("followUp.unassigned")}
+                  {seguimiento?.advisorFullName ?? t("followUp.unassigned")}
                 </dd>
               </div>
             )}
 
-            {activeDraft && (
+            {seguimiento && (
               <div>
                 <dt className="text-xs text-muted-foreground">{t("followUp.lastContact")}</dt>
                 <dd className="text-sm font-medium text-foreground">
-                  {activeDraft.followUp?.lastContactAt
-                    ? `${formatDateTime(activeDraft.followUp.lastContactAt, locale)} · ${t(`followUp.methods.${activeDraft.followUp.lastContactMethod}` as "followUp.methods.call")} · ${t(`followUp.outcomes.${activeDraft.followUp.lastContactOutcome}` as "followUp.outcomes.contacted")}`
+                  {seguimiento?.followUp?.lastContactAt
+                    ? `${formatDateTime(seguimiento.followUp!.lastContactAt!, locale)} · ${t(`followUp.methods.${seguimiento.followUp!.lastContactMethod}` as "followUp.methods.call")} · ${t(`followUp.outcomes.${seguimiento.followUp!.lastContactOutcome}` as "followUp.outcomes.contacted")}`
                     : t("followUp.noContactRecorded")}
                 </dd>
               </div>
@@ -249,11 +275,11 @@ export function SummaryTab({ client, application, requirementsData, activeDraft 
               {/* Real now, and derived from the oldest outstanding commitment
                   rather than stored twice. */}
               <dd className="text-sm font-medium text-foreground">
-                {activeDraft?.followUp?.nextAction ?? t("dossier.summary.noNextAction")}
+                {seguimiento?.followUp?.nextAction ?? t("dossier.summary.noNextAction")}
               </dd>
             </div>
 
-            {activeDraft && canLogFollowUp && (
+            {seguimiento && canLogFollowUp && (
               <div className="pt-1">
                 <Button variant="outline" size="sm" onClick={() => setFollowUpOpen(true)}>
                   <PhoneCall className="size-3.5" />
@@ -262,17 +288,17 @@ export function SummaryTab({ client, application, requirementsData, activeDraft 
               </div>
             )}
 
-            {activeDraft?.followUp?.nextActionAt && (
+            {seguimiento?.followUp?.nextActionAt && (
               <div>
                 <dt className="text-xs text-muted-foreground">{t("followUp.nextActionDate")}</dt>
                 <dd className="text-sm font-medium text-foreground">
-                  {formatDateTime(activeDraft.followUp.nextActionAt, locale)}
-                  {activeDraft.followUp.nextActionUrgency === "overdue" && (
+                  {formatDateTime(seguimiento.followUp!.nextActionAt!, locale)}
+                  {seguimiento.followUp!.nextActionUrgency === "overdue" && (
                     <span className="ml-2 rounded-full bg-warning/10 px-2 py-0.5 text-xs font-medium text-warning">
                       {t("followUp.overdue")}
                     </span>
                   )}
-                  {activeDraft.followUp.nextActionUrgency === "today" && (
+                  {seguimiento.followUp!.nextActionUrgency === "today" && (
                     <span className="ml-2 rounded-full bg-navy/10 px-2 py-0.5 text-xs font-medium text-navy">
                       {t("followUp.today")}
                     </span>

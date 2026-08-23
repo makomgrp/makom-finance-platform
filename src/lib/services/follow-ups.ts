@@ -334,3 +334,121 @@ export async function completeFollowUpAction(
     return { status: "error", code: "UPDATE_FAILED" };
   }
 }
+
+// ============================================================================
+// MILESTONE 26B-15 — EL SEGUIMIENTO DE UN CLIENTE SIN PROCESO ABIERTO
+// ============================================================================
+
+export interface ClientFollowUpContext {
+  applicationId: string;
+  applicationNumber?: string;
+  applicationStatus: string;
+  advisorFullName?: string;
+  followUp?: FollowUpSummary;
+}
+
+/**
+ * El seguimiento que el expediente debe mostrar cuando el cliente NO tiene un
+ * proceso abierto.
+ *
+ * ----------------------------------------------------------------------------
+ * POR QUÉ UNA FUNCIÓN NUEVA Y NO AMPLIAR getActiveDraftForClient
+ * ----------------------------------------------------------------------------
+ * Esa función significa exactamente lo que dice: el borrador vivo del cliente.
+ * Su resultado no alimenta sólo el seguimiento — la cabecera del expediente lo
+ * usa para rotular "Proceso en curso · {etapa}", y el resumen lo usa como
+ * respaldo de empleador, cargo y salario. Si dejara de filtrar por `draft`, una
+ * solicitud APROBADA aparecería anunciada como proceso en curso en una etapa
+ * del pipeline que ya no transita. Se habría cambiado el significado de una
+ * función por su nombre, que es la clase de arreglo que rompe otra cosa.
+ *
+ * Así que el borrador sigue siendo el borrador, y esto responde una pregunta
+ * distinta: de qué solicitud proviene el seguimiento que toca mostrar.
+ *
+ * ----------------------------------------------------------------------------
+ * UNA SOLA SOLICITUD, ELEGIDA DE FORMA DETERMINISTA
+ * ----------------------------------------------------------------------------
+ * Un cliente puede tener varias. "Última interacción" y "Próxima acción" tienen
+ * que venir de la MISMA, o el resumen contaría dos historias mezcladas como si
+ * fueran una.
+ *
+ *   1. Si hay un borrador, esto devuelve undefined: manda el borrador y el
+ *      comportamiento actual no cambia en absoluto.
+ *   2. Si no lo hay, gana la solicitud MÁS RECIENTE DE ENTRE LAS QUE TIENEN
+ *      seguimiento. Una solicitud sin seguimiento no desplaza a una que sí lo
+ *      tiene, porque no aportaría nada que mostrar.
+ *   3. Empate de fecha: decide el id. Nunca "la primera fila que devolvió la
+ *      base", que no es un criterio y cambiaría entre consultas.
+ *
+ * Dentro de la solicitud no se decide nada aquí: el resumen por solicitud lo
+ * calcula getFollowUpSummaries, el mismo que ya usan el pipeline y el Kanban.
+ * Una sola regla temporal para todo el sistema, no una segunda.
+ *
+ * No escribe nada. `application_follow_ups` sigue siendo la única fuente.
+ */
+export async function getClientFollowUpContext(
+  scope: BranchScope,
+  clientId: string
+): Promise<ClientFollowUpContext | undefined> {
+  if (isEmptyScope(scope)) return undefined;
+
+  try {
+    const supabase = getSupabaseServerClient();
+
+    const { data, error } = await applyBranchScope(
+      supabase
+        .from("applications")
+        .select(
+          "id, application_number, status, created_at, " +
+            "advisor:profiles!applications_assigned_advisor_profile_id_fkey(full_name)"
+        )
+        .eq("client_id", clientId),
+      scope
+    );
+
+    if (error) {
+      console.error("[follow-ups service] Failed to load client applications:", error.message);
+      return undefined;
+    }
+
+    const rows = (data ?? []) as unknown as {
+      id: string;
+      application_number: string | null;
+      status: string;
+      created_at: string;
+      advisor: { full_name: string } | null;
+    }[];
+    if (rows.length === 0) return undefined;
+
+    // Hay proceso abierto => manda el borrador, no esto.
+    if (rows.some((row) => row.status === "draft")) return undefined;
+
+    const summariesResult = await getFollowUpSummaries(scope);
+    const summaries = summariesResult.status === "ok" ? summariesResult.summaries : {};
+
+    const conSeguimiento = rows
+      .filter((row) => summaries[row.id])
+      .sort((a, b) =>
+        a.created_at === b.created_at
+          ? a.id.localeCompare(b.id)
+          : b.created_at.localeCompare(a.created_at)
+      );
+
+    const elegida = conSeguimiento[0];
+    if (!elegida) return undefined;
+
+    return {
+      applicationId: elegida.id,
+      applicationNumber: elegida.application_number ?? undefined,
+      applicationStatus: elegida.status,
+      advisorFullName: elegida.advisor?.full_name ?? undefined,
+      followUp: summaries[elegida.id],
+    };
+  } catch (error) {
+    console.error(
+      "[follow-ups service] Unexpected failure resolving client follow-up context:",
+      error instanceof Error ? error.message : "unknown error"
+    );
+    return undefined;
+  }
+}

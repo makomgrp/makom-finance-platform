@@ -31,6 +31,7 @@ import type {
   RequirementSlot,
 } from "@/types";
 import type { ActiveDraftContext } from "@/lib/services/pipeline";
+import type { ClientFollowUpContext } from "@/lib/services/follow-ups";
 
 /**
  * Real Requirement Slot + Evidence bundle for one real Application
@@ -92,6 +93,7 @@ interface DossierViewProps {
    * "Sin solicitud asociada" while one is running was simply untrue.
    */
   activeDraft?: ActiveDraftContext;
+  clientFollowUp?: ClientFollowUpContext;
 }
 
 // Milestone 19 restored "actividad" — this time backed by persisted
@@ -113,6 +115,7 @@ export function DossierView({
   initialRequirementsByApplicationId,
   activities,
   activeDraft,
+  clientFollowUp,
 }: DossierViewProps) {
   const t = useTranslations();
   const [client, setClient] = useState<Client>(initialClient);
@@ -248,6 +251,7 @@ export function DossierView({
             application={application}
             requirementsData={activeRequirementsData}
             activeDraft={activeDraft}
+            clientFollowUp={clientFollowUp}
           />
         </TabsContent>
 
