@@ -1880,6 +1880,8 @@
       "NOT_FOUND": "The application could not be found.",
       "SAVE_FAILED": "Could not save. Please try again.",
       "UPDATE_FAILED": "Could not update the application. Please try again."
-    }
+    },
+    "recommendationNeedsNoteHint": "Add a comment to save this recommendation.",
+    "recommendationAlreadySaved": "This recommendation is already saved. Change the recommendation or the comment to save again."
   }
 }

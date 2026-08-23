@@ -697,8 +697,31 @@ function RecommendationCard({
   const [note, setNote] = useState(review.recommendationNote ?? "");
 
   const needsNote = recommendationRequiresNote(recommendation);
+  const missingNote = needsNote && !note.trim();
+  // Nothing on screen differs from what is stored, so there is nothing to save.
   const changed =
     recommendation !== review.recommendation || note !== (review.recommendationNote ?? "");
+
+  // ---- WHY THE BUTTON IS DISABLED, SAID OUT LOUD ------------------------
+  //
+  // A silent disabled button is indistinguishable from a broken one. QA
+  // reported "Requiere más información" as unsaveable when it had in fact
+  // already saved: the screen matched the stored record, `changed` was false,
+  // and picking any OTHER recommendation lit the button up again — which reads
+  // exactly like a defect specific to that one option.
+  //
+  // The guard itself is right and stays: re-saving an identical recommendation
+  // would stamp a new timestamp and write a second audit event for a decision
+  // nobody changed. What was missing was the reason.
+  //
+  // "Already saved" is claimed only when a recommendation genuinely IS on
+  // record — `recommendationAt` is set solely by a real save — so this can
+  // never tell a reviewer their work is saved when it is not.
+  const disabledReason = missingNote
+    ? t("review.recommendationNeedsNoteHint")
+    : !changed && review.recommendationAt
+      ? t("review.recommendationAlreadySaved")
+      : null;
 
   return (
     <Panel title={t("review.recommendationTitle")} description={t("review.recommendationSubtitle")}>
@@ -750,9 +773,12 @@ function RecommendationCard({
         />
       </div>
 
-      <div className="flex justify-end">
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        {disabledReason && (
+          <p className="mr-auto text-xs text-muted-foreground">{disabledReason}</p>
+        )}
         <Button
-          disabled={locked || busy || !changed || (needsNote && !note.trim())}
+          disabled={locked || busy || !changed || missingNote}
           onClick={() =>
             apply(() =>
               setReviewRecommendationAction({ applicationId, recommendation, note })

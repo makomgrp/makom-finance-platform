@@ -1880,6 +1880,8 @@
       "NOT_FOUND": "No se encontró la solicitud.",
       "SAVE_FAILED": "No se pudo guardar. Intente nuevamente.",
       "UPDATE_FAILED": "No se pudo actualizar la solicitud. Intente nuevamente."
-    }
+    },
+    "recommendationNeedsNoteHint": "Escriba un comentario para poder guardar esta recomendación.",
+    "recommendationAlreadySaved": "Esta recomendación ya está guardada. Cambie la recomendación o el comentario para volver a guardar."
   }
 }
