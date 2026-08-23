@@ -21,8 +21,28 @@ import {
 } from "@/lib/services/follow-ups";
 import { CONTACT_METHODS, CONTACT_OUTCOMES } from "@/lib/config/follow-up";
 import { APPLICATION_STATUS_TRANSITIONABLE } from "@/lib/config/application";
+import {
+  addReviewObservation,
+  completeReview,
+  getApplicationReview,
+  reopenReview,
+  setReviewItemState,
+  setReviewRecommendation,
+  type ApplicationReviewView,
+  type CompletionBlocker,
+} from "@/lib/services/application-review";
+import {
+  recommendationRequiresNote,
+  REVIEW_ITEM_STATES,
+  REVIEW_OBSERVATION_CATEGORIES,
+  REVIEW_RECOMMENDATIONS,
+  type ReviewItemState,
+  type ReviewObservationCategory,
+  type ReviewRecommendation,
+} from "@/lib/config/application-review";
 import type {
   Application,
+  BranchScope,
   ApplicationFollowUp,
   ApplicationStatus,
   ContactMethod,
@@ -659,4 +679,218 @@ export async function completeFollowUpActionAction(input: {
   }
 
   return { status: "success", followUp: result.followUp };
+}
+
+// ============================================================================
+// MANUAL REVIEW ACTIONS (Milestone 26B-10)
+// ============================================================================
+//
+// CAPABILITY: `evidence:review`, reused rather than invented. It already means
+// "may reach a conclusion about this application's evidence" and is held by
+// administrador, gerente and analista — precisely the people who perform a
+// compliance and credit review. A new `review:perform` capability would have
+// been a second permission with the same name in a different spelling and the
+// same three holders.
+//
+// THE DECISION IS NOT HERE. Approving or rejecting the LOAN stays
+// setSolicitudApplicationStatus above, gated on `application:set_status`
+// (administrador, gerente only). An analista may therefore complete a review
+// recommending approval and still be unable to approve anything — which is the
+// separation the milestone asks for, expressed as two capabilities rather than
+// as a rule inside one.
+//
+// ORDERING, as everywhere else: requireCapability() FIRST, before validation
+// and before any read, so an unauthorized caller cannot use the difference
+// between NOT_FOUND and INVALID_INPUT to probe for applications they cannot
+// see. Branch scope is then re-checked inside every service call — a capability
+// says WHAT you may do, never WHERE.
+//
+// THE ACTOR IS NEVER TAKEN FROM THE REQUEST. Every reviewer identity written by
+// these actions is auth.profile.id, resolved server-side from the session. The
+// client cannot name who performed a review.
+
+export type ReviewActionResult =
+  | { status: "success"; review: ApplicationReviewView }
+  | { status: "blocked"; blockers: CompletionBlocker[] }
+  | {
+      status: "error";
+      code: "UNAUTHENTICATED" | "FORBIDDEN" | "INVALID_INPUT" | "NOT_FOUND" | "SAVE_FAILED";
+    };
+
+/** Re-reads the review after a successful mutation so the client renders what
+ * the database now holds, rather than patching its own copy and drifting. */
+async function reviewSuccess(
+  scope: BranchScope,
+  applicationId: string
+): Promise<ReviewActionResult> {
+  const refreshed = await getApplicationReview(scope, applicationId);
+  if (refreshed.status !== "ok") return { status: "error", code: "SAVE_FAILED" };
+  return { status: "success", review: refreshed.review };
+}
+
+/** Maps the service's codes onto the action contract. NOT_ACCESSIBLE becomes
+ * NOT_FOUND deliberately: out-of-scope and nonexistent must be
+ * indistinguishable, or this action becomes an existence oracle. */
+function reviewError(code: "NOT_ACCESSIBLE" | "NOT_FOUND" | "INVALID" | "UPDATE_FAILED") {
+  if (code === "NOT_ACCESSIBLE" || code === "NOT_FOUND") {
+    return { status: "error", code: "NOT_FOUND" } as const;
+  }
+  if (code === "INVALID") return { status: "error", code: "INVALID_INPUT" } as const;
+  return { status: "error", code: "SAVE_FAILED" } as const;
+}
+
+export async function getApplicationReviewAction(applicationId: string): Promise<ReviewActionResult> {
+  const auth = await requireCapability("evidence:review");
+  if (auth.status === "denied") return { status: "error", code: auth.code };
+  if (!isNonEmptyString(applicationId) || !UUID_PATTERN.test(applicationId)) {
+    return { status: "error", code: "INVALID_INPUT" };
+  }
+  return reviewSuccess(auth.profile.branchScope, applicationId);
+}
+
+export async function setReviewItemStateAction(input: {
+  applicationId: string;
+  itemCode: string;
+  state: ReviewItemState;
+  note?: string;
+}): Promise<ReviewActionResult> {
+  const auth = await requireCapability("evidence:review");
+  if (auth.status === "denied") return { status: "error", code: auth.code };
+
+  if (!isNonEmptyString(input.applicationId) || !UUID_PATTERN.test(input.applicationId)) {
+    return { status: "error", code: "INVALID_INPUT" };
+  }
+  // The state vocabulary is closed. An unrecognised value is rejected here
+  // rather than handed to the database to refuse, and the item code is checked
+  // against the catalogue inside the service.
+  if (!(REVIEW_ITEM_STATES as readonly string[]).includes(input.state)) {
+    return { status: "error", code: "INVALID_INPUT" };
+  }
+
+  const result = await setReviewItemState(
+    auth.profile.branchScope,
+    input.applicationId,
+    input.itemCode,
+    input.state,
+    input.note ?? null,
+    auth.profile.id
+  );
+  if (result.status !== "ok") return reviewError(result.code);
+  return reviewSuccess(auth.profile.branchScope, input.applicationId);
+}
+
+export async function addReviewObservationAction(input: {
+  applicationId: string;
+  category: ReviewObservationCategory;
+  body: string;
+}): Promise<ReviewActionResult> {
+  const auth = await requireCapability("evidence:review");
+  if (auth.status === "denied") return { status: "error", code: auth.code };
+
+  if (!isNonEmptyString(input.applicationId) || !UUID_PATTERN.test(input.applicationId)) {
+    return { status: "error", code: "INVALID_INPUT" };
+  }
+  if (!(REVIEW_OBSERVATION_CATEGORIES as readonly string[]).includes(input.category)) {
+    return { status: "error", code: "INVALID_INPUT" };
+  }
+  if (!isNonEmptyString(input.body)) return { status: "error", code: "INVALID_INPUT" };
+  // The column is unbounded text; this is the practical ceiling so one paste
+  // cannot become an unremovable wall in an append-only table.
+  if (input.body.trim().length > 4000) return { status: "error", code: "INVALID_INPUT" };
+
+  const result = await addReviewObservation(
+    auth.profile.branchScope,
+    input.applicationId,
+    input.category,
+    input.body,
+    auth.profile.id
+  );
+  if (result.status !== "ok") return reviewError(result.code);
+  return reviewSuccess(auth.profile.branchScope, input.applicationId);
+}
+
+/**
+ * Records the reviewer's recommendation.
+ *
+ * A RECOMMENDATION IS NOT A DECISION and this action proves it: it holds
+ * `evidence:review`, not `application:set_status`, and it never calls
+ * setApplicationStatus. The application's status is untouched by every path
+ * through here.
+ */
+export async function setReviewRecommendationAction(input: {
+  applicationId: string;
+  recommendation: ReviewRecommendation;
+  note?: string;
+}): Promise<ReviewActionResult> {
+  const auth = await requireCapability("evidence:review");
+  if (auth.status === "denied") return { status: "error", code: auth.code };
+
+  if (!isNonEmptyString(input.applicationId) || !UUID_PATTERN.test(input.applicationId)) {
+    return { status: "error", code: "INVALID_INPUT" };
+  }
+  if (!(REVIEW_RECOMMENDATIONS as readonly string[]).includes(input.recommendation)) {
+    return { status: "error", code: "INVALID_INPUT" };
+  }
+  // Mirrors the CHECK constraint so the reviewer is told what is missing
+  // instead of receiving a constraint violation.
+  if (recommendationRequiresNote(input.recommendation) && !isNonEmptyString(input.note)) {
+    return { status: "error", code: "INVALID_INPUT" };
+  }
+
+  const result = await setReviewRecommendation(
+    auth.profile.branchScope,
+    input.applicationId,
+    input.recommendation,
+    input.note ?? null,
+    auth.profile.id
+  );
+  if (result.status !== "ok") return reviewError(result.code);
+  return reviewSuccess(auth.profile.branchScope, input.applicationId);
+}
+
+/**
+ * Marks the review finished.
+ *
+ * `blocked` is a first-class outcome, not an error: the reviewer is told which
+ * conditions are unmet so they can go and meet them. The service re-evaluates
+ * those conditions against the live record — this action does not pre-judge
+ * them, and a client that hides the button cannot be relied upon.
+ */
+export async function completeReviewAction(applicationId: string): Promise<ReviewActionResult> {
+  const auth = await requireCapability("evidence:review");
+  if (auth.status === "denied") return { status: "error", code: auth.code };
+  if (!isNonEmptyString(applicationId) || !UUID_PATTERN.test(applicationId)) {
+    return { status: "error", code: "INVALID_INPUT" };
+  }
+
+  const result = await completeReview(auth.profile.branchScope, applicationId, auth.profile.id);
+  if (result.status === "blocked") return { status: "blocked", blockers: result.blockers };
+  if (result.status !== "ok") {
+    return reviewError(result.code === "NOT_ACCESSIBLE" ? "NOT_ACCESSIBLE" : result.code);
+  }
+  return reviewSuccess(auth.profile.branchScope, applicationId);
+}
+
+/** Reopens a completed review. The reason is required and is recorded in the
+ * append-only event log — see reopenReview. */
+export async function reopenReviewAction(input: {
+  applicationId: string;
+  reason: string;
+}): Promise<ReviewActionResult> {
+  const auth = await requireCapability("evidence:review");
+  if (auth.status === "denied") return { status: "error", code: auth.code };
+
+  if (!isNonEmptyString(input.applicationId) || !UUID_PATTERN.test(input.applicationId)) {
+    return { status: "error", code: "INVALID_INPUT" };
+  }
+  if (!isNonEmptyString(input.reason)) return { status: "error", code: "INVALID_INPUT" };
+
+  const result = await reopenReview(
+    auth.profile.branchScope,
+    input.applicationId,
+    input.reason,
+    auth.profile.id
+  );
+  if (result.status !== "ok") return reviewError(result.code);
+  return reviewSuccess(auth.profile.branchScope, input.applicationId);
 }

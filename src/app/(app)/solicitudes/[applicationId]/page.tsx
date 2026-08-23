@@ -8,6 +8,7 @@ import { getApplicationDeclarations } from "@/lib/services/application-declarati
 import { getRequirementSlotsByApplicationId } from "@/lib/services/requirement-slots";
 import { getEvidenceByApplicationId } from "@/lib/services/document-evidence";
 import { getClientById } from "@/lib/services/clients";
+import { getApplicationReview } from "@/lib/services/application-review";
 import { isFormalApplication } from "@/types";
 import { ApplicationDossierView } from "./application-dossier-view";
 import type { Locale } from "@/i18n/config";
@@ -59,14 +60,24 @@ export default async function ApplicationDossierPage({
   // Not received by ODL => not an operational case => no dossier.
   if (!isFormalApplication(application.status)) notFound();
 
-  const [step2Result, declarationsResult, slotsResult, evidenceResult, clientResult] =
-    await Promise.all([
-      getApplicationStep2(scope, application.id),
-      getApplicationDeclarations(application.id),
-      getRequirementSlotsByApplicationId(scope, application.id),
-      getEvidenceByApplicationId(scope, application.id),
-      getClientById(scope, application.clientId),
-    ]);
+  const [
+    step2Result,
+    declarationsResult,
+    slotsResult,
+    evidenceResult,
+    clientResult,
+    reviewResult,
+  ] = await Promise.all([
+    getApplicationStep2(scope, application.id),
+    getApplicationDeclarations(application.id),
+    getRequirementSlotsByApplicationId(scope, application.id),
+    getEvidenceByApplicationId(scope, application.id),
+    getClientById(scope, application.clientId),
+    // MILESTONE 26B-10. Loaded here rather than by the client, so the review is
+    // present on first paint and is read through the SAME scope that already
+    // decided this page may render at all.
+    getApplicationReview(scope, application.id),
+  ]);
 
   return (
     <ApplicationDossierView
@@ -77,6 +88,7 @@ export default async function ApplicationDossierPage({
       declarations={declarationsResult.status === "ok" ? declarationsResult.declarations : undefined}
       requirementSlots={slotsResult.status === "ok" ? slotsResult.requirementSlots : []}
       evidence={evidenceResult.status === "ok" ? evidenceResult.evidence : []}
+      review={reviewResult.status === "ok" ? reviewResult.review : undefined}
       loadError={step2Result.status !== "ok" || slotsResult.status !== "ok"}
     />
   );

@@ -4,6 +4,7 @@ import { applyBranchScope, isBranchDeniedError, isEmptyScope, withScopedParent }
 import { REQUIREMENT_SLOT_STATUS_TRANSITIONS } from "@/lib/config/requirement-slot";
 import type {
   BranchScope,
+  DocumentEvidence,
   LocalizedText,
   RequirementKind,
   RequirementSlot,
@@ -783,4 +784,69 @@ export async function getApplicationDocumentProgress(
     );
     return { status: "error" };
   }
+}
+
+/**
+ * ============================================================================
+ * MILESTONE 26B-10 — ONE APPLICATION'S DOCUMENT PICTURE
+ * ============================================================================
+ *
+ * The same three counts as `getApplicationDocumentProgress`, for a single
+ * application, derived from slots and evidence the caller already holds.
+ *
+ * WHY NOT JUST CALL THE MAP VERSION? Because it answers a different-shaped
+ * question. That one exists so Solicitudes can price FIFTY applications in two
+ * round trips — it queries every slot in the viewer's whole branch scope and
+ * buckets by application. Calling it to render one dossier would load a
+ * branch's worth of rows to report on one file.
+ *
+ * These are not two implementations of one rule. The rule itself —
+ * `evaluateFileCompletion`, `min_files`, superseded files not counting,
+ * satisfied|waived being what "reviewed" means — is `evaluateFileCompletion`
+ * and the two status checks below, and both paths run exactly those. What
+ * differs is only where the rows come from.
+ *
+ * REJECTED IS REPORTED, NOT INVENTED. A `rejected` requirement slot is the
+ * existing document-review verdict from Milestone 12E; the review workspace
+ * surfaces it rather than modelling a second notion of a bad document.
+ */
+export interface ApplicationDocumentSummary extends ApplicationDocumentProgress {
+  /** Requirements a reviewer explicitly turned back. */
+  rejected: number;
+}
+
+export function summariseDocumentProgress(
+  slots: readonly Pick<RequirementSlot, "id" | "status" | "minFiles" | "requirementKind">[],
+  evidence: readonly Pick<DocumentEvidence, "id" | "requirementSlotId" | "replacesEvidenceId">[]
+): ApplicationDocumentSummary {
+  const superseded = new Set(
+    evidence.map((row) => row.replacesEvidenceId).filter((id): id is string => Boolean(id))
+  );
+
+  const liveFilesBySlot = new Map<string, number>();
+  for (const row of evidence) {
+    if (superseded.has(row.id)) continue;
+    liveFilesBySlot.set(row.requirementSlotId, (liveFilesBySlot.get(row.requirementSlotId) ?? 0) + 1);
+  }
+
+  const summary: ApplicationDocumentSummary = { received: 0, reviewed: 0, total: 0, rejected: 0 };
+  for (const slot of slots) {
+    // Document requirements only — an internal approval or a phone check is a
+    // requirement, but it is not a document and must not dilute this count.
+    if (slot.requirementKind !== "document") continue;
+    summary.total += 1;
+
+    if (
+      evaluateFileCompletion(
+        { id: slot.id, minFiles: slot.minFiles ?? null },
+        liveFilesBySlot.get(slot.id) ?? 0
+      ).isFileComplete
+    ) {
+      summary.received += 1;
+    }
+
+    if (slot.status === "satisfied" || slot.status === "waived") summary.reviewed += 1;
+    if (slot.status === "rejected") summary.rejected += 1;
+  }
+  return summary;
 }

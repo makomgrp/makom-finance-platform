@@ -4,10 +4,12 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { ArrowLeft, FileText } from "lucide-react";
 import { StatusBadge } from "@/components/shared/status-badge";
+import { ApplicationReviewPanel } from "@/components/review/application-review-panel";
 import { BranchOriginLabel } from "@/components/shared/branch-origin-label";
 import { APPLICATION_STATUS_BADGE_CLASS } from "@/lib/config/application";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import type { ApplicationReviewView } from "@/lib/services/application-review";
 import type { Locale } from "@/i18n/config";
 import type {
   ApplicationDeclarationSet,
@@ -60,6 +62,10 @@ export interface ApplicationDossierViewProps {
   declarations?: ApplicationDeclarationSet;
   requirementSlots: RequirementSlot[];
   evidence: DocumentEvidence[];
+  /** MILESTONE 26B-10 — absent only when the review failed to load; the rest
+   * of the dossier still renders, because a reviewer's workspace being
+   * unavailable is no reason to hide the loan. */
+  review?: ApplicationReviewView;
   loadError: boolean;
 }
 
@@ -71,6 +77,7 @@ export function ApplicationDossierView({
   declarations,
   requirementSlots,
   evidence,
+  review,
   loadError,
 }: ApplicationDossierViewProps) {
   const t = useTranslations();
@@ -186,6 +193,20 @@ export function ApplicationDossierView({
         <div role="alert" className="rounded-xl border border-destructive/30 bg-destructive/[0.06] p-4">
           <p className="text-sm font-medium text-destructive">{t("applicationDossier.loadError")}</p>
         </div>
+      )}
+
+      {/* ================= MANUAL REVIEW (26B-10) =================
+          First, deliberately. A reviewer opening this file needs to see what
+          has been checked and what is still open before reading the data, and
+          a decision-maker needs the recommendation without hunting for it. The
+          application's own data sits below, unchanged and still the source for
+          every fact in it. */}
+      {review && (
+        <ApplicationReviewPanel
+          applicationId={application.id}
+          applicationStatus={application.status}
+          review={review}
+        />
       )}
 
       {/* ================= APPLICANT IDENTITY ================= */}
