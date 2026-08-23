@@ -312,7 +312,6 @@ export function ProductsSection({ products: initialProducts, hasError }: Product
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>{t("settings.products.columns.code")}</TableHead>
                   <TableHead>{t("settings.products.columns.name")}</TableHead>
                   <TableHead>{t("settings.products.columns.status")}</TableHead>
                   <TableHead>{t("settings.products.columns.order")}</TableHead>
@@ -326,7 +325,6 @@ export function ProductsSection({ products: initialProducts, hasError }: Product
 
                   return (
                     <TableRow key={product.id}>
-                      <TableCell className="font-mono text-xs text-muted-foreground">{product.code}</TableCell>
                       <TableCell className="font-medium text-foreground">{product.name[locale]}</TableCell>
                       <TableCell>
                         <StatusBadge

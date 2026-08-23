@@ -707,7 +707,6 @@
       "moveUp": "Mover hacia arriba",
       "moveDown": "Mover hacia abajo",
       "columns": {
-        "code": "Código",
         "name": "Nombre",
         "status": "Estado",
         "order": "Orden",
