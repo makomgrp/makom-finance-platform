@@ -15,6 +15,8 @@ import { PersonalDataTab } from "@/components/dossier/tabs/personal-data-tab";
 import { RequirementsTab } from "@/components/dossier/tabs/requirements-tab";
 import { NotesTab } from "@/components/dossier/tabs/notes-tab";
 import { AlertsTab } from "@/components/dossier/tabs/alerts-tab";
+import { EmailTab } from "@/components/dossier/tabs/email-tab";
+import type { EmailMessageListItem } from "@/lib/services/email-messages";
 import { ActivityTab } from "@/components/dossier/tabs/activity-tab";
 import { getDossierRequirements } from "@/app/(app)/expedientes/actions";
 import { setSolicitudApplicationStatus } from "@/app/(app)/solicitudes/actions";
@@ -60,6 +62,9 @@ interface DossierViewProps {
   notesLoadError: boolean;
   initialAlerts: DossierAlert[];
   alertsLoadError: boolean;
+  /** MILESTONE 26B-9B — messages linked to this customer, both directions. */
+  emails: EmailMessageListItem[];
+  mailbox: string | null;
   /** This client's real Applications (Milestone 13E — replaces the demo
    * LoanApplication[] this component used to seed itself from). May be
    * empty — a client with no real Application yet is the expected,
@@ -92,7 +97,7 @@ interface DossierViewProps {
 // Milestone 19 restored "actividad" — this time backed by persisted
 // records rather than the fixture history Milestone 18 removed — so
 // ?tab=actividad selects it again.
-const VALID_TABS = ["resumen", "datos", "documentos", "notas", "alertas", "actividad"];
+const VALID_TABS = ["resumen", "datos", "documentos", "notas", "correo", "alertas", "actividad"];
 
 export function DossierView({
   initialClient,
@@ -102,6 +107,8 @@ export function DossierView({
   notesLoadError,
   initialAlerts,
   alertsLoadError,
+  emails,
+  mailbox,
   initialApplications,
   initialRequirementsByApplicationId,
   activities,
@@ -230,6 +237,7 @@ export function DossierView({
           <TabsTrigger value="datos">{t("dossier.tabs.personalData")}</TabsTrigger>
           <TabsTrigger value="documentos">{t("dossier.tabs.documents")}</TabsTrigger>
           <TabsTrigger value="notas">{t("dossier.tabs.notes")}</TabsTrigger>
+          <TabsTrigger value="correo">{t("email.clientTab.title")}</TabsTrigger>
           <TabsTrigger value="alertas">{t("dossier.tabs.alerts")}</TabsTrigger>
           <TabsTrigger value="actividad">{t("dossier.tabs.activity")}</TabsTrigger>
         </TabsList>
@@ -261,6 +269,15 @@ export function DossierView({
             notes={notes}
             onNotesChange={setNotes}
             loadError={notesLoadError}
+          />
+        </TabsContent>
+
+        <TabsContent value="correo" className="mt-4">
+          <EmailTab
+            clientId={client.id}
+            clientEmail={client.email}
+            messages={emails}
+            mailbox={mailbox}
           />
         </TabsContent>
 

@@ -30,19 +30,26 @@ export interface EmailAttachmentMeta {
 
 export interface EmailMessageListItem {
   id: string;
+  /** MILESTONE 26B-9B — which way this message travelled. */
+  direction: "inbound" | "outbound";
   fromAddress: string;
   fromName?: string;
   subject?: string;
+  /** When it arrived (inbound) or left (outbound) — the single ordering key,
+   * resolved by the generated `occurred_at` column. */
   receivedAt: string;
   hasAttachments: boolean;
   attachmentCount: number;
   matchStatus: EmailMatchStatus;
   linkedClientId?: string;
   linkedClientName?: string;
+  /** Recipients, so a SENT row can lead with who it went to rather than with
+   * ODL's own address — which is the same for every sent message and therefore
+   * tells the reader nothing. */
+  toAddresses: string[];
 }
 
 export interface EmailMessageDetail extends EmailMessageListItem {
-  toAddresses: string[];
   ccAddresses: string[];
   bodyText?: string;
   /** ALREADY SANITISED. See sanitizeEmailHtml — never the raw source. */
@@ -263,23 +270,31 @@ export async function persistFetchedMessages(
 }
 
 const MESSAGE_SELECT =
-  "id, from_address, from_name, subject, received_at, has_attachments, attachment_count, " +
-  "match_status, linked_client_id, to_addresses, cc_addresses, body_text, body_html, linked_at, " +
+  "id, direction, from_address, from_name, subject, received_at, sent_at, occurred_at, " +
+  "has_attachments, attachment_count, " +
+  "match_status, linked_client_id, to_addresses, cc_addresses, bcc_addresses, body_text, body_html, linked_at, " +
+  "reply_to_email_id, in_reply_to, " +
   "linked_client:clients!email_messages_linked_client_id_fkey(full_name), " +
   "linked_by:profiles!email_messages_linked_by_profile_id_fkey(full_name)";
 
 interface EmailRow {
   id: string;
+  direction: "inbound" | "outbound";
   from_address: string;
   from_name: string | null;
   subject: string | null;
-  received_at: string;
+  received_at: string | null;
+  sent_at: string | null;
+  occurred_at: string;
   has_attachments: boolean;
   attachment_count: number;
   match_status: EmailMatchStatus;
   linked_client_id: string | null;
   to_addresses: string[] | null;
   cc_addresses: string[] | null;
+  bcc_addresses: string[] | null;
+  reply_to_email_id: string | null;
+  in_reply_to: string | null;
   body_text: string | null;
   body_html: string | null;
   linked_at: string | null;
@@ -290,19 +305,23 @@ interface EmailRow {
 function toListItem(row: EmailRow): EmailMessageListItem {
   return {
     id: row.id,
+    direction: row.direction,
     fromAddress: row.from_address,
     fromName: row.from_name ?? undefined,
     subject: row.subject ?? undefined,
-    receivedAt: row.received_at,
+    receivedAt: row.occurred_at,
     hasAttachments: row.has_attachments,
     attachmentCount: row.attachment_count,
     matchStatus: row.match_status,
     linkedClientId: row.linked_client_id ?? undefined,
     linkedClientName: row.linked_client?.full_name ?? undefined,
+    toAddresses: row.to_addresses ?? [],
   };
 }
 
 export type EmailFilter = "all" | "linked" | "unlinked";
+/** MILESTONE 26B-9B — Recibidos / Enviados, alongside the link filter. */
+export type EmailDirectionFilter = "all" | "inbound" | "outbound";
 
 export type GetEmailMessagesResult =
   | { status: "ok"; messages: EmailMessageListItem[] }
@@ -324,11 +343,25 @@ export type GetEmailMessagesResult =
  */
 export async function getEmailMessages(
   scope: BranchScope,
-  options: { filter: EmailFilter; search?: string; limit?: number; includeUnlinked: boolean }
+  options: {
+    filter: EmailFilter;
+    direction?: EmailDirectionFilter;
+    search?: string;
+    limit?: number;
+    includeUnlinked: boolean;
+  }
 ): Promise<GetEmailMessagesResult> {
   if (isEmptyScope(scope)) return { status: "ok", messages: [] };
 
   const limit = options.limit ?? 100;
+  // Expressed as a set so one `.in()` serves all three states and "all" needs
+  // no branch of its own.
+  const directions =
+    options.direction === "inbound"
+      ? ["inbound"]
+      : options.direction === "outbound"
+        ? ["outbound"]
+        : ["inbound", "outbound"];
 
   try {
     const supabase = getSupabaseServerClient();
@@ -344,11 +377,12 @@ export async function getEmailMessages(
             supabase
               .from("email_messages")
               .select(withScopedParent(MESSAGE_SELECT, scope, "scope_client:clients!inner(branch_id)"))
-              .in("match_status", ["auto_linked", "manual_linked"]),
+              .in("match_status", ["auto_linked", "manual_linked"])
+            .in("direction", directions),
             scope,
             "scope_client.branch_id"
           )
-            .order("received_at", { ascending: false })
+            .order("occurred_at", { ascending: false })
             .limit(limit);
 
     const unlinkedPromise =
@@ -358,7 +392,8 @@ export async function getEmailMessages(
             .from("email_messages")
             .select(MESSAGE_SELECT)
             .in("match_status", ["unlinked", "ambiguous"])
-            .order("received_at", { ascending: false })
+            .in("direction", directions)
+            .order("occurred_at", { ascending: false })
             .limit(limit);
 
     const [linkedResult, unlinkedResult] = await Promise.all([linkedPromise, unlinkedPromise]);
@@ -382,12 +417,14 @@ export async function getEmailMessages(
       ? rows.filter(
           (row) =>
             row.from_address.toLowerCase().includes(term) ||
+            // Sent mail is found by who it went TO, not who it came from.
+            (row.to_addresses ?? []).some((address) => address.toLowerCase().includes(term)) ||
             (row.subject ?? "").toLowerCase().includes(term) ||
             (row.linked_client?.full_name ?? "").toLowerCase().includes(term)
         )
       : rows;
 
-    filtered.sort((a, b) => b.received_at.localeCompare(a.received_at));
+    filtered.sort((a, b) => b.occurred_at.localeCompare(a.occurred_at));
     return { status: "ok", messages: filtered.slice(0, limit).map(toListItem) };
   } catch (error) {
     console.error(
@@ -452,7 +489,6 @@ export async function getEmailMessageById(
       status: "ok",
       message: {
         ...toListItem(data),
-        toAddresses: data.to_addresses ?? [],
         ccAddresses: data.cc_addresses ?? [],
         bodyText: data.body_text ?? undefined,
         bodySafeHtml: data.body_html ? sanitizeEmailHtml(data.body_html) : undefined,
@@ -645,6 +681,376 @@ export async function recordSyncOutcome(
     // A missing status row must never fail a sync that actually worked.
     console.error(
       "[email service] Failed to record sync outcome:",
+      error instanceof Error ? error.message : "unknown error"
+    );
+  }
+}
+
+/**
+ * ============================================================================
+ * MILESTONE 26B-9B — OUTBOUND
+ * ============================================================================
+ */
+
+/** RFC 5322 is far looser than this; the goal is to reject obvious mistakes,
+ * not to litigate the standard. Anything that passes still has to be accepted
+ * by the receiving server. */
+const EMAIL_PATTERN = /^[^\s@,;]+@[^\s@,;]+\.[^\s@,;]+$/;
+
+export interface RecipientParseResult {
+  valid: string[];
+  invalid: string[];
+}
+
+/**
+ * Splits, trims, lowercases and de-duplicates a recipient list.
+ *
+ * INVALID ADDRESSES ARE RETURNED, NOT DROPPED. Silently discarding a
+ * mistyped recipient means staff believe they wrote to someone they did not —
+ * the caller surfaces them so the person can fix the typo.
+ *
+ * DE-DUPLICATION IS CASE-INSENSITIVE because mail addresses are, in practice:
+ * `Juan@x.com` and `juan@x.com` are one person and must not receive two copies.
+ */
+export function parseRecipients(raw: string | string[]): RecipientParseResult {
+  const parts = (Array.isArray(raw) ? raw : raw.split(/[,;\n]/))
+    .map((value) => value.trim())
+    .filter(Boolean);
+
+  const seen = new Set<string>();
+  const valid: string[] = [];
+  const invalid: string[] = [];
+
+  for (const part of parts) {
+    const normalised = part.toLowerCase();
+    if (!EMAIL_PATTERN.test(normalised)) {
+      invalid.push(part);
+      continue;
+    }
+    if (seen.has(normalised)) continue;
+    seen.add(normalised);
+    valid.push(normalised);
+  }
+
+  return { valid, invalid };
+}
+
+export interface PersistOutboundInput {
+  mailbox: string;
+  messageId: string;
+  to: string[];
+  cc: string[];
+  bcc: string[];
+  subject: string;
+  bodyText: string;
+  sentAt: string;
+  sentByProfileId: string;
+  linkedClientId: string | null;
+  linkedApplicationId: string | null;
+  replyToEmailId: string | null;
+  forwardedFromEmailId: string | null;
+  inReplyTo: string | null;
+  sendKey: string;
+}
+
+export type PersistOutboundResult =
+  | { status: "ok"; id: string }
+  | { status: "duplicate" }
+  | { status: "error" };
+
+/**
+ * Records a message the CRM has ALREADY SENT.
+ *
+ * Called only after SMTP confirmed acceptance, so this row is a statement of
+ * fact rather than an intention. `match_status` follows the same vocabulary as
+ * inbound: a message sent from a customer's dossier is `manual_linked`, because
+ * a person chose that customer — nothing here was matched by machine.
+ *
+ * A `send_key` collision returns `duplicate` rather than an error: it means the
+ * same compose was submitted twice, which the caller reports as success for the
+ * first send rather than as a failure.
+ */
+export async function persistOutboundMessage(
+  input: PersistOutboundInput
+): Promise<PersistOutboundResult> {
+  const supabase = getSupabaseServerClient();
+
+  const { data, error } = await supabase
+    .from("email_messages")
+    .insert({
+      mailbox: input.mailbox,
+      folder: "SENT",
+      direction: "outbound",
+      message_id: input.messageId,
+      from_address: input.mailbox,
+      to_addresses: input.to,
+      cc_addresses: input.cc,
+      bcc_addresses: input.bcc,
+      subject: input.subject,
+      body_text: input.bodyText,
+      sent_at: input.sentAt,
+      sent_by_profile_id: input.sentByProfileId,
+      linked_client_id: input.linkedClientId,
+      linked_application_id: input.linkedApplicationId,
+      match_status: input.linkedClientId ? "manual_linked" : "unlinked",
+      linked_by_profile_id: input.linkedClientId ? input.sentByProfileId : null,
+      linked_at: input.linkedClientId ? input.sentAt : null,
+      reply_to_email_id: input.replyToEmailId,
+      forwarded_from_email_id: input.forwardedFromEmailId,
+      in_reply_to: input.inReplyTo,
+      send_key: input.sendKey,
+      has_attachments: false,
+      attachment_count: 0,
+    })
+    .select("id")
+    .single<{ id: string }>();
+
+  if (error) {
+    if (error.code === "23505") return { status: "duplicate" };
+    console.error("[email service] Failed to persist outbound message:", error.code ?? error.message);
+    return { status: "error" };
+  }
+  return { status: "ok", id: data.id };
+}
+
+export interface ReplyContext {
+  id: string;
+  messageId?: string;
+  fromAddress: string;
+  toAddresses: string[];
+  ccAddresses: string[];
+  subject?: string;
+  bodyText?: string;
+  linkedClientId?: string;
+  linkedApplicationId?: string;
+  direction: "inbound" | "outbound";
+  occurredAt: string;
+}
+
+export type GetReplyContextResult =
+  | { status: "ok"; context: ReplyContext }
+  | { status: "not_found" }
+  | { status: "error" };
+
+/**
+ * Loads the message a reply or forward is built from, through the caller's
+ * scope.
+ *
+ * THE CONTEXT IS RE-READ SERVER-SIDE rather than trusted from the browser: the
+ * recipient of a reply, and the customer it stays attached to, are decided from
+ * the stored row. A request that names a message the caller cannot reach gets
+ * `not_found`, which is also what a non-existent id gets.
+ */
+export async function getReplyContext(
+  scope: BranchScope,
+  emailId: string,
+  includeUnlinked: boolean
+): Promise<GetReplyContextResult> {
+  if (isEmptyScope(scope)) return { status: "not_found" };
+
+  try {
+    const supabase = getSupabaseServerClient();
+    const { data, error } = await supabase
+      .from("email_messages")
+      .select(
+        "id, message_id, from_address, to_addresses, cc_addresses, subject, body_text, " +
+          "linked_client_id, linked_application_id, direction, occurred_at"
+      )
+      .eq("id", emailId)
+      .maybeSingle<{
+        id: string;
+        message_id: string | null;
+        from_address: string;
+        to_addresses: string[] | null;
+        cc_addresses: string[] | null;
+        subject: string | null;
+        body_text: string | null;
+        linked_client_id: string | null;
+        linked_application_id: string | null;
+        direction: "inbound" | "outbound";
+        occurred_at: string;
+      }>();
+
+    if (error) {
+      console.error("[email service] Failed to load reply context:", error.message);
+      return { status: "error" };
+    }
+    if (!data) return { status: "not_found" };
+
+    if (data.linked_client_id) {
+      const accessible = await applyBranchScope(
+        supabase.from("clients").select("id").eq("id", data.linked_client_id),
+        scope
+      );
+      if (accessible.error || (accessible.data ?? []).length === 0) return { status: "not_found" };
+    } else if (!includeUnlinked) {
+      return { status: "not_found" };
+    }
+
+    return {
+      status: "ok",
+      context: {
+        id: data.id,
+        messageId: data.message_id ?? undefined,
+        fromAddress: data.from_address,
+        toAddresses: data.to_addresses ?? [],
+        ccAddresses: data.cc_addresses ?? [],
+        subject: data.subject ?? undefined,
+        bodyText: data.body_text ?? undefined,
+        linkedClientId: data.linked_client_id ?? undefined,
+        linkedApplicationId: data.linked_application_id ?? undefined,
+        direction: data.direction,
+        occurredAt: data.occurred_at,
+      },
+    };
+  } catch (error) {
+    console.error(
+      "[email service] Unexpected failure loading reply context:",
+      error instanceof Error ? error.message : "unknown error"
+    );
+    return { status: "error" };
+  }
+}
+
+/**
+ * Emails belonging to one customer, both directions.
+ *
+ * SCOPED THROUGH THE CLIENT, which is the whole authorization story: if the
+ * caller can reach the client they can read that client's correspondence, and
+ * if they cannot, this returns nothing. No separate ownership rule was invented
+ * for email — the dossier's existing boundary is reused, so an advisor sees the
+ * mail for customers they already work and nothing else. Unlinked global mail
+ * has no client and therefore never appears here.
+ */
+export async function getClientEmails(
+  scope: BranchScope,
+  clientId: string,
+  limit = 25
+): Promise<GetEmailMessagesResult> {
+  if (isEmptyScope(scope)) return { status: "ok", messages: [] };
+
+  try {
+    const supabase = getSupabaseServerClient();
+
+    const accessible = await applyBranchScope(
+      supabase.from("clients").select("id").eq("id", clientId),
+      scope
+    );
+    if (accessible.error || (accessible.data ?? []).length === 0) {
+      return { status: "ok", messages: [] };
+    }
+
+    const { data, error } = await supabase
+      .from("email_messages")
+      .select(MESSAGE_SELECT)
+      .eq("linked_client_id", clientId)
+      .order("occurred_at", { ascending: false })
+      .limit(limit);
+
+    if (error) {
+      console.error("[email service] Failed to load client emails:", error.message);
+      return { status: "error" };
+    }
+
+    return { status: "ok", messages: ((data ?? []) as unknown as EmailRow[]).map(toListItem) };
+  } catch (error) {
+    console.error(
+      "[email service] Unexpected failure loading client emails:",
+      error instanceof Error ? error.message : "unknown error"
+    );
+    return { status: "error" };
+  }
+}
+
+/** Is this client inside the caller's branch scope? The single question every
+ * "the browser sent me an id" path has to answer before trusting it. */
+export async function isClientAccessible(scope: BranchScope, clientId: string): Promise<boolean> {
+  if (isEmptyScope(scope)) return false;
+  try {
+    const supabase = getSupabaseServerClient();
+    const { data, error } = await applyBranchScope(
+      supabase.from("clients").select("id").eq("id", clientId),
+      scope
+    );
+    return !error && (data ?? []).length > 0;
+  } catch {
+    return false;
+  }
+}
+
+/** Is this application both reachable AND actually this client's? The second
+ * half matters: a customer may have several processes, and filing a message
+ * against the wrong one is a quieter error than filing it against the wrong
+ * person but just as wrong. */
+export async function isApplicationAccessible(
+  scope: BranchScope,
+  applicationId: string,
+  clientId: string
+): Promise<boolean> {
+  if (isEmptyScope(scope)) return false;
+  try {
+    const supabase = getSupabaseServerClient();
+    const { data, error } = await applyBranchScope(
+      supabase
+        .from("applications")
+        .select("id")
+        .eq("id", applicationId)
+        .eq("client_id", clientId),
+      scope
+    );
+    return !error && (data ?? []).length > 0;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Records "we wrote to them" in the customer's activity.
+ *
+ * SUBJECT AND ID ONLY — never the body. `crm_events` is append-only with no
+ * delete path, so a message copied into it could never be corrected or erased.
+ * A subject is enough to recognise the message; the message itself is one click
+ * away in the mailbox.
+ *
+ * NON-FATAL BY DESIGN. The email has already been sent and recorded; failing
+ * the whole operation because a history row did not write would be reporting a
+ * success as a failure.
+ */
+export async function recordEmailSentEvent(input: {
+  emailId: string;
+  clientId: string | null;
+  applicationId: string | null;
+  subject: string;
+  actorProfileId: string;
+}): Promise<void> {
+  // No customer means no customer activity to append to. The message is still
+  // in the mailbox; it simply has no dossier to appear in.
+  if (!input.clientId) return;
+
+  try {
+    const supabase = getSupabaseServerClient();
+    const { data: client } = await supabase
+      .from("clients")
+      .select("branch_id")
+      .eq("id", input.clientId)
+      .maybeSingle<{ branch_id: string | null }>();
+
+    await supabase.from("crm_events").insert({
+      event_type: "email_sent",
+      entity_type: "email_message",
+      entity_id: input.emailId,
+      client_id: input.clientId,
+      application_id: input.applicationId,
+      actor_profile_id: input.actorProfileId,
+      actor_kind: "human",
+      source: "crm_manual",
+      previous_value: null,
+      new_value: { subject: input.subject },
+      branch_id: client?.branch_id ?? null,
+    });
+  } catch (error) {
+    console.error(
+      "[email service] Failed to record email_sent activity:",
       error instanceof Error ? error.message : "unknown error"
     );
   }

@@ -6,6 +6,7 @@ import { getMailboxAddress } from "@/lib/config/mail";
 import {
   getEmailMessages,
   getEmailSyncState,
+  type EmailDirectionFilter,
   type EmailFilter,
 } from "@/lib/services/email-messages";
 import { getClients } from "@/lib/services/clients";
@@ -29,21 +30,25 @@ import { CorreoView } from "./correo-view";
 export default async function CorreoPage({
   searchParams,
 }: {
-  searchParams: Promise<{ filtro?: string; q?: string }>;
+  searchParams: Promise<{ filtro?: string; q?: string; dir?: string }>;
 }) {
   const profile = await getCurrentProfile();
   if (!profile?.capabilities.includes("email:manage")) redirect("/dashboard");
 
   const t = await getTranslations("email");
-  const { filtro, q } = await searchParams;
+  const { filtro, q, dir } = await searchParams;
   const filter: EmailFilter =
     filtro === "linked" || filtro === "unlinked" ? filtro : "all";
+  // MILESTONE 26B-9B — Recibidos / Enviados. Anything else falls back to both.
+  const direction: EmailDirectionFilter =
+    dir === "inbound" || dir === "outbound" ? dir : "all";
 
   const mailbox = getMailboxAddress();
 
   const [messagesResult, syncState, clientsResult] = await Promise.all([
     getEmailMessages(profile.branchScope, {
       filter,
+      direction,
       search: q,
       // Holding email:manage IS the authorization for the unlinked queue —
       // those messages have no client and therefore no branch to scope by.
@@ -63,6 +68,7 @@ export default async function CorreoPage({
         initialMessages={messagesResult.status === "ok" ? messagesResult.messages : []}
         loadError={messagesResult.status === "error"}
         filter={filter}
+        direction={direction}
         search={q ?? ""}
         syncState={syncState}
         clients={

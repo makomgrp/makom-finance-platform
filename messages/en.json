@@ -1695,6 +1695,53 @@
       "linked": "Email linked to the customer.",
       "removed": "Link removed from the email.",
       "error": "The link could not be updated. Try again."
+    },
+    "from": "From",
+    "to": "To",
+    "cc": "CC",
+    "subject": "Subject",
+    "message": "Message",
+    "directions": {
+      "all": "All",
+      "inbound": "Received",
+      "outbound": "Sent"
+    },
+    "compose": {
+      "new": "New email",
+      "send": "Send",
+      "sending": "Sending...",
+      "reply": "Reply",
+      "replyAll": "Reply all",
+      "forward": "Forward",
+      "titleNew": "New email",
+      "titleReply": "Reply",
+      "titleReplyAll": "Reply all",
+      "titleForward": "Forward",
+      "quotedHeader": "On {date}, {sender} wrote:",
+      "sent": "Email sent.",
+      "sentNotRecorded": "The email was sent, but it could not be saved to the CRM history. Do not send it again.",
+      "invalidRecipients": "Invalid addresses: {list}"
+    },
+    "sendErrors": {
+      "not_configured": "The mailbox is not configured on the server.",
+      "auth_failed": "Could not sign in to the outgoing mail server.",
+      "tls_failed": "Could not establish a secure connection to send.",
+      "connection_failed": "Could not reach the outgoing mail server.",
+      "recipient_rejected": "The server rejected one or more recipients.",
+      "send_failed": "The email could not be sent.",
+      "uncertain": "Delivery could not be confirmed. Check the mailbox before trying again.",
+      "UNAUTHENTICATED": "Your session expired. Please sign in again.",
+      "FORBIDDEN": "You do not have permission to send email.",
+      "INVALID_INPUT": "Check the email fields.",
+      "CLIENT_NOT_ACCESSIBLE": "You do not have access to that customer.",
+      "CONTEXT_NOT_FOUND": "The original message could not be found."
+    },
+    "clientTab": {
+      "title": "Email",
+      "subtitle": "Messages linked to this customer.",
+      "emptyTitle": "No linked email",
+      "emptyDescription": "Emails linked to this customer will appear here.",
+      "compose": "Send email"
     }
   }
 }

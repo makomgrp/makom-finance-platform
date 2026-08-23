@@ -1695,6 +1695,53 @@
       "linked": "Correo vinculado al cliente.",
       "removed": "Se quitó el vínculo del correo.",
       "error": "No se pudo actualizar el vínculo. Intenta de nuevo."
+    },
+    "from": "De",
+    "to": "Para",
+    "cc": "CC",
+    "subject": "Asunto",
+    "message": "Mensaje",
+    "directions": {
+      "all": "Todos",
+      "inbound": "Recibidos",
+      "outbound": "Enviados"
+    },
+    "compose": {
+      "new": "Nuevo correo",
+      "send": "Enviar",
+      "sending": "Enviando...",
+      "reply": "Responder",
+      "replyAll": "Responder a todos",
+      "forward": "Reenviar",
+      "titleNew": "Nuevo correo",
+      "titleReply": "Responder",
+      "titleReplyAll": "Responder a todos",
+      "titleForward": "Reenviar",
+      "quotedHeader": "El {date}, {sender} escribió:",
+      "sent": "Correo enviado.",
+      "sentNotRecorded": "El correo se envió, pero no se pudo guardar en el historial del CRM. No lo envíes de nuevo.",
+      "invalidRecipients": "Direcciones no válidas: {list}"
+    },
+    "sendErrors": {
+      "not_configured": "El buzón no está configurado en el servidor.",
+      "auth_failed": "No se pudo iniciar sesión en el servidor de correo saliente.",
+      "tls_failed": "No se pudo establecer una conexión segura para enviar.",
+      "connection_failed": "No se pudo conectar con el servidor de correo saliente.",
+      "recipient_rejected": "El servidor rechazó uno o más destinatarios.",
+      "send_failed": "No se pudo enviar el correo.",
+      "uncertain": "No se pudo confirmar el envío. Revisa el buzón antes de intentarlo de nuevo.",
+      "UNAUTHENTICATED": "Tu sesión expiró. Inicia sesión de nuevo.",
+      "FORBIDDEN": "No tienes permiso para enviar correo.",
+      "INVALID_INPUT": "Revisa los campos del correo.",
+      "CLIENT_NOT_ACCESSIBLE": "No tienes acceso a ese cliente.",
+      "CONTEXT_NOT_FOUND": "No se encontró el mensaje original."
+    },
+    "clientTab": {
+      "title": "Correo",
+      "subtitle": "Mensajes vinculados a este cliente.",
+      "emptyTitle": "Sin correos vinculados",
+      "emptyDescription": "Los correos vinculados a este cliente aparecerán aquí.",
+      "compose": "Enviar correo"
     }
   }
 }

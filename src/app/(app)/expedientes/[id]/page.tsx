@@ -6,6 +6,8 @@ import { getClientById } from "@/lib/services/clients";
 import { getNotesByClientId } from "@/lib/services/notes";
 import { getAlertsByClientId } from "@/lib/services/alerts";
 import { getApplications } from "@/lib/services/applications";
+import { getClientEmails } from "@/lib/services/email-messages";
+import { getMailboxAddress } from "@/lib/config/mail";
 import { getActiveDraftForClient } from "@/lib/services/pipeline";
 import { getRequirementSlotsByApplicationId } from "@/lib/services/requirement-slots";
 import { getEvidenceByApplicationId } from "@/lib/services/document-evidence";
@@ -99,13 +101,17 @@ export default async function ExpedientePage({
   // like someone with no process at all. The draft is read separately, through
   // its own branch predicate, so knowing a client id never becomes authority to
   // see an application.
-  const [notesResult, alertsResult, applicationsResult, crmEventsResult, activeDraft] =
+  const [notesResult, alertsResult, applicationsResult, crmEventsResult, activeDraft, emailsResult] =
     await Promise.all([
       getNotesByClientId(scope, client.id),
       getAlertsByClientId(scope, client.id),
       getApplications(scope),
       getClientCrmEvents(scope, client.id),
       getActiveDraftForClient(scope, client.id),
+      // MILESTONE 26B-9B — this customer's correspondence. Scoped through the
+      // client inside the service, so it inherits the dossier's own boundary
+      // rather than introducing one of its own.
+      getClientEmails(scope, client.id),
     ]);
 
   const applications =
@@ -149,6 +155,8 @@ export default async function ExpedientePage({
       initialRequirementsByApplicationId={requirementsByApplicationId}
       activeDraft={activeDraft}
       activities={activities}
+      emails={emailsResult.status === "ok" ? emailsResult.messages : []}
+      mailbox={getMailboxAddress()}
     />
   );
 }
