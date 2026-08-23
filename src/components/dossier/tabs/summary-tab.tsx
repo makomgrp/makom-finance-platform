@@ -1,7 +1,17 @@
 "use client";
 
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
-import { FileText } from "lucide-react";
+import { toast } from "sonner";
+import { FileText, PhoneCall } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  LogFollowUpDialog,
+  type LogFollowUpSubmit,
+} from "@/components/applications/log-follow-up-dialog";
+import { logFollowUpAction } from "@/app/(app)/solicitudes/actions";
+import { useCapability } from "@/lib/auth/use-capability";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { StatusBadge } from "@/components/shared/status-badge";
@@ -36,6 +46,41 @@ interface SummaryTabProps {
 }
 
 export function SummaryTab({ client, application, requirementsData, activeDraft }: SummaryTabProps) {
+  const router = useRouter();
+  // MILESTONE 26B-15 — registrar seguimiento SIN salir del expediente.
+  //
+  // Reutiliza el mismo diálogo y la misma Server Action que el Kanban ya usa
+  // (`LogFollowUpDialog` + `logFollowUpAction`): no hay una segunda tabla, ni
+  // un segundo formulario, ni una segunda regla de validación que mantener en
+  // sincronía. Lo único nuevo aquí es el punto de entrada.
+  //
+  // El botón se muestra con `note:create`, la misma capacidad que la acción
+  // exige en el servidor, para que un enlace visible y una petición aceptada
+  // no puedan discrepar.
+  const canLogFollowUp = useCapability("note:create");
+  const [followUpOpen, setFollowUpOpen] = useState(false);
+
+  const handleLogFollowUp = async (values: LogFollowUpSubmit) => {
+    if (!activeDraft) return;
+    const result = await logFollowUpAction({
+      applicationId: activeDraft.applicationId,
+      contactMethod: values.contactMethod,
+      outcome: values.outcome,
+      note: values.note,
+      nextAction: values.nextAction,
+      nextActionAt: values.nextActionAt,
+    });
+    if (result.status !== "success") {
+      toast.error(t("followUp.toasts.saveError"));
+      return;
+    }
+    toast.success(t("followUp.toasts.saved"));
+    setFollowUpOpen(false);
+    // Última interacción y próxima acción las resuelve el servidor; refrescar
+    // es lo que las trae al día sin duplicar ese cálculo en el cliente.
+    router.refresh();
+  };
+
   const locale = useLocale() as Locale;
   const t = useTranslations();
   // Milestone 14D: companyLegacyId is the same DELIBERATE, TEMPORARY
@@ -208,6 +253,15 @@ export function SummaryTab({ client, application, requirementsData, activeDraft 
               </dd>
             </div>
 
+            {activeDraft && canLogFollowUp && (
+              <div className="pt-1">
+                <Button variant="outline" size="sm" onClick={() => setFollowUpOpen(true)}>
+                  <PhoneCall className="size-3.5" />
+                  {t("followUp.logFollowUp")}
+                </Button>
+              </div>
+            )}
+
             {activeDraft?.followUp?.nextActionAt && (
               <div>
                 <dt className="text-xs text-muted-foreground">{t("followUp.nextActionDate")}</dt>
@@ -229,6 +283,13 @@ export function SummaryTab({ client, application, requirementsData, activeDraft 
           </dl>
         </CardContent>
       </Card>
+
+      <LogFollowUpDialog
+        open={followUpOpen}
+        onOpenChange={setFollowUpOpen}
+        subjectName={client.fullName}
+        onSubmit={handleLogFollowUp}
+      />
 
       <Card>
         <CardHeader>

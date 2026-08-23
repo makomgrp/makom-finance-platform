@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { toast } from "sonner";
 import {
@@ -909,6 +910,7 @@ function DecisionCard({
   applicationStatus: ApplicationStatus;
 }) {
   const t = useTranslations();
+  const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [status, setStatus] = useState(applicationStatus);
 
@@ -920,6 +922,16 @@ function DecisionCard({
       if (result.status === "success") {
         setStatus(result.application.status);
         toast.success(t("review.decisionRecorded"));
+        // La decisión cambia el estado OFICIAL de la solicitud, y ese estado se
+        // pinta en varios sitios de esta página que el servidor ya había
+        // renderizado — la insignia de la cabecera, sobre todo. Sin esto la
+        // cabecera seguía diciendo "En evaluación" después de aprobar, hasta
+        // que alguien recargaba a mano.
+        //
+        // Se refresca la ruta en vez de duplicar el estado en el cliente: el
+        // servidor vuelve a ser la única fuente de verdad del estado, que es
+        // justo lo que debe ser para una decisión de crédito.
+        router.refresh();
         return;
       }
       toast.error(t(`review.errors.${result.code}` as "review.errors.SAVE_FAILED"));
