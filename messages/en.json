@@ -53,7 +53,8 @@
     "collapseMenu": "Collapse menu",
     "openMenu": "Open menu",
     "dossierTitle": "Client Dossier",
-    "myProfile": "My profile"
+    "myProfile": "My profile",
+    "email": "Email"
   },
   "login": {
     "title": "CRM Access",
@@ -1636,6 +1637,64 @@
       "saveError": "We could not record the follow-up.",
       "completed": "Action completed.",
       "completeError": "We could not complete the action."
+    }
+  },
+  "email": {
+    "title": "Email",
+    "description": "ODL's operational inbox, synchronized into the CRM.",
+    "mailbox": "Mailbox",
+    "lastSync": "Last sync",
+    "notConfigured": "The mailbox is not configured yet.",
+    "searchPlaceholder": "Search by sender, subject or customer...",
+    "sender": "Sender",
+    "recipient": "Recipient",
+    "received": "Received",
+    "attachments": "Attachments",
+    "attachmentsMetadataOnly": "Only attachment details are recorded. The file is not downloaded into the CRM.",
+    "noSubject": "(No subject)",
+    "noBody": "This message has no readable content.",
+    "emptyTitle": "No synchronized email",
+    "emptyDescription": "Use Sync email to bring in recent messages from the mailbox.",
+    "loadErrorTitle": "Email could not be loaded",
+    "loadErrorDescription": "There was a problem reaching the database. Try reloading the page.",
+    "filters": {
+      "all": "All",
+      "unlinked": "Unlinked",
+      "linked": "Linked"
+    },
+    "status": {
+      "unlinked": "Unlinked",
+      "auto_linked": "Linked",
+      "manual_linked": "Linked",
+      "ambiguous": "Ambiguous"
+    },
+    "sync": {
+      "action": "Sync email",
+      "running": "Syncing...",
+      "noNew": "No new emails found.",
+      "imported": "{count, plural, one {# email imported} other {# emails imported}}",
+      "failed": "{count, plural, one {# message could not be processed} other {# messages could not be processed}}"
+    },
+    "syncErrors": {
+      "not_configured": "The mailbox is not configured. The password is missing on the server.",
+      "auth_failed": "Could not sign in to the mailbox. Check the credentials on the server.",
+      "tls_failed": "Could not establish a secure connection to the mail server.",
+      "connection_failed": "Could not reach the mail server.",
+      "mailbox_unavailable": "The inbox could not be opened.",
+      "unknown": "Email could not be synchronized. Try again.",
+      "UNAUTHENTICATED": "Your session expired. Please sign in again.",
+      "FORBIDDEN": "You do not have permission to sync email."
+    },
+    "link": {
+      "action": "Link customer",
+      "change": "Change link",
+      "remove": "Remove link",
+      "confirm": "Link",
+      "dialogTitle": "Link email to a customer",
+      "selectClient": "Select a customer",
+      "linked": "Email linked to the customer.",
+      "removed": "Link removed from the email.",
+      "error": "The link could not be updated. Try again."
     }
   }
 }

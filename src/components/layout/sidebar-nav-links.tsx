@@ -5,6 +5,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import { NAV_ITEMS } from "./nav-config";
+import { useCapability } from "@/lib/auth/use-capability";
 import { BRANCH_CONTEXT_PARAM, withBranchContext } from "@/lib/branch-context-url";
 
 interface SidebarNavLinksProps {
@@ -22,10 +23,14 @@ export function SidebarNavLinks({ collapsed, onNavigate }: SidebarNavLinksProps)
   // Configuración, dossiers), so the parameter never appears where nothing
   // reads it.
   const branchContext = searchParams.get(BRANCH_CONTEXT_PARAM);
+  // MILESTONE 26B-9A — the mailbox link is hidden from roles that cannot open
+  // it. Reads the same resolved capability set the server authorizes against,
+  // so a hidden link and a rejected request can never disagree.
+  const canManageEmail = useCapability("email:manage");
 
   return (
     <nav className="flex flex-col gap-1 px-2">
-      {NAV_ITEMS.map((item) => {
+      {NAV_ITEMS.filter((item) => item.capability !== "email:manage" || canManageEmail).map((item) => {
         const isActive =
           pathname === item.href ||
           (pathname.startsWith(item.href) && item.href !== "/dashboard");

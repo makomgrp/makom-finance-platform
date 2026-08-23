@@ -53,7 +53,8 @@
     "collapseMenu": "Contraer menú",
     "openMenu": "Abrir menú",
     "dossierTitle": "Expediente del cliente",
-    "myProfile": "Mi perfil"
+    "myProfile": "Mi perfil",
+    "email": "Correo"
   },
   "login": {
     "title": "Acceso al CRM",
@@ -1636,6 +1637,64 @@
       "saveError": "No pudimos registrar el seguimiento.",
       "completed": "Acción completada.",
       "completeError": "No pudimos completar la acción."
+    }
+  },
+  "email": {
+    "title": "Correo",
+    "description": "Bandeja de entrada operativa de ODL sincronizada en el CRM.",
+    "mailbox": "Buzón",
+    "lastSync": "Última sincronización",
+    "notConfigured": "El buzón aún no está configurado.",
+    "searchPlaceholder": "Buscar por remitente, asunto o cliente...",
+    "sender": "Remitente",
+    "recipient": "Destinatario",
+    "received": "Recibido",
+    "attachments": "Adjuntos",
+    "attachmentsMetadataOnly": "Solo se registran los datos del adjunto. El archivo no se descarga al CRM.",
+    "noSubject": "(Sin asunto)",
+    "noBody": "Este mensaje no tiene contenido legible.",
+    "emptyTitle": "Sin correos sincronizados",
+    "emptyDescription": "Usa Sincronizar correo para traer los mensajes recientes del buzón.",
+    "loadErrorTitle": "No se pudieron cargar los correos",
+    "loadErrorDescription": "Ocurrió un error al conectar con la base de datos. Intenta recargar la página.",
+    "filters": {
+      "all": "Todos",
+      "unlinked": "Sin vincular",
+      "linked": "Vinculado"
+    },
+    "status": {
+      "unlinked": "Sin vincular",
+      "auto_linked": "Vinculado",
+      "manual_linked": "Vinculado",
+      "ambiguous": "Ambiguo"
+    },
+    "sync": {
+      "action": "Sincronizar correo",
+      "running": "Sincronizando...",
+      "noNew": "No se encontraron correos nuevos.",
+      "imported": "{count, plural, one {# correo importado} other {# correos importados}}",
+      "failed": "{count, plural, one {# mensaje no pudo procesarse} other {# mensajes no pudieron procesarse}}"
+    },
+    "syncErrors": {
+      "not_configured": "El buzón no está configurado. Falta la contraseña en el servidor.",
+      "auth_failed": "No se pudo iniciar sesión en el buzón. Verifica las credenciales en el servidor.",
+      "tls_failed": "No se pudo establecer una conexión segura con el servidor de correo.",
+      "connection_failed": "No se pudo conectar con el servidor de correo.",
+      "mailbox_unavailable": "No se pudo abrir la bandeja de entrada.",
+      "unknown": "No se pudo sincronizar el correo. Intenta de nuevo.",
+      "UNAUTHENTICATED": "Tu sesión expiró. Inicia sesión de nuevo.",
+      "FORBIDDEN": "No tienes permiso para sincronizar el correo."
+    },
+    "link": {
+      "action": "Vincular cliente",
+      "change": "Cambiar vínculo",
+      "remove": "Quitar vínculo",
+      "confirm": "Vincular",
+      "dialogTitle": "Vincular correo a un cliente",
+      "selectClient": "Selecciona un cliente",
+      "linked": "Correo vinculado al cliente.",
+      "removed": "Se quitó el vínculo del correo.",
+      "error": "No se pudo actualizar el vínculo. Intenta de nuevo."
     }
   }
 }

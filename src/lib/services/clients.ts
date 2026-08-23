@@ -211,12 +211,12 @@ export async function findClientByIdentification(
 
 export type FindClientsByEmailResult = { status: "ok"; clients: Client[] } | { status: "error" };
 
-/** Narrow lookup used only by the Application Intake matching service
- * (src/lib/services/client-matching.ts) — email has no unique
- * constraint on this table, so this deliberately returns every match
- * rather than assuming at most one, letting the caller distinguish "no
- * match" / "exactly one match" / "ambiguous" itself. Not intended as a
- * general-purpose read API. */
+/** Narrow lookup used by the Application Intake matching service
+ * (src/lib/services/client-matching.ts) and, since 26B-9A, by inbound email
+ * sender matching — email has no unique constraint on this table, so this
+ * deliberately returns every match rather than assuming at most one, letting
+ * the caller distinguish "no match" / "exactly one match" / "ambiguous"
+ * itself. Not intended as a general-purpose read API. */
 export async function findClientsByEmail(
   scope: BranchScope,
   email: string
@@ -225,10 +225,26 @@ export async function findClientsByEmail(
   // client exists by searching for their e-mail.
   if (isEmptyScope(scope)) return { status: "ok", clients: [] };
 
+  // MILESTONE 26B-9A — EXACT, BUT CASE-INSENSITIVE.
+  //
+  // This compared with `.eq()`, which is case-SENSITIVE in Postgres. Every
+  // client row happens to hold a lowercase address today, so it worked by
+  // luck; the moment somebody typed `Juan@Gmail.com` into the client form, or
+  // a mail server presented a capitalised envelope sender, the same person
+  // would stop matching themselves. The local part of an address is
+  // technically case-sensitive per RFC 5321, but no real mail provider treats
+  // it that way and a CRM that did would fail its users.
+  //
+  // `ilike` with the value ESCAPED, not `%` wrapped: `_` and `%` are wildcards
+  // to LIKE, and an unescaped address containing one would silently widen an
+  // "exact" match into a pattern. The result stays exact — same string, any
+  // case.
+  const escaped = email.trim().replace(/([\\%_])/g, "\\$1");
+
   try {
     const supabase = getSupabaseServerClient();
     const { data, error } = await applyBranchScope(
-      supabase.from("clients").select(CLIENT_SELECT).eq("email", email),
+      supabase.from("clients").select(CLIENT_SELECT).ilike("email", escaped),
       scope
     );
 

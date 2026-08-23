@@ -232,6 +232,30 @@ export type Capability =
    */
   | "user:set_language"
 
+  // --- Operational mailbox (Milestone 26B-9A) ----------------------------
+  /**
+   * See the synchronised mailbox, run a sync, and link a message to a
+   * customer.
+   *
+   * ONE CAPABILITY, NOT THREE. Viewing, syncing and linking are three verbs,
+   * but in 26B-9A they are one job held by one set of people — splitting them
+   * would produce three rows granted to exactly the same two roles, which is a
+   * matrix that looks precise and decides nothing.
+   *
+   * WHY IT IS MANAGEMENT-ONLY. The mailbox contains an UNLINKED queue: mail
+   * from prospects who are not yet clients, suppliers, and spam. Those
+   * messages have no customer and therefore no branch, so branch scope cannot
+   * narrow them for anybody — the only available control is who may open the
+   * queue at all. An advisor seeing their own customers' correspondence needs
+   * a per-advisor ownership rule that does not exist yet; that is 26B-9B, and
+   * inventing it here would mean widening access first and designing the
+   * boundary afterwards.
+   *
+   * LINKED mail is still branch-scoped on top of this: holding the capability
+   * does not reveal a client outside the holder's scope.
+   */
+  | "email:manage"
+
   // --- Branch administration (Milestone 25A) -----------------------------
   /**
    * ============================================================================
@@ -361,6 +385,7 @@ export const ROLE_CAPABILITIES = {
     "user:set_role",
     "user:manage_permissions",
     "user:set_language",
+    "email:manage",
     "branch:create",
     "branch:manage",
     "branch:transfer",
@@ -394,6 +419,8 @@ export const ROLE_CAPABILITIES = {
     // administration, which is why this one crosses the line the other
     // `user:*` capabilities deliberately do not.
     "user:set_language",
+    // The operational mailbox, including the unscopeable unlinked queue.
+    "email:manage",
   ],
 
   /**
