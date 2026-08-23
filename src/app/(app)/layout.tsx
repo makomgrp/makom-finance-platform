@@ -6,6 +6,8 @@ import { getActiveAlertsCount } from "@/lib/services/alerts";
 import { getBranchContextOptions } from "@/lib/services/branch-view-context";
 import { isNationalScope } from "@/lib/services/branch-scope-query";
 import { CurrentProfileProvider } from "@/lib/auth/current-profile-context";
+import { ChatNotificationsProvider } from "@/lib/chat/chat-notifications-context";
+import { getUnreadChatCounts } from "@/lib/services/chat";
 
 /**
  * Milestone 4: the authoritative access-control boundary for the entire
@@ -80,15 +82,24 @@ export default async function AuthenticatedLayout({ children }: { children: Reac
   // never reaches the browser.
   const branchOptions = await getBranchContextOptions(profile.branchScope);
 
+  // MILESTONE 26B-13 — el punto de partida del badge de Chat, resuelto en el
+  // servidor por el mismo motivo que el contador de alertas: el sidebar vive
+  // en este layout. A partir de aquí el provider lo mantiene vivo por Realtime;
+  // esto sólo evita que el badge arranque en cero cuando ya había mensajes sin
+  // leer de antes.
+  const initialChatUnread = await getUnreadChatCounts(profile.id);
+
   return (
     <CurrentProfileProvider profile={profile}>
-      <AppShell
-        activeAlertsCount={activeAlertsCount}
-        branchOptions={branchOptions}
-        branchScopeIsNational={isNationalScope(profile.branchScope)}
-      >
-        {children}
-      </AppShell>
+      <ChatNotificationsProvider profileId={profile.id} initialUnread={initialChatUnread}>
+        <AppShell
+          activeAlertsCount={activeAlertsCount}
+          branchOptions={branchOptions}
+          branchScopeIsNational={isNationalScope(profile.branchScope)}
+        >
+          {children}
+        </AppShell>
+      </ChatNotificationsProvider>
     </CurrentProfileProvider>
   );
 }

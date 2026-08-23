@@ -54,7 +54,8 @@
     "openMenu": "Abrir menú",
     "dossierTitle": "Expediente del cliente",
     "myProfile": "Mi perfil",
-    "email": "Correo"
+    "email": "Correo",
+    "unreadMessages": "{count, plural, one {# mensaje sin leer} other {# mensajes sin leer}}"
   },
   "login": {
     "title": "Acceso al CRM",
@@ -907,6 +908,10 @@
       "en": "inglés",
       "es": "español",
       "fr": "francés"
+    },
+    "notifications": {
+      "newMessageFrom": "Nuevo mensaje de {name}",
+      "open": "Abrir"
     }
   },
   "statuses": {

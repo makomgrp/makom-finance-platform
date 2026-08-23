@@ -54,7 +54,8 @@
     "openMenu": "Open menu",
     "dossierTitle": "Client Dossier",
     "myProfile": "My profile",
-    "email": "Email"
+    "email": "Email",
+    "unreadMessages": "{count, plural, one {# unread message} other {# unread messages}}"
   },
   "login": {
     "title": "CRM Access",
@@ -907,6 +908,10 @@
       "en": "English",
       "es": "Spanish",
       "fr": "French"
+    },
+    "notifications": {
+      "newMessageFrom": "New message from {name}",
+      "open": "Open"
     }
   },
   "statuses": {

@@ -18,6 +18,8 @@ import {
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { useCurrentProfile } from "@/lib/auth/current-profile-context";
 import { useCapability } from "@/lib/auth/use-capability";
+import { useSearchParams } from "next/navigation";
+import { useChatNotifications } from "@/lib/chat/chat-notifications-context";
 import type { ChatColleague, ChatConversation, ChatMessage, SupportedLanguage } from "@/types";
 
 /**
@@ -135,10 +137,21 @@ export function ChatView({
   // Milestone 16 — reading chat needs no capability; contributing to it
   // does. Enforced server-side by sendChatMessage's own guard.
   const canSendChat = useCapability("chat:send");
+  // El provider global necesita saber qué conversación se está mirando (para
+  // callarse) y cuándo se ha leído una (para descontarla del badge).
+  const { setActiveConversation, clearConversation } = useChatNotifications();
 
-  const [selectedUserId, setSelectedUserId] = useState<string | null>(() =>
-    mostRecentColleagueId(initialMessages, profile.id, colleagues)
-  );
+  // MILESTONE 26B-13 — al pulsar un toast se entra por `?con={profileId}`, así
+  // que la conversación correcta debe abrirse ya en el primer render. El valor
+  // se contrasta contra los colegas realmente cargados: un id desconocido o
+  // manipulado simplemente cae en la selección por defecto de siempre.
+  const requestedColleagueId = useSearchParams().get("con");
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(() => {
+    if (requestedColleagueId && colleagues.some((c) => c.id === requestedColleagueId)) {
+      return requestedColleagueId;
+    }
+    return mostRecentColleagueId(initialMessages, profile.id, colleagues);
+  });
   // The initially auto-selected conversation starts already marked read;
   // manual selections are marked read directly in handleSelectUser below —
   // neither needs a reactive effect (see memory: avoid setState-in-effect).
@@ -243,6 +256,18 @@ export function ChatView({
       )
     );
   };
+
+  // MILESTONE 26B-13 — declara al provider global qué conversación está a la
+  // vista, para que no notifique lo que el usuario ya está leyendo, y la
+  // descuenta del badge. Se limpia al desmontar: fuera del módulo Chat no hay
+  // ninguna conversación activa, así que todo vuelve a notificar.
+  useEffect(() => {
+    setActiveConversation(activeConversationRealId);
+    if (activeConversationRealId) {
+      clearConversation(activeConversationRealId);
+    }
+    return () => setActiveConversation(null);
+  }, [activeConversationRealId, setActiveConversation, clearConversation]);
 
   // Subscribes to the selected conversation's Realtime broadcast channel
   // only — never all conversations at once (see the chat migration plan).

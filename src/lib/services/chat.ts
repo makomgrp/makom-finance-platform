@@ -65,11 +65,13 @@ import type { ChatConversation, ChatMessage, MessageTranslations, SupportedLangu
 interface ProfileIdentityRow {
   id: string;
   preferred_language: string;
+  full_name: string;
 }
 
 interface ProfileIdentity {
   id: string;
   preferredLanguage: SupportedLanguage;
+  fullName: string;
 }
 
 interface ConversationIdRow {
@@ -132,7 +134,7 @@ async function resolveProfileLanguages(profileIds: string[]): Promise<Map<string
   const supabase = getSupabaseServerClient();
   const { data, error } = await supabase
     .from("profiles")
-    .select("id, preferred_language")
+    .select("id, preferred_language, full_name")
     .in("id", uniqueIds)
     .returns<ProfileIdentityRow[]>();
 
@@ -143,7 +145,11 @@ async function resolveProfileLanguages(profileIds: string[]): Promise<Map<string
 
   const map = new Map<string, ProfileIdentity>();
   for (const row of data ?? []) {
-    map.set(row.id, { id: row.id, preferredLanguage: row.preferred_language as SupportedLanguage });
+    map.set(row.id, {
+      id: row.id,
+      preferredLanguage: row.preferred_language as SupportedLanguage,
+      fullName: row.full_name,
+    });
   }
 
   const missing = uniqueIds.filter((id) => !map.has(id));
@@ -224,12 +230,16 @@ async function findOrCreateDirectConversation(profileIdA: string, profileIdB: st
  * again immediately after, per the client's own guidance for this pattern.
  */
 async function broadcastChatEvent(
-  conversationRealId: string,
-  event: "chat.message.created" | "chat.translation.created",
-  payload: Record<string, unknown>
+  targetId: string,
+  event: "chat.message.created" | "chat.translation.created" | "chat.notification",
+  payload: Record<string, unknown>,
+  // `conversation` avisa al hilo abierto; `user` alimenta la campana global.
+  scope: "conversation" | "user" = "conversation"
 ): Promise<void> {
   const supabase = getSupabaseServerClient();
-  const channel = supabase.channel(`chat:conversation:${conversationRealId}`);
+  const channel = supabase.channel(
+    scope === "user" ? `chat:user:${targetId}` : `chat:conversation:${targetId}`
+  );
   try {
     await channel.httpSend(event, payload);
   } catch (error) {
@@ -576,8 +586,11 @@ export async function sendMessage(input: SendMessageInput): Promise<SendMessageR
 
   // Only the recipient's preferred language is looked up; their identity is
   // already the UUID the caller supplied.
-  const recipients = await resolveProfileLanguages([input.recipientProfileId]);
-  const recipient = recipients.get(input.recipientProfileId);
+  // Ambos en la misma consulta: el idioma del receptor decide la traducción
+  // y el nombre del emisor titula el toast. Antes sólo se pedía uno.
+  const profiles = await resolveProfileLanguages([input.recipientProfileId, input.senderProfileId]);
+  const recipient = profiles.get(input.recipientProfileId);
+  const sender = profiles.get(input.senderProfileId);
   if (!recipient) {
     throw new Error(`No profile found for id "${input.recipientProfileId}".`);
   }
@@ -643,6 +656,34 @@ export async function sendMessage(input: SendMessageInput): Promise<SendMessageR
     }
   }
 
+  // ---- MILESTONE 26B-13 — aviso al canal personal del destinatario --------
+  //
+  // DESPUÉS de la traducción, a propósito. El canal por conversación de arriba
+  // avisa al hilo abierto y se emite de inmediato; éste alimenta el toast
+  // global, y un toast tiene que llegar YA en el idioma de quien lo lee. Como
+  // la traducción se resuelve justo aquí arriba, esperar a este punto da el
+  // texto correcto en un único aviso — en vez de notificar el original y tener
+  // que corregirlo después con una segunda notificación duplicada.
+  //
+  // Si la traducción falló, se manda el original: una notificación en el idioma
+  // equivocado sigue siendo mejor que ninguna.
+  //
+  // UN CANAL POR PERSONA, no por conversación: el receptor mantiene UNA sola
+  // suscripción viva mientras navega, sea cual sea el número de conversaciones.
+  await broadcastChatEvent(
+    input.recipientProfileId,
+    "chat.notification",
+    {
+      messageId: data.id,
+      conversationId,
+      senderProfileId: input.senderProfileId,
+      senderName: sender?.fullName ?? "",
+      preview: translations[recipient.preferredLanguage] ?? data.original_text,
+      createdAt: data.created_at,
+    },
+    "user"
+  );
+
   return {
     message: {
       id: data.id,
@@ -685,5 +726,103 @@ export async function markConversationRead(
   if (error) {
     console.error("[chat service] Failed to update last_read_at:", error.message);
     throw new Error("Failed to mark the conversation as read.");
+  }
+}
+
+// ============================================================================
+// MILESTONE 26B-13 — NOTIFICACIONES GLOBALES
+// ============================================================================
+
+export interface ConversationUnread {
+  /** UUID real de la conversación — la clave con la que el provider descuenta. */
+  conversationId: string;
+  /** El colega al otro lado, para poder abrir la conversación desde el toast. */
+  colleagueProfileId: string;
+  unread: number;
+}
+
+/**
+ * Cuántos mensajes sin leer tiene el usuario, desglosados por conversación.
+ *
+ * MISMO CRITERIO QUE LA LISTA DE CONVERSACIONES, no uno nuevo: un mensaje está
+ * sin leer si lo escribió otra persona y es posterior a
+ * `conversation_members.last_read_at` del lector. Es exactamente la regla que
+ * ya usa loadChatDataForUser; aquí sólo se cuenta en vez de materializar los
+ * mensajes.
+ *
+ * DESGLOSADO Y NO UN TOTAL porque al leer UNA conversación hay que descontar
+ * sólo esa. Un único número no permitiría eso sin volver a consultar.
+ *
+ * DOS CONSULTAS, NUNCA UNA POR CONVERSACIÓN: una para mis membresías y otra
+ * para los mensajes ajenos de esas conversaciones; el conteo se hace en
+ * memoria. Con cinco o diez usuarios eso son dos viajes, no N+1.
+ */
+export async function getUnreadChatCounts(profileId: string): Promise<ConversationUnread[]> {
+  try {
+    const supabase = getSupabaseServerClient();
+
+    const { data: myRows, error: myError } = await supabase
+      .from("conversation_members")
+      .select("conversation_id, last_read_at")
+      .eq("profile_id", profileId)
+      .returns<{ conversation_id: string; last_read_at: string | null }[]>();
+
+    if (myError) {
+      console.error("[chat service] unread: members query failed:", myError.message);
+      return [];
+    }
+    const mine = myRows ?? [];
+    if (mine.length === 0) return [];
+
+    const conversationIds = mine.map((row) => row.conversation_id);
+
+    // El otro miembro de cada conversación, para poder abrirla desde el toast.
+    const { data: otherRows } = await supabase
+      .from("conversation_members")
+      .select("conversation_id, profile_id")
+      .in("conversation_id", conversationIds)
+      .neq("profile_id", profileId)
+      .returns<{ conversation_id: string; profile_id: string }[]>();
+
+    const colleagueByConversation = new Map(
+      (otherRows ?? []).map((row) => [row.conversation_id, row.profile_id])
+    );
+
+    const { data: messageRows, error: messagesError } = await supabase
+      .from("messages")
+      .select("conversation_id, created_at")
+      .in("conversation_id", conversationIds)
+      .neq("sender_profile_id", profileId)
+      .returns<{ conversation_id: string; created_at: string }[]>();
+
+    if (messagesError) {
+      console.error("[chat service] unread: messages query failed:", messagesError.message);
+      return [];
+    }
+
+    const lastReadByConversation = new Map(
+      mine.map((row) => [row.conversation_id, row.last_read_at])
+    );
+    const counts = new Map<string, number>();
+    for (const row of messageRows ?? []) {
+      const lastRead = lastReadByConversation.get(row.conversation_id) ?? null;
+      if (lastRead === null || row.created_at > lastRead) {
+        counts.set(row.conversation_id, (counts.get(row.conversation_id) ?? 0) + 1);
+      }
+    }
+
+    return [...counts.entries()]
+      .map(([conversationId, unread]) => ({
+        conversationId,
+        colleagueProfileId: colleagueByConversation.get(conversationId) ?? "",
+        unread,
+      }))
+      .filter((row) => row.colleagueProfileId !== "");
+  } catch (error) {
+    console.error(
+      "[chat service] unread: unexpected failure:",
+      error instanceof Error ? error.message : "unknown error"
+    );
+    return [];
   }
 }
