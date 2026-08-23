@@ -43,7 +43,7 @@ import type {
  *   - Supervision (alert:set_status) — administrador/gerente only;
  *     resolving someone else's alert is a management act.
  *   - Analysis judgment (evidence:review, requirement_slot:set_status) —
- *     administrador/gerente/analista. Deliberately NOT the advisor's, per
+ *     administrador/gerente/compliance. Deliberately NOT the advisor's, per
  *     the Milestone 16 role definitions.
  *   - Intake (evidence:upload) — administrador/gerente/asesor. The advisor
  *     collects the document; the analyst rules on it.
@@ -459,7 +459,7 @@ export type ReviewRequirementEvidenceResult =
  * separate action" — never infer one from the other).
  *
  * Milestone 16 — capability `evidence:review`, an ANALYSIS act: held by
- * administrador, gerente and analista, and deliberately NOT by asesor. An
+ * administrador, gerente and compliance, and deliberately NOT by asesor. An
  * advisor supplies the document (`evidence:upload`); attesting that it is
  * acceptable is somebody else's signature. Note that this capability and
  * `requirement_slot:set_status` are granted to the same roles today but
@@ -579,7 +579,7 @@ export type SetDossierRequirementSlotStatusResult =
  * action is reachable only from an authenticated CRM session.
  *
  * Milestone 16 — capability `requirement_slot:set_status`, an ANALYSIS
- * judgment: held by administrador, gerente and analista, NOT by asesor.
+ * judgment: held by administrador, gerente and compliance, NOT by asesor.
  * Its legal targets include `satisfied`, `rejected` and `waived` (see
  * REQUIREMENT_SLOT_STATUS_TRANSITIONABLE), i.e. declaring a requirement
  * met or excused — the determination an advisor collects evidence FOR,

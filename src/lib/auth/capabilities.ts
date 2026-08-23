@@ -21,7 +21,7 @@ import type { UserRole } from "@/types";
  * preference: a second matrix is a second thing to forget to update, and an
  * inline check is a rule no audit can find.
  *
- * DELIBERATELY NOT A NUMERIC ROLE LEVEL. `gerente`, `analista` and `asesor`
+ * DELIBERATELY NOT A NUMERIC ROLE LEVEL. `gerente`, `compliance` and `asesor`
  * are NOT increasingly-privileged versions of one another — they are
  * different jobs with genuinely overlapping-but-distinct powers. An analyst
  * may pass judgment on a Requirement Slot but may not create a client; an
@@ -98,7 +98,7 @@ export type Capability =
    * MORE widely: registering what a client is asking for is ordinary
    * client-facing intake work, which is why `asesor` holds it, while
    * moving that request toward `approved` / `not_eligible` is the lending
-   * determination and stays with administrador/gerente. `analista` holds
+   * determination and stays with administrador/gerente. `compliance` holds
    * neither, consistent with holding no client mutation at all — the
    * analyst evaluates an application, they do not originate one.
    *
@@ -431,13 +431,13 @@ export const ROLE_CAPABILITIES = {
    * Milestone 17 — an analyst evaluates applications, they do not file
    * them, consistent with holding no `client:create`) and NO application
    * status authority: the brief
-   * grants analysts read access to clients and applications only, and
+   * grants this role read access to clients and applications only, and
    * broad managerial powers are not granted merely because the schema
    * currently lacks finer ownership rules. Future preliminary-analysis and
    * human-review capabilities (Milestone 15E's application_analysis review
    * path, once it has a Server Action) belong to this role.
    */
-  analista: [
+  compliance: [
     ...BASELINE,
     ...CHAT,
     "note:create",

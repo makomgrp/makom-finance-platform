@@ -1010,7 +1010,7 @@
   "roles": {
     "administrador": "Administrador",
     "gerente": "Gerente",
-    "analista": "Analista",
+    "compliance": "Compliance",
     "asesor": "Asesor",
     "consulta": "Consulta"
   },
@@ -1752,7 +1752,7 @@
       "completed": "Revisión completada"
     },
     "summaryTitle": "Resumen de la revisión",
-    "reviewer": "Analista responsable",
+    "reviewer": "Responsable de la revisión",
     "startedAt": "Inicio",
     "updatedAt": "Última actualización",
     "completedAt": "Cierre de la revisión",
@@ -1829,7 +1829,7 @@
     "observationAdd": "Agregar",
     "observationsAppendOnly": "Las observaciones no se editan ni se eliminan. Una corrección es una nueva observación.",
     "observationsEmpty": "Todavía no hay observaciones en esta revisión.",
-    "recommendationTitle": "Recomendación del analista",
+    "recommendationTitle": "Recomendación del revisor",
     "recommendationSubtitle": "Una recomendación no aprueba ni rechaza el préstamo. La decisión es un acto aparte.",
     "recommendationLabel": "Recomendación",
     "recommendationRecorded": "Registrada por {name} el {when}",

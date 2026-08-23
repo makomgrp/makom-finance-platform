@@ -543,7 +543,7 @@ export async function getApplicationTransferOptionsAction(
 //
 // CAPABILITY: `note:create`, reused deliberately rather than invented. Logging
 // a call is the same class of act as writing an internal note — collaborative
-// dossier work — and it is held by administrador, gerente, analista AND asesor,
+// dossier work — and it is held by administrador, gerente, compliance AND asesor,
 // which is exactly the set who must be able to record their own calls. Adding a
 // `follow_up:create` capability would have produced a second permission with
 // the same holders and the same meaning.
@@ -687,14 +687,14 @@ export async function completeFollowUpActionAction(input: {
 //
 // CAPABILITY: `evidence:review`, reused rather than invented. It already means
 // "may reach a conclusion about this application's evidence" and is held by
-// administrador, gerente and analista — precisely the people who perform a
+// administrador, gerente and compliance — precisely the people who perform a
 // compliance and credit review. A new `review:perform` capability would have
 // been a second permission with the same name in a different spelling and the
 // same three holders.
 //
 // THE DECISION IS NOT HERE. Approving or rejecting the LOAN stays
 // setSolicitudApplicationStatus above, gated on `application:set_status`
-// (administrador, gerente only). An analista may therefore complete a review
+// (administrador, gerente only). A compliance reviewer may therefore complete a review
 // recommending approval and still be unable to approve anything — which is the
 // separation the milestone asks for, expressed as two capabilities rather than
 // as a rule inside one.

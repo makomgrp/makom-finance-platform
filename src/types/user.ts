@@ -1,7 +1,7 @@
 export type UserRole =
   | "administrador"
   | "gerente"
-  | "analista"
+  | "compliance"
   | "asesor"
   | "consulta";
 

@@ -80,10 +80,10 @@ import type { Locale } from "@/i18n/config";
  * ----------------------------------------------------------------------------
  * TWO CAPABILITIES, VISIBLY SEPARATE
  * ----------------------------------------------------------------------------
- * `evidence:review` (administrador, gerente, analista) works the review.
+ * `evidence:review` (administrador, gerente, compliance) works the review.
  * `application:set_status` (administrador, gerente) decides the loan. They are
  * rendered as two distinct blocks with different headings because they are two
- * different acts: an analista can finish a review recommending approval and
+ * different acts: a compliance reviewer can finish a review recommending approval and
  * still have no approval control on screen — and the Server Action would refuse
  * them if they forged one.
  *

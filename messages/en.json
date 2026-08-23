@@ -1010,7 +1010,7 @@
   "roles": {
     "administrador": "Administrator",
     "gerente": "Manager",
-    "analista": "Analyst",
+    "compliance": "Compliance",
     "asesor": "Advisor",
     "consulta": "Read Only"
   },
