@@ -1461,6 +1461,14 @@
       "whatNext3": "We will let you know the result of the evaluation once the process is complete.",
       "submittedOn": "Submitted on {date}"
     },
+    "underReview": {
+      "title": "We need to review your application",
+      "body": "We received your initial information, but we need to verify some details before you can continue.",
+      "whatNextTitle": "What happens next",
+      "whatNext1": "An ODL advisor reviews the information you sent.",
+      "whatNext2": "If we need anything else, we will contact you by email or phone.",
+      "closeSafely": "You can safely close this page."
+    },
     "reference": {
       "official": "Application {number}",
       "inProgress": "Your application is in progress. You will receive your application number when you submit it."

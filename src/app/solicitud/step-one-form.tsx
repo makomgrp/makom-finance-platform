@@ -158,7 +158,19 @@ export function StepOneForm({
       // to the same intake by the same credential rather than a second session
       // mechanism. Without a token there is nothing to continue into.
       if (result.continuationToken) {
-        router.push(`/solicitud/continuar/${result.continuationToken}/paso-2`);
+        // MILESTONE 26B-18 — NOT EVERY SAVED LEAD CONTINUES INTO STEP 2.
+        //
+        // When the matching engine cannot safely establish who this applicant
+        // is, it parks the intake and creates no application on purpose. Step 2
+        // is built entirely around an application, so sending them there
+        // produced a 404 for a form they filled in correctly. The server has
+        // always reported this outcome; this is the first caller to read it.
+        //
+        // The server guard on every step is what actually enforces it — this
+        // only spares the customer a redirect they would otherwise bounce
+        // through.
+        const destino = result.outcome === "needs_review" ? "revision" : "paso-2";
+        router.push(`/solicitud/continuar/${result.continuationToken}/${destino}`);
       } else {
         setFormError(tErrors("SAVE_FAILED"));
         setIsPending(false);

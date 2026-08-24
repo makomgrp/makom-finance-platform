@@ -6,6 +6,7 @@ import { getAllProducts } from "@/lib/services/products";
 import { resolveContinuationToken } from "@/lib/services/continuation-tokens";
 import { getApplicationIntakeById } from "@/lib/services/application-intakes";
 import { redirectIfSubmitted } from "@/lib/services/portal-submitted-guard";
+import { redirectIfUnderReview } from "@/lib/services/portal-review-guard";
 import { StepOneForm, type StepOneInitialValues } from "../../step-one-form";
 
 /**
@@ -54,6 +55,11 @@ export default async function PortalContinuePage({
 
   // Already sent? Then this is a receipt, not a form. See the guard's header.
   await redirectIfSubmitted(token);
+
+  // 26B-18 — a lead the engine parked for a human has no application to
+  // walk into. Checked on every step, not only after Step 1, because a
+  // bookmark or a Back button never passes through Step 1 at all.
+  await redirectIfUnderReview(token);
 
   const resolved = await resolveContinuationToken(token);
 

@@ -10,6 +10,7 @@ import { getApplicationStep2 } from "@/lib/services/application-step2";
 import { materializeConditionalSlots } from "@/lib/services/requirement-slot-materialization";
 import { getPortalDocuments } from "@/lib/services/portal-documents";
 import { redirectIfSubmitted } from "@/lib/services/portal-submitted-guard";
+import { redirectIfUnderReview } from "@/lib/services/portal-review-guard";
 import { StepThreeView } from "./step-three-view";
 
 /**
@@ -34,6 +35,11 @@ export default async function PortalStepThreePage({
 
   // Already sent? Then this is a receipt, not a form. See the guard's header.
   await redirectIfSubmitted(token);
+
+  // 26B-18 — a lead the engine parked for a human has no application to
+  // walk into. Checked on every step, not only after Step 1, because a
+  // bookmark or a Back button never passes through Step 1 at all.
+  await redirectIfUnderReview(token);
 
   const resolved = await resolveContinuationToken(token);
   if (resolved.status !== "ok" || !resolved.resolved.applicationId) {

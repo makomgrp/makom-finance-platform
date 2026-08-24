@@ -13,6 +13,7 @@ import { getPortalDocuments } from "@/lib/services/portal-documents";
 import { evaluatePortalProgress } from "@/lib/services/portal-progress";
 import { PortalConfirmation } from "@/components/portal/portal-confirmation";
 import { StepFourView, type ReviewSnapshot } from "./step-four-view";
+import { redirectIfUnderReview } from "@/lib/services/portal-review-guard";
 
 /**
  * ============================================================================
@@ -38,6 +39,10 @@ export default async function PortalStepFourPage({
   params,
 }: PageProps<"/solicitud/continuar/[token]/paso-4">) {
   const { token } = await params;
+
+  // 26B-18 — see the guard. A parked lead must not reach a step that
+  // assumes an application exists.
+  await redirectIfUnderReview(token);
 
   const resolved = await resolveContinuationToken(token);
   if (resolved.status !== "ok" || !resolved.resolved.applicationId) {

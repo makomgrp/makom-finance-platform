@@ -1461,6 +1461,14 @@
       "whatNext3": "Te informamos el resultado de la evaluación cuando el proceso termine.",
       "submittedOn": "Enviada el {date}"
     },
+    "underReview": {
+      "title": "Necesitamos revisar tu solicitud",
+      "body": "Recibimos tu información inicial, pero necesitamos verificar algunos datos antes de que puedas continuar.",
+      "whatNextTitle": "Qué sigue",
+      "whatNext1": "Un asesor de ODL revisa la información que enviaste.",
+      "whatNext2": "Si necesitamos algo adicional, te contactamos por correo o teléfono.",
+      "closeSafely": "Puedes cerrar esta página de forma segura."
+    },
     "reference": {
       "official": "Solicitud {number}",
       "inProgress": "Tu solicitud está en progreso. Recibirás tu número de solicitud al enviarla."
