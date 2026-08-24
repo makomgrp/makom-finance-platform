@@ -735,6 +735,33 @@ export function parseRecipients(raw: string | string[]): RecipientParseResult {
   return { valid, invalid };
 }
 
+/**
+ * Has a message with this send key already been recorded?
+ *
+ * MILESTONE 26B-17. The unique index on `send_key` stops a duplicate ROW, but
+ * it only fires on insert — by which point the mail has already left. An
+ * automatic send therefore asks first, so a retry that reaches this service a
+ * second time stops before SMTP rather than after it.
+ *
+ * A read failure returns `true` deliberately. Not knowing whether a customer
+ * already received a message is not a reason to send them another one: the
+ * safe answer to "did we send this?" under uncertainty is yes.
+ */
+export async function outboundMessageExistsForSendKey(sendKey: string): Promise<boolean> {
+  const supabase = getSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("email_messages")
+    .select("id")
+    .eq("send_key", sendKey)
+    .maybeSingle<{ id: string }>();
+
+  if (error) {
+    console.error("[email service] send_key lookup failed:", error.code ?? error.message);
+    return true;
+  }
+  return Boolean(data);
+}
+
 export interface PersistOutboundInput {
   mailbox: string;
   messageId: string;
@@ -744,13 +771,32 @@ export interface PersistOutboundInput {
   subject: string;
   bodyText: string;
   sentAt: string;
-  sentByProfileId: string;
+  /**
+   * MILESTONE 26B-17 — null when the CRM itself sent the message.
+   *
+   * The portal's confirmation email has no human author, and inventing a
+   * profile for it would put a real employee's name against something they
+   * never wrote. `sent_by_profile_id` is nullable in the schema precisely so
+   * this case can be stated honestly.
+   */
+  sentByProfileId: string | null;
   linkedClientId: string | null;
   linkedApplicationId: string | null;
   replyToEmailId: string | null;
   forwardedFromEmailId: string | null;
   inReplyTo: string | null;
   sendKey: string;
+  /**
+   * How this message came to be attached to its client.
+   *
+   * `manual_linked` means a person chose the customer, and the table's
+   * `manual_attribution_check` demands the profile who did it. A system message
+   * has no such person, so it links as `auto_linked` — which is not a weaker
+   * claim but a truer one: the link was derived from the application the email
+   * is about, not from someone's judgement. Defaults to the historical
+   * behaviour so existing callers are unchanged.
+   */
+  attribution?: "manual" | "system";
 }
 
 export type PersistOutboundResult =
@@ -764,7 +810,9 @@ export type PersistOutboundResult =
  * Called only after SMTP confirmed acceptance, so this row is a statement of
  * fact rather than an intention. `match_status` follows the same vocabulary as
  * inbound: a message sent from a customer's dossier is `manual_linked`, because
- * a person chose that customer — nothing here was matched by machine.
+ * a person chose that customer — nothing here was matched by machine. A message
+ * the system sent on its own (26B-17) is `auto_linked` instead; see
+ * `attribution`.
  *
  * A `send_key` collision returns `duplicate` rather than an error: it means the
  * same compose was submitted twice, which the caller reports as success for the
@@ -792,8 +840,16 @@ export async function persistOutboundMessage(
       sent_by_profile_id: input.sentByProfileId,
       linked_client_id: input.linkedClientId,
       linked_application_id: input.linkedApplicationId,
-      match_status: input.linkedClientId ? "manual_linked" : "unlinked",
-      linked_by_profile_id: input.linkedClientId ? input.sentByProfileId : null,
+      match_status: input.linkedClientId
+        ? input.attribution === "system"
+          ? "auto_linked"
+          : "manual_linked"
+        : "unlinked",
+      // Only `manual_linked` requires an attributed person, and only a human
+      // send has one. Writing the profile id here for a system message would
+      // fail `manual_attribution_check` anyway — it is null on both counts.
+      linked_by_profile_id:
+        input.linkedClientId && input.attribution !== "system" ? input.sentByProfileId : null,
       linked_at: input.linkedClientId ? input.sentAt : null,
       reply_to_email_id: input.replyToEmailId,
       forwarded_from_email_id: input.forwardedFromEmailId,
@@ -1028,7 +1084,12 @@ export async function recordEmailSentEvent(input: {
   clientId: string | null;
   applicationId: string | null;
   subject: string;
-  actorProfileId: string;
+  /** Null for a message the system sent on its own (26B-17). The RPC derives
+   * `actor_kind` from this rather than the caller asserting it. */
+  actorProfileId: string | null;
+  /** Defaults to the CRM's own compose path. Only a system actor may claim any
+   * other source — the RPC refuses the combination outright. */
+  source?: "crm_manual" | "website_form";
 }): Promise<void> {
   // No customer means no customer activity to append to. The RPC also guards
   // this; returning early saves a round trip.
@@ -1042,6 +1103,7 @@ export async function recordEmailSentEvent(input: {
       p_application_id: input.applicationId,
       p_subject: input.subject,
       p_actor_profile_id: input.actorProfileId,
+      p_source: input.source ?? "crm_manual",
     });
     if (error) {
       console.error("[email service] Failed to record email_sent activity:", error.message);

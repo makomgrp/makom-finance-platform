@@ -71,6 +71,21 @@
     "brandTagline": "Gestión ordenada y segura de clientes y solicitudes de préstamo.",
     "brandDescription": "Una plataforma interna para el equipo de ODL Financial Corporation: expedientes, documentos, alertas y seguimiento de solicitudes en un solo lugar."
   },
+  "portalConfirmationEmail": {
+    "subject": "ODL — Solicitud recibida · {applicationNumber}",
+    "heading": "Recibimos tu solicitud",
+    "greeting": "Hola {name},",
+    "intro": "Tu solicitud fue enviada correctamente a ODL Financial Corporation y está en revisión. Esto no significa que el préstamo esté aprobado.",
+    "numberLabel": "Número de solicitud",
+    "dateLabel": "Fecha de envío",
+    "keepNumber": "Guarda este número. Lo necesitarás para cualquier consulta relacionada con tu solicitud.",
+    "nextTitle": "¿Qué sigue?",
+    "next1": "Un asesor de ODL revisará la información y los documentos enviados.",
+    "next2": "Si falta algún documento o necesitamos aclarar información, nos comunicaremos contigo.",
+    "next3": "Te informaremos el resultado de la evaluación cuando el proceso termine.",
+    "signature": "ODL Financial Corporation",
+    "automatic": "Este mensaje es automático. Puedes responderlo si necesitas contactarnos."
+  },
   "forgotPassword": {
     "title": "Recuperar contraseña",
     "subtitle": "Ingrese su correo electrónico y le enviaremos un enlace para restablecer su contraseña.",

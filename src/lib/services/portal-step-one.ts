@@ -9,6 +9,7 @@ import { processApplicationIntake } from "@/lib/services/application-intake-proc
 import { issueContinuationToken } from "@/lib/services/continuation-tokens";
 import type { NormalizedPortalStepOne } from "@/lib/validation/portal-step-one";
 import type { ApplicationIntake } from "@/types";
+import type { Locale } from "@/i18n/config";
 
 /**
  * ============================================================================
@@ -83,6 +84,15 @@ export interface SavePortalStepOneInput extends NormalizedPortalStepOne {
   intakeId?: string;
   /** Stable per form instance. Absorbs double clicks and network retries. */
   submissionId: string;
+  /**
+   * MILESTONE 26B-17 — the language this applicant is filling the form in.
+   *
+   * Written on every Step 1 save rather than only at creation: somebody who
+   * switches the portal to English halfway through has told us something, and
+   * the confirmation email should follow them. The guarded UPDATE below still
+   * refuses a submitted application, so this cannot change after the fact.
+   */
+  locale: Locale;
 }
 
 /**
@@ -96,7 +106,7 @@ export interface SavePortalStepOneInput extends NormalizedPortalStepOne {
  */
 async function applyStepOneToIntake(
   intakeId: string,
-  input: NormalizedPortalStepOne
+  input: NormalizedPortalStepOne & { locale: Locale }
 ): Promise<boolean> {
   const supabase = getSupabaseServerClient();
   const { error } = await supabase
@@ -120,6 +130,7 @@ async function applyStepOneToIntake(
       // is the only way an optional field the customer can empty actually
       // behaves as optional. NULL stays "not chosen yet"; it is never 0.
       requested_term_months: input.requestedTermMonths ?? null,
+      locale: input.locale,
       current_step: "loan_selection",
       last_activity_at: new Date().toISOString(),
     })
@@ -166,6 +177,7 @@ export async function savePortalStepOne(
       requestedAmount: input.requestedAmount,
       // Present only if the customer chose one; otherwise the column stays NULL.
       requestedTermMonths: input.requestedTermMonths,
+      applicantLocale: input.locale,
     });
 
     if (created.status === "ok") {

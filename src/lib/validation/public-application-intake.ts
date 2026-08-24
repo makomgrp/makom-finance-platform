@@ -1,4 +1,5 @@
 import "server-only";
+import { DEFAULT_LOCALE, isLocale, type Locale } from "@/i18n/config";
 
 /**
  * Authoritative server-side validation for the public website Application
@@ -52,6 +53,15 @@ export interface NormalizedPublicIntake {
   requestedProductCode: string;
   requestedAmount: number;
   requestedTermMonths: number;
+  /**
+   * MILESTONE 26B-17 — which language to answer this applicant in.
+   *
+   * Optional on the wire and never a reason to reject: an application is not
+   * worth less because the website omitted a language hint or sent a value this
+   * app does not speak. Anything unrecognised becomes the Spanish default, so
+   * the field can only ever narrow to something composable.
+   */
+  locale: Locale;
 }
 
 const MAX_SHORT_TEXT = 200;
@@ -184,6 +194,12 @@ export function validatePublicApplicationIntake(
     return { status: "error", fieldErrors };
   }
 
+  // Read like every other field: by name only, so an unexpected key in the body
+  // still cannot reach the intake. Lower-cased first because a website sending
+  // "ES" means Spanish, and refusing that would be pedantry with a cost.
+  const localeCandidate = readString(body as Record<string, unknown>, "locale")?.toLowerCase();
+  const localeRaw: Locale = isLocale(localeCandidate) ? localeCandidate : DEFAULT_LOCALE;
+
   return {
     status: "ok",
     value: {
@@ -202,6 +218,7 @@ export function validatePublicApplicationIntake(
       requestedProductCode: requestedProductCode!,
       requestedAmount: requestedAmount!,
       requestedTermMonths: requestedTermMonths!,
+      locale: localeRaw,
     },
   };
 }

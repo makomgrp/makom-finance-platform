@@ -1,6 +1,7 @@
 import type { ApplicationSource } from "./application";
 import type { IdentificationType } from "./client";
 import type { PortalStep } from "./portal-continuation";
+import type { Locale } from "@/i18n/config";
 
 /**
  * The Application Intake pipeline's own lifecycle (Milestone 15B — see
@@ -90,6 +91,16 @@ export interface ApplicationIntake {
   reviewReason?: ApplicationIntakeReviewReason;
   receivedAt: string;
   processedAt?: string;
+
+  /**
+   * MILESTONE 26B-17 — the language this applicant was spoken to in.
+   *
+   * A property of the APPLICATION, not of a browser session. The confirmation
+   * email is composed from this rather than from `NEXT_LOCALE`, so a resend
+   * days later reaches the person in the same language as the first message.
+   * Never optional: the column is NOT NULL with a Spanish default.
+   */
+  locale: Locale;
 
   /**
    * MILESTONE 26A-4 — THE DRAFT LIFECYCLE.

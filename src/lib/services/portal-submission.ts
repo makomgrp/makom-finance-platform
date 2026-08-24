@@ -1,4 +1,5 @@
 import "server-only";
+import { after } from "next/server";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { SYSTEM_NATIONAL_SCOPE } from "@/lib/services/branch-scope-query";
 import { authorizePortalWrite } from "@/lib/services/portal-snapshot";
@@ -145,6 +146,44 @@ export async function submitPortalApplication(token: string): Promise<PortalSubm
       submittedAt: submitted?.submittedAt ?? submittedAt,
     };
   }
+
+  // ---------------------------------------------------------------------------
+  // MILESTONE 26B-17 — THE CONFIRMATION EMAIL
+  //
+  // Scheduled HERE, and nowhere else, because reaching this line means this
+  // caller is the one that won the guarded UPDATE above. That election already
+  // decides which of two racing submits reports the submission; reusing it to
+  // decide which one sends the email means a double click cannot produce two
+  // confirmations without any new locking of its own. The send key is a second,
+  // durable barrier for the case this cannot see — a retry in a later request.
+  //
+  // `after()` rather than an await: the applicant's confirmation screen must not
+  // wait on a mail server, and an SMTP timeout must never be able to turn a
+  // successfully submitted application into a visible error. Everything below
+  // runs once the response has already been sent.
+  // ---------------------------------------------------------------------------
+  after(async () => {
+    try {
+      const { sendApplicationConfirmationEmail } = await import(
+        "@/lib/services/portal-confirmation-email"
+      );
+      const outcome = await sendApplicationConfirmationEmail(authorized.intakeId);
+      if (outcome.status !== "sent" && outcome.status !== "skipped") {
+        console.error(
+          "[portal-submission] Confirmation email not delivered:",
+          JSON.stringify({ applicationNumber: allocatedNumber, outcome })
+        );
+      }
+    } catch (error) {
+      // The application is submitted and numbered. Nothing about a failure here
+      // may propagate — this callback runs after the response and has no way to
+      // report to the applicant even if it should, which it should not.
+      console.error(
+        "[portal-submission] Confirmation email threw:",
+        error instanceof Error ? error.message : "unknown error"
+      );
+    }
+  });
 
   return { status: "ok", applicationNumber: allocatedNumber, submittedAt };
 }

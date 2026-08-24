@@ -5,6 +5,7 @@ import {
   APPLICATION_INTAKE_STATUS_TRANSITIONS,
 } from "@/lib/config/application-intake";
 import { recordAutomationEvent } from "./automation-events";
+import { DEFAULT_LOCALE, isLocale, type Locale } from "@/i18n/config";
 import type {
   ApplicationIntake,
   ApplicationIntakeReviewReason,
@@ -68,6 +69,7 @@ interface ApplicationIntakeRow {
   current_step: string;
   last_activity_at: string;
   submitted_at: string | null;
+  locale: string;
 }
 
 const APPLICATION_INTAKE_SELECT =
@@ -75,7 +77,7 @@ const APPLICATION_INTAKE_SELECT =
   "applicant_identification_number, applicant_email, applicant_phone, applicant_birth_date, " +
   "applicant_nationality, applicant_address, applicant_position, requested_product_code, requested_amount, " +
   "requested_term_months, employer_name, monthly_salary, matched_client_id, created_application_id, " +
-  "review_reason, received_at, processed_at, current_step, last_activity_at, submitted_at";
+  "review_reason, received_at, processed_at, current_step, last_activity_at, submitted_at, locale";
 
 function toApplicationIntake(row: ApplicationIntakeRow): ApplicationIntake {
   return {
@@ -106,6 +108,10 @@ function toApplicationIntake(row: ApplicationIntakeRow): ApplicationIntake {
     currentStep: row.current_step as PortalStep,
     lastActivityAt: row.last_activity_at,
     submittedAt: row.submitted_at ?? undefined,
+    // The CHECK constraint restricts the column to the two supported locales,
+    // so a row can only disagree with `Locale` if someone bypassed it; falling
+    // back keeps a corrupt value from reaching a formatter.
+    locale: isLocale(row.locale) ? row.locale : DEFAULT_LOCALE,
   };
 }
 
@@ -137,6 +143,9 @@ export interface CreateApplicationIntakeInput {
   requestedTermMonths?: number;
   employerName?: string;
   monthlySalary?: number;
+  /** MILESTONE 26B-17. Omitted means the column default ('es') applies —
+   * callers that genuinely know the applicant's language pass it. */
+  applicantLocale?: Locale;
 }
 
 export type CreateApplicationIntakeResult =
@@ -181,6 +190,9 @@ export async function createApplicationIntake(
       requested_term_months: input.requestedTermMonths ?? null,
       employer_name: input.employerName ?? null,
       monthly_salary: input.monthlySalary ?? null,
+      // Left to the column default when the caller has no evidence, rather
+      // than guessing 'es' here in a second place.
+      ...(input.applicantLocale ? { locale: input.applicantLocale } : {}),
     })
     .select(APPLICATION_INTAKE_SELECT)
     .single<ApplicationIntakeRow>();

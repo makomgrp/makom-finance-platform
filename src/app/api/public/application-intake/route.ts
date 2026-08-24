@@ -1,4 +1,4 @@
-import { NextResponse, type NextRequest } from "next/server";
+import { NextResponse, after, type NextRequest } from "next/server";
 import { createApplicationIntake, getApplicationIntakeBySubmission } from "@/lib/services/application-intakes";
 import { processApplicationIntake } from "@/lib/services/application-intake-processing";
 import { getAllProducts } from "@/lib/services/products";
@@ -112,6 +112,7 @@ export async function POST(request: NextRequest) {
     requestedProductCode: input.requestedProductCode,
     requestedAmount: input.requestedAmount,
     requestedTermMonths: input.requestedTermMonths,
+    applicantLocale: input.locale,
   });
 
   let intakeId: string;
@@ -145,6 +146,39 @@ export async function POST(request: NextRequest) {
     // POST, so the application is complete on arrival and is formally received
     // immediately — it gets its official number now.
     await processApplicationIntake(intakeId, "one_shot");
+
+    // MILESTONE 26B-17 — the same confirmation the portal sends.
+    //
+    // Both public doors end at ONE boundary: a formal application is a formal
+    // application whichever way it arrived, and the applicant should not be
+    // able to tell which code path handled them. Composition, idempotency and
+    // recording all live in that service; this only says when.
+    //
+    // Scheduled inside the try, so it runs only if processing actually
+    // resolved, and via `after()` so the website's POST is answered before any
+    // SMTP work begins. The service itself refuses to send for an intake that
+    // did not become a formal, numbered application — a `needs_review` outcome
+    // reaches it and is skipped rather than confirmed.
+    after(async () => {
+      try {
+        const { sendApplicationConfirmationEmail } = await import(
+          "@/lib/services/portal-confirmation-email"
+        );
+        const outcome = await sendApplicationConfirmationEmail(intakeId);
+        if (outcome.status !== "sent" && outcome.status !== "skipped") {
+          console.error(
+            "[public application-intake] Confirmation email not delivered:",
+            JSON.stringify({ intakeId, outcome })
+          );
+        }
+      } catch (error) {
+        console.error(
+          "[public application-intake] Confirmation email threw for intake",
+          intakeId,
+          error instanceof Error ? error.message : "unknown error"
+        );
+      }
+    });
   } catch (error) {
     // The intake row itself was already durably created above — that is
     // the honest thing being reported as "received" to the caller.

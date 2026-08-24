@@ -71,6 +71,21 @@
     "brandTagline": "Organized and secure management of clients and loan applications.",
     "brandDescription": "An internal platform for the ODL Financial Corporation team: dossiers, documents, alerts, and application tracking all in one place."
   },
+  "portalConfirmationEmail": {
+    "subject": "ODL — Application received · {applicationNumber}",
+    "heading": "We received your application",
+    "greeting": "Hello {name},",
+    "intro": "Your application was successfully submitted to ODL Financial Corporation and is under review. This does not mean the loan has been approved.",
+    "numberLabel": "Application number",
+    "dateLabel": "Submitted on",
+    "keepNumber": "Please keep this number. You will need it for any question regarding your application.",
+    "nextTitle": "What happens next?",
+    "next1": "An ODL advisor will review the information and documents you sent.",
+    "next2": "If a document is missing or something needs clarifying, we will contact you.",
+    "next3": "We will inform you of the outcome once the evaluation is complete.",
+    "signature": "ODL Financial Corporation",
+    "automatic": "This is an automated message. You may reply to it if you need to reach us."
+  },
   "forgotPassword": {
     "title": "Reset your password",
     "subtitle": "Enter your email address and we'll send you a link to reset your password.",

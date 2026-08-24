@@ -3,6 +3,8 @@
 import { getAllProducts } from "@/lib/services/products";
 import { ensureContinuationToken, savePortalStepOne } from "@/lib/services/portal-step-one";
 import { authorizePortalWrite } from "@/lib/services/portal-snapshot";
+import { getLocale } from "next-intl/server";
+import { DEFAULT_LOCALE, isLocale, type Locale } from "@/i18n/config";
 import {
   validatePortalStepOne,
   type PortalStepOneField,
@@ -144,11 +146,21 @@ export async function submitPortalStepOne(
     intakeId = authorized.intakeId;
   }
 
+  // MILESTONE 26B-17 — capture the language, once, on the server.
+  //
+  // Read here rather than accepted from the payload: the browser must not get
+  // to choose what language ODL writes to this person in, and next-intl already
+  // resolves the same cookie the rest of the request rendered from. Persisted
+  // by savePortalStepOne so a resend days later — when no cookie exists — still
+  // knows the answer.
+  const locale = (await getLocale()) as Locale;
+
   const saved = await savePortalStepOne({
     ...validation.value,
     productCode: product.code,
     submissionId: payload.submissionId,
     intakeId,
+    locale: isLocale(locale) ? locale : DEFAULT_LOCALE,
   });
 
   if (saved.status === "error") {
