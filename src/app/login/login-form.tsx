@@ -3,7 +3,7 @@
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { ShieldCheck, Lock, Mail } from "lucide-react";
+import { Lock, Mail } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -61,14 +61,9 @@ export function LoginForm() {
           <LocaleSwitcher variant="dark" />
         </div>
 
-        <div className="max-w-md">
+        <div className="my-auto max-w-md">
           <h2 className="text-3xl font-semibold leading-tight">{t("login.brandTagline")}</h2>
           <p className="mt-4 text-sm text-white/70">{t("login.brandDescription")}</p>
-        </div>
-
-        <div className="flex items-center gap-2 text-xs text-white/50">
-          <ShieldCheck className="size-4" />
-          <span>{t("login.demoEnvironmentNotice")}</span>
         </div>
       </div>
 
