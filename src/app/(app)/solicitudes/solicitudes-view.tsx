@@ -250,7 +250,13 @@ export function SolicitudesView({
         description={t("applications.description")}
         actions={
           <div className="flex flex-wrap items-center gap-2">
-            <div className="flex items-center gap-1 rounded-lg border border-border bg-card p-1">
+            {/* MILESTONE 26B-19 — wraps now that there are three.
+                Two toggles fitted this row at every width; a third, carrying a
+                label and a count, pushed the group past `main`'s
+                `overflow-x-hidden` at 768 and clipped the badge off its own
+                button. Wrapping keeps every option reachable instead of
+                shrinking the labels into abbreviations. */}
+            <div className="flex flex-wrap items-center gap-1 rounded-lg border border-border bg-card p-1">
               <Button
                 variant={view === "tabla" ? "secondary" : "ghost"}
                 size="sm"
