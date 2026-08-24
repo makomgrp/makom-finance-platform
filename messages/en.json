@@ -69,8 +69,7 @@
     "invalidCredentials": "Incorrect email or password, or you do not have access to this system.",
     "privateNotice": "Private system for authorized ODL Financial Corporation personnel.",
     "brandTagline": "Organized and secure management of clients and loan applications.",
-    "brandDescription": "An internal platform for the ODL Financial Corporation team: dossiers, documents, alerts, and application tracking all in one place.",
-    "demoEnvironmentNotice": "Internal demonstration environment — fictitious data."
+    "brandDescription": "An internal platform for the ODL Financial Corporation team: dossiers, documents, alerts, and application tracking all in one place."
   },
   "forgotPassword": {
     "title": "Reset your password",

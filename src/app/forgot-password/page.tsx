@@ -3,7 +3,7 @@
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { ShieldCheck, Mail, CheckCircle2 } from "lucide-react";
+import { Mail, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -46,14 +46,9 @@ export default function ForgotPasswordPage() {
           <LocaleSwitcher variant="dark" />
         </div>
 
-        <div className="max-w-md">
+        <div className="my-auto max-w-md">
           <h2 className="text-3xl font-semibold leading-tight">{t("login.brandTagline")}</h2>
           <p className="mt-4 text-sm text-white/70">{t("login.brandDescription")}</p>
-        </div>
-
-        <div className="flex items-center gap-2 text-xs text-white/50">
-          <ShieldCheck className="size-4" />
-          <span>{t("login.demoEnvironmentNotice")}</span>
         </div>
       </div>
 
