@@ -139,6 +139,26 @@ export type Capability =
    */
   | "application:assign_advisor"
 
+  /**
+   * MILESTONE 26B-19 — decide who a public applicant actually is.
+   *
+   * The matching engine parks an intake when the identity it was given could
+   * belong to an existing client but not confidently enough to act on. Someone
+   * then has to look at two sets of details and say "same person" or "not the
+   * same person", and that judgement decides whether a stranger is handed
+   * access to an existing customer's file. It is an identity decision before it
+   * is an operational one.
+   *
+   * A NEW CAPABILITY RATHER THAN A BORROWED ONE. `client:create` would have
+   * been convenient, but it is held by asesor, and the point of parking these is
+   * that they are not routine data entry. `evidence:review` reaches the right
+   * three roles by accident — it is about documents, and reusing it would mean
+   * a later change to document review silently moved who can merge identities.
+   * Held by administrador, gerente and compliance: the same three that already
+   * carry the compliance review, which is the function this belongs to.
+   */
+  | "intake:resolve"
+
   // --- Dossier collaboration ---------------------------------------------
   | "note:create"
   | "alert:create"
@@ -372,6 +392,7 @@ export const ROLE_CAPABILITIES = {
     "application:create",
     "application:set_status",
     "application:assign_advisor",
+    "intake:resolve",
     "note:create",
     "alert:create",
     "alert:set_status",
@@ -409,6 +430,7 @@ export const ROLE_CAPABILITIES = {
     "application:create",
     "application:set_status",
     "application:assign_advisor",
+    "intake:resolve",
     "note:create",
     "alert:create",
     "alert:set_status",
@@ -444,6 +466,7 @@ export const ROLE_CAPABILITIES = {
     "alert:create",
     "evidence:review",
     "requirement_slot:set_status",
+    "intake:resolve",
   ],
 
   /**

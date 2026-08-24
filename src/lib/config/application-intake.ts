@@ -21,7 +21,18 @@ export const APPLICATION_INTAKE_STATUS_ORDER: ApplicationIntakeStatus[] = [
 export const APPLICATION_INTAKE_STATUS_TRANSITIONS: Record<ApplicationIntakeStatus, ApplicationIntakeStatus[]> = {
   received: ["client_matched", "needs_review"],
   client_matched: ["processed", "needs_review"],
-  needs_review: [],
+  // MILESTONE 26B-19 — needs_review stops being a terminal state.
+  //
+  // 15B left this empty deliberately, and said so: not because reprocessing was
+  // impossible but because building it was out of scope. It has been out of
+  // scope ever since, which meant an intake the engine parked was parked
+  // forever — invisible to staff and unrecoverable by the applicant.
+  //
+  // The ONLY way out is back to `client_matched`, the same state the automatic
+  // path uses once a client is known, so a resolved intake rejoins the existing
+  // pipeline rather than following a second one. Nothing new leads to
+  // `processed` or back to `received`.
+  needs_review: ["client_matched"],
   processed: [],
 };
 

@@ -1,5 +1,7 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
+
 import {
   assignApplicationAdvisor,
   createApplication,
@@ -893,4 +895,66 @@ export async function reopenReviewAction(input: {
   );
   if (result.status !== "ok") return reviewError(result.code);
   return reviewSuccess(auth.profile.branchScope, input.applicationId);
+}
+
+/**
+ * ============================================================================
+ * MILESTONE 26B-19 — RESOLVING A PARKED IDENTITY
+ * ============================================================================
+ *
+ * Two answers to one question, both gated on `intake:resolve` and both doing
+ * their real work server-side. The browser sends an intake id and, for the
+ * first, which candidate the reviewer picked — never a client to attach freely,
+ * never a status, never a review reason.
+ *
+ * ORDERING, as everywhere else in this file: requireCapability() first, input
+ * validation second, work third. A caller without the capability must not be
+ * able to learn whether an id is valid by the shape of the refusal.
+ */
+export type ResolveIntakeActionResult =
+  | { status: "ok" }
+  | { status: "error"; code: string };
+
+export async function resolveIntakeAsExistingClientAction(input: {
+  intakeId: string;
+  clientId: string;
+}): Promise<ResolveIntakeActionResult> {
+  const auth = await requireCapability("intake:resolve");
+  if (auth.status === "denied") return { status: "error", code: auth.code };
+
+  if (!isNonEmptyString(input.intakeId) || !UUID_PATTERN.test(input.intakeId)) {
+    return { status: "error", code: "INVALID_INPUT" };
+  }
+  if (!isNonEmptyString(input.clientId) || !UUID_PATTERN.test(input.clientId)) {
+    return { status: "error", code: "INVALID_INPUT" };
+  }
+
+  const { resolveIntakeAsExistingClient } = await import("@/lib/services/intake-review");
+  const result = await resolveIntakeAsExistingClient(
+    input.intakeId,
+    input.clientId,
+    auth.profile.id
+  );
+  if (result.status !== "ok") return { status: "error", code: result.code };
+
+  revalidatePath("/solicitudes");
+  return { status: "ok" };
+}
+
+export async function resolveIntakeAsNewClientAction(input: {
+  intakeId: string;
+}): Promise<ResolveIntakeActionResult> {
+  const auth = await requireCapability("intake:resolve");
+  if (auth.status === "denied") return { status: "error", code: auth.code };
+
+  if (!isNonEmptyString(input.intakeId) || !UUID_PATTERN.test(input.intakeId)) {
+    return { status: "error", code: "INVALID_INPUT" };
+  }
+
+  const { resolveIntakeAsNewClient } = await import("@/lib/services/intake-review");
+  const result = await resolveIntakeAsNewClient(input.intakeId, auth.profile.id);
+  if (result.status !== "ok") return { status: "error", code: result.code };
+
+  revalidatePath("/solicitudes");
+  return { status: "ok" };
 }

@@ -8,6 +8,11 @@ import { getPipelineCards } from "@/lib/services/pipeline";
 import { getApplicationCreatableProducts } from "@/lib/services/products";
 import { getClients } from "@/lib/services/clients";
 import { getAssignableAdvisorsForApplications } from "@/lib/services/profiles";
+import {
+  getIntakeReviewCaseDetails,
+  listIntakesNeedingReview,
+} from "@/lib/services/intake-review";
+import { hasCapability } from "@/lib/auth/capabilities";
 import { SolicitudesView } from "@/app/(app)/solicitudes/solicitudes-view";
 
 /**
@@ -72,6 +77,22 @@ export default async function SolicitudesPage({ searchParams }: { searchParams: 
   const applications = applicationsResult.status === "ok" ? applicationsResult.applications : [];
   const pipelineCards = pipelineResult.status === "ok" ? pipelineResult.cards : [];
 
+  // MILESTONE 26B-19 — the parked-identity tray.
+  //
+  // Read here, in the Server Component, so the tab's count and its rows come
+  // from one query and cannot disagree. `revalidatePath("/solicitudes")` after
+  // a resolution refreshes both together — no polling, no client fetch, and no
+  // second source of truth about how many cases are waiting.
+  //
+  // Everyone who can see Solicitudes can SEE the tray; only `intake:resolve`
+  // can act on it. Hiding the queue from the people who would notice it first
+  // would be worse than showing it read-only.
+  const intakeReviewCases = await listIntakesNeedingReview();
+  const intakeReviewDetails = await getIntakeReviewCaseDetails(
+    intakeReviewCases.map((c) => c.intakeId)
+  );
+  const canResolveIntakes = profile ? hasCapability(profile.role, "intake:resolve") : false;
+
   // MILESTONE 26B-6 — the directory must cover DRAFTS too, because a prospect
   // can be assigned an owner long before they submit. The union is deduped so
   // an application appearing in both the table and the board is still resolved
@@ -86,6 +107,9 @@ export default async function SolicitudesPage({ searchParams }: { searchParams: 
 
   return (
     <SolicitudesView
+      intakeReviewCases={intakeReviewCases}
+      intakeReviewDetails={intakeReviewDetails}
+      canResolveIntakes={canResolveIntakes}
       showBranchOrigin={showBranchOrigin}
       initialApplications={applications}
       pipelineCards={pipelineCards}

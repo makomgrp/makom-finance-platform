@@ -4,12 +4,14 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
-import { List, LayoutGrid, FilePlus2 } from "lucide-react";
+import { List, LayoutGrid, ShieldQuestion, FilePlus2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ApplicationsTable } from "@/components/applications/applications-table";
 import { PipelineKanban } from "@/components/applications/pipeline-kanban";
+import { IntakeReviewPanel } from "@/components/applications/intake-review-panel";
+import type { IntakeReviewSummary, IntakeReviewCaseDetail } from "@/lib/services/intake-review";
 import {
   LogFollowUpDialog,
   type LogFollowUpSubmit,
@@ -34,6 +36,17 @@ import type {
 } from "@/types";
 
 interface SolicitudesViewProps {
+  /**
+   * MILESTONE 26B-19 — public forms whose identity could not be established.
+   *
+   * Passed in from the page rather than fetched here: it is a Server Component
+   * read like every other list on this screen, so the count and the rows can
+   * never disagree, and `revalidatePath` after a resolution refreshes both at
+   * once with no polling.
+   */
+  intakeReviewCases: IntakeReviewSummary[];
+  intakeReviewDetails: Record<string, IntakeReviewCaseDetail>;
+  canResolveIntakes: boolean;
   /**
    * FORMAL applications only — this is what the table renders.
    *
@@ -72,7 +85,7 @@ interface SolicitudesViewProps {
  * full page reload) — the same split already used by expedientes/[id]/
  * page.tsx -> dossier-view.tsx.
  */
-const VIEW_VALUES = ["tabla", "kanban"] as const;
+const VIEW_VALUES = ["tabla", "kanban", "revision"] as const;
 
 export function SolicitudesView({
   initialApplications,
@@ -84,6 +97,9 @@ export function SolicitudesView({
   clients,
   assignableAdvisorsByApplication,
   showBranchOrigin,
+  intakeReviewCases,
+  intakeReviewDetails,
+  canResolveIntakes,
 }: SolicitudesViewProps) {
   const t = useTranslations();
   // Milestone 17 — origination is its own capability, deliberately wider
@@ -95,8 +111,8 @@ export function SolicitudesView({
   // Dashboard link can open the pipeline directly and a reload does not throw
   // them back to the table.
   const { read, write } = useSearchParamState();
-  const view = read<"tabla" | "kanban">("view", VIEW_VALUES, "tabla");
-  const setView = (next: "tabla" | "kanban") =>
+  const view = read<"tabla" | "kanban" | "revision">("view", VIEW_VALUES, "tabla");
+  const setView = (next: "tabla" | "kanban" | "revision") =>
     write({ view: { value: next, defaultValue: "tabla" } });
   const [createOpen, setCreateOpen] = useState(false);
 
@@ -253,6 +269,23 @@ export function SolicitudesView({
                 <LayoutGrid className="size-4" />
                 {t("applications.viewKanban")}
               </Button>
+              {/* Only offered when there is something to review. A permanent
+                  empty tab trains people to ignore it; one that appears with a
+                  number on it is the notification. */}
+              {intakeReviewCases.length > 0 && (
+                <Button
+                  variant={view === "revision" ? "secondary" : "ghost"}
+                  size="sm"
+                  onClick={() => setView("revision")}
+                  className={cn(view === "revision" && "shadow-sm")}
+                >
+                  <ShieldQuestion className="size-4" />
+                  {t("applications.intakeReview.viewReview")}
+                  <span className="ml-1.5 inline-flex min-w-5 items-center justify-center rounded-full bg-warning/20 px-1.5 text-xs font-semibold text-warning">
+                    {intakeReviewCases.length}
+                  </span>
+                </Button>
+              )}
             </div>
             {canCreateApplication && (
               <Button className="shrink-0" onClick={() => setCreateOpen(true)}>
@@ -274,7 +307,13 @@ export function SolicitudesView({
         />
       )}
 
-      {loadError ? (
+      {view === "revision" ? (
+        <IntakeReviewPanel
+          cases={intakeReviewCases}
+          details={intakeReviewDetails}
+          canResolve={canResolveIntakes}
+        />
+      ) : loadError ? (
         <EmptyState
           icon={List}
           title={t("applications.loadErrorTitle")}
