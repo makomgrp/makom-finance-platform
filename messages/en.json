@@ -614,7 +614,7 @@
       "loadErrorDescription": "We weren't able to connect to the database. Try reloading the page; if the problem continues, contact the technical team.",
       "pendingInvitation": "Pending invitation",
       "pendingInvitationHint": "A pending invitation means the person has no access yet: they cannot sign in or appear in chat until they complete it.",
-      "resend": "Resend",
+      "resend": "Resend invitation",
       "deactivate": "Deactivate",
       "reactivate": "Reactivate",
       "invite": {

@@ -2,11 +2,13 @@ import "server-only";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { applyBranchScope, isEmptyScope } from "@/lib/services/branch-scope-query";
 import { getInitials } from "@/lib/format";
+import { getStaffAuthOnboarding, type StaffAuthOnboarding } from "@/lib/services/auth-admin";
 import type {
   AssignableAdvisor,
   BranchScope,
   BranchScopeMode,
   ChatColleague,
+  StaffInvitationStatus,
   StaffUser,
   SupportedLanguage,
   UserRole,
@@ -51,8 +53,40 @@ interface StaffProfileRow {
 const STAFF_PROFILE_SELECT =
   "id, full_name, email, role, preferred_language, active, auth_user_id, branch_scope_mode, auto_assignment_enabled";
 
-function toStaffUser(row: StaffProfileRow): StaffUser {
+/**
+ * MILESTONE 26B-21 — the three states, in priority order.
+ *
+ * Deliberately a pure function of two facts, so the same rule is readable in
+ * one place rather than reconstructed at each call site.
+ */
+function derivarEstado(
+  row: StaffProfileRow,
+  onboarding: Record<string, StaffAuthOnboarding>
+): StaffInvitationStatus {
+  // Switched off beats everything. Offering to resend an invitation to someone
+  // who has been offboarded would be an invitation to nowhere.
+  if (!row.active) return "disabled";
+
+  // Never linked: the invitation failed to send or to link. Pending in the
+  // original sense, and the sense `authLinked` was built for.
+  if (row.auth_user_id === null) return "pending_invitation";
+
+  const estado = onboarding[row.auth_user_id];
+
+  // Auth could not be read. The safe answer is the one the CRM has always
+  // given — a linked profile is treated as active — rather than telling an
+  // administrator their working colleague never signed up.
+  if (!estado) return "active";
+
+  return estado.completed ? "active" : "pending_invitation";
+}
+
+function toStaffUser(
+  row: StaffProfileRow,
+  onboarding: Record<string, StaffAuthOnboarding> = {}
+): StaffUser {
   return {
+    invitationStatus: derivarEstado(row, onboarding),
     id: row.id,
     fullName: row.full_name,
     email: row.email,
@@ -94,7 +128,16 @@ export async function getProfiles(): Promise<GetProfilesResult> {
     }
 
     const rows = (data ?? []) as StaffProfileRow[];
-    return { status: "ok", users: rows.map(toStaffUser) };
+
+    // ONE ROUND TRIP PER LINKED PROFILE, and only on this screen. The staff
+    // directory is a handful of rows that an administrator opens deliberately;
+    // paying for the truth here is cheaper than showing them a status that is
+    // wrong. Every other consumer of profiles keeps its existing query.
+    const onboarding = await getStaffAuthOnboarding(
+      rows.map((row) => row.auth_user_id).filter((id): id is string => id !== null)
+    );
+
+    return { status: "ok", users: rows.map((row) => toStaffUser(row, onboarding)) };
   } catch (error) {
     console.error(
       "[profiles service] Unexpected failure loading staff profiles:",

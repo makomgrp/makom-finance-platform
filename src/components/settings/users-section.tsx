@@ -401,28 +401,30 @@ export function UsersSection({
                       </TableCell>
                       <TableCell>
                         <div className="flex flex-wrap items-center gap-1.5">
+                          {/* MILESTONE 26B-21 — ONE badge, three states.
+                              Until now this showed `profiles.active`, which
+                              only ever meant "not switched off", so somebody
+                              invited yesterday and still without a password
+                              read as "Activo" — the opposite of the truth. The
+                              status is derived from Auth and answers the only
+                              question an administrator is really asking: can
+                              this person get in? */}
                           <StatusBadge
-                            label={
-                              user.active
-                                ? t("settings.users.active")
-                                : t("settings.users.inactive")
-                            }
+                            label={t(
+                              user.invitationStatus === "disabled"
+                                ? "settings.users.inactive"
+                                : user.invitationStatus === "pending_invitation"
+                                  ? "settings.users.pendingInvitation"
+                                  : "settings.users.active"
+                            )}
                             className={
-                              user.active
-                                ? "bg-success/10 text-success border-success/20"
-                                : "bg-muted text-muted-foreground border-border"
+                              user.invitationStatus === "disabled"
+                                ? "bg-muted text-muted-foreground border-border"
+                                : user.invitationStatus === "pending_invitation"
+                                  ? "bg-warning/10 text-warning border-warning/20"
+                                  : "bg-success/10 text-success border-success/20"
                             }
                           />
-                          {/* A profile with no linked Auth account is a
-                              pending invitation — a documented, legitimate
-                              state, not a broken row. It is also why the
-                              person is absent from the Chat directory. */}
-                          {!user.authLinked && (
-                            <StatusBadge
-                              label={t("settings.users.pendingInvitation")}
-                              className="bg-warning/10 text-warning border-warning/20"
-                            />
-                          )}
                           {/* Milestone 25A — national reach is the widest scope
                               anyone can hold, so it is visible at a glance
                               rather than hidden one dialog deep. */}
@@ -488,7 +490,7 @@ export function UsersSection({
                                   : t("settings.users.autoAssignment.enable")}
                               </Button>
                             )}
-                            {canInviteUsers && !user.authLinked && (
+                            {canInviteUsers && user.invitationStatus === "pending_invitation" && (
                               <Button
                                 variant="outline"
                                 size="sm"
@@ -585,7 +587,7 @@ export function UsersSection({
               />
             )}
 
-            {users.some((user) => !user.authLinked) && (
+            {users.some((user) => user.invitationStatus === "pending_invitation") && (
               <p className="mt-3 flex items-start gap-2 text-xs text-muted-foreground">
                 <MailWarning className="mt-0.5 size-3.5 shrink-0" />
                 {t("settings.users.pendingInvitationHint")}

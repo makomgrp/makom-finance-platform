@@ -96,3 +96,79 @@ export async function inviteStaffAuthUser(
     return { status: "error", code: "INVITE_FAILED" };
   }
 }
+
+/**
+ * ============================================================================
+ * MILESTONE 26B-21 — HAS THIS PERSON ACTUALLY FINISHED SIGNING UP?
+ * ============================================================================
+ *
+ * `profiles` cannot answer this. It records that an invitation was SENT and
+ * linked — `auth_user_id` is set the moment `inviteUserByEmail` succeeds — but
+ * it has no idea whether the person ever opened the email. Two administrators
+ * invited on 26 August therefore appeared in Users as "Activo" while holding no
+ * password and having never signed in, which told an administrator the opposite
+ * of the truth about who can actually get in.
+ *
+ * The answer lives in Auth, and only the Admin API can read it. This is the one
+ * place that asks.
+ *
+ * ----------------------------------------------------------------------------
+ * WHY `email_confirmed_at` IS THE SIGNAL
+ * ----------------------------------------------------------------------------
+ * An invited user is created unconfirmed and with no password. Confirmation is
+ * set by GoTrue at exactly one moment: when the invite token is verified, which
+ * is the same request in which the person chooses their password. So a non-null
+ * `email_confirmed_at` means the invitation was opened AND completed — it
+ * cannot be true for someone who merely received the email.
+ *
+ * `last_sign_in_at` is read too, but as corroboration rather than the test. It
+ * is also set during that verification, so on its own it would say the same
+ * thing; keeping both means a future auth flow that confirms without signing in
+ * (or the reverse) still resolves to "finished" rather than silently regressing
+ * everyone to pending.
+ *
+ * NOT the password column: the Admin API does not expose it, and reading
+ * `auth.users` directly from the application would bypass the boundary that
+ * keeps auth internals behind `service_role`.
+ */
+export interface StaffAuthOnboarding {
+  /** The invitation was opened and completed. */
+  completed: boolean;
+}
+
+/**
+ * Onboarding state for a set of auth users, keyed by auth user id.
+ *
+ * A LOOKUP FAILURE IS NOT "PENDING". If Auth cannot be reached, the id is
+ * simply absent from the map and the caller keeps its existing behaviour —
+ * telling an administrator that a working colleague never signed up, because a
+ * network call failed, would be worse than saying nothing new.
+ */
+export async function getStaffAuthOnboarding(
+  authUserIds: string[]
+): Promise<Record<string, StaffAuthOnboarding>> {
+  if (authUserIds.length === 0) return {};
+
+  const supabase = getSupabaseServerClient();
+  const entries = await Promise.all(
+    authUserIds.map(async (id) => {
+      try {
+        const { data, error } = await supabase.auth.admin.getUserById(id);
+        if (error || !data?.user) {
+          console.error("[auth-admin service] getUserById failed for a staff profile.");
+          return null;
+        }
+        const user = data.user;
+        return [
+          id,
+          { completed: Boolean(user.email_confirmed_at) || Boolean(user.last_sign_in_at) },
+        ] as const;
+      } catch {
+        console.error("[auth-admin service] getUserById threw for a staff profile.");
+        return null;
+      }
+    })
+  );
+
+  return Object.fromEntries(entries.filter((e): e is NonNullable<typeof e> => e !== null));
+}

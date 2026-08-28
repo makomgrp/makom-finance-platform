@@ -614,7 +614,7 @@
       "loadErrorDescription": "No fue posible conectar con la base de datos. Intenta recargar la página; si el problema persiste, contacta al equipo técnico.",
       "pendingInvitation": "Invitación pendiente",
       "pendingInvitationHint": "Una invitación pendiente significa que la persona aún no tiene acceso: no puede iniciar sesión ni aparecer en el chat hasta que complete la invitación.",
-      "resend": "Reenviar",
+      "resend": "Reenviar invitación",
       "deactivate": "Desactivar",
       "reactivate": "Reactivar",
       "invite": {

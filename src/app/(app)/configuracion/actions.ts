@@ -649,9 +649,29 @@ export async function resendStaffInvitation(profileId: string): Promise<ResendSt
   if (!target) {
     return { status: "error", code: "PROFILE_NOT_FOUND" };
   }
-  // Already linked: there is nothing to resend, and re-inviting would create
-  // a second auth account for the same person.
-  if (target.authLinked) {
+  // MILESTONE 26B-21 — LINKED IS NOT THE SAME AS FINISHED.
+  //
+  // This used to refuse every linked profile, on the reasoning that a linked
+  // account has nothing left to resend. That was written for the failure this
+  // action was built to recover: an invite that never linked. It is wrong for
+  // the far more common one — the invitation linked perfectly and the person
+  // simply never opened the email. Two administrators sat in exactly that
+  // state, and the only remedy the CRM offered them was a password reset for a
+  // password that does not exist.
+  //
+  // A finished account still has nothing to resend, so that refusal stays.
+  // `invitationStatus` is derived from Auth, so this asks whether the person
+  // actually completed onboarding rather than whether a column is populated.
+  //
+  // Re-inviting cannot create a second account regardless: `auth.users` is
+  // UNIQUE on email, so Supabase refuses rather than duplicating, and that
+  // refusal is reported through ALREADY_REGISTERED below.
+  if (target.invitationStatus === "active") {
+    return { status: "error", code: "ALREADY_LINKED" };
+  }
+  if (target.invitationStatus === "disabled") {
+    // Reactivate first. Sending someone an invitation to an account that will
+    // reject them at the door is worse than showing no button at all.
     return { status: "error", code: "ALREADY_LINKED" };
   }
 
@@ -665,6 +685,11 @@ export async function resendStaffInvitation(profileId: string): Promise<ResendSt
     return { status: "error", code: "INVITE_FAILED" };
   }
 
+  // Belt and braces. `linkStaffProfileAuth` is idempotent for the SAME auth
+  // user, so a re-invite that returns the existing id converges harmlessly. A
+  // DIFFERENT id would mean a second account exists for this person — which the
+  // unique index on auth.users should make impossible — and linking it would
+  // quietly move the profile onto the wrong identity. Refuse instead.
   const linked = await linkStaffProfileAuth(profileId, invited.authUserId, auth.profile.id);
   if (linked.status === "error") {
     return {

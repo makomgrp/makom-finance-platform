@@ -27,6 +27,17 @@ import type { BranchScopeMode } from "@/types/branch";
  * internals into ordinary UI for no benefit. The boolean is all the screen
  * needs.
  */
+/**
+ * MILESTONE 26B-21 — what an administrator actually needs to know.
+ *
+ * `disabled` wins over everything: someone switched off cannot sign in whatever
+ * their onboarding state, and offering to resend their invitation would be an
+ * invitation to nowhere. `pending_invitation` wins over `active` because a
+ * person who never opened their email cannot get in either, and calling that
+ * "Activo" is the exact lie this milestone exists to remove.
+ */
+export type StaffInvitationStatus = "disabled" | "pending_invitation" | "active";
+
 export interface StaffUser {
   /** `profiles.id` — the canonical CRM identity. Never a legacy id. */
   id: string;
@@ -49,6 +60,16 @@ export interface StaffUser {
    * in yet, and is deliberately excluded from the Chat directory.
    */
   authLinked: boolean;
+  /**
+   * Whether this person can actually sign in today.
+   *
+   * DERIVED, never stored. `profiles.active` still means only "not switched
+   * off administratively" and keeps driving permissions exactly as before;
+   * this adds the onboarding half, read from Auth. A second column would be a
+   * copy of a fact Supabase already owns, free to drift the first time someone
+   * completes a flow the CRM did not initiate.
+   */
+  invitationStatus: StaffInvitationStatus;
   /**
    * MILESTONE 25A — how far this person's branch reach extends. Shown in
    * Usuarios y roles so an administrator can see at a glance who is national
