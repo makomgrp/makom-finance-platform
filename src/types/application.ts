@@ -150,6 +150,23 @@ export interface Application {
   /** The client's originally-requested amount, immutable forever once
    * set. Deliberately distinct from any future approved amount. */
   requestedAmount: number;
+  /**
+   * MILESTONE 26B-23C — WHAT ODL DECIDED TO LEND.
+   *
+   * Undefined means no economic decision has been made yet, which is the state
+   * of every application when it is created. It is NOT zero: the column's CHECK
+   * forbids storing zero precisely so that "not decided" and "decided to lend
+   * nothing" can never be confused, and a refusal is recorded by moving the
+   * application to `not_eligible` rather than by approving nothing.
+   *
+   * It is never derived from `requestedAmount` and never overwrites it. The two
+   * are independent facts — what the customer asked for, and what ODL answered
+   * — and the approved figure may legitimately be lower, equal or HIGHER.
+   *
+   * Written only through `setApplicationApprovedAmount`, which routes to a
+   * SECURITY DEFINER function so the change and its audit event land together.
+   */
+  approvedAmount?: number;
   /** The client's originally-requested term in months, immutable forever
    * once set. Deliberately distinct from any future approved term. */
   /**

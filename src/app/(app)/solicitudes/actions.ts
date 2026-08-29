@@ -1031,3 +1031,103 @@ export async function formalizeSolicitudApplication(
 
   return { status: "success", applicationNumber: result.applicationNumber };
 }
+
+/**
+ * ============================================================================
+ * MILESTONE 26B-23C — "ODL APPROVES B/. 2,000 OF THE B/. 5,000 REQUESTED"
+ * ============================================================================
+ *
+ * Records the amount ODL decided to lend. Backend only for now: 26B-23D decides
+ * where in the interface a decision-maker types it and how an amount larger
+ * than the one requested is confirmed. Shipping the write path first means that
+ * screen has a boundary to call rather than inventing one alongside itself.
+ *
+ * ----------------------------------------------------------------------------
+ * CAPABILITY: `application:set_status`, NOT A NEW ONE
+ * ----------------------------------------------------------------------------
+ * How much ODL lends is part of the lending determination, and that
+ * determination is already governed by `application:set_status` — the
+ * capability whose legal targets include `approved` and `not_eligible`, held by
+ * administrador and gerente. Inventing a second capability for the amount would
+ * let the two drift apart, and the first person to notice would be whoever
+ * could approve a loan but not say for how much.
+ *
+ * A NULL AMOUNT IS ACCEPTED and means "no decision yet": recording a figure by
+ * mistake has to be correctable, and the correction is audited like any other
+ * change.
+ *
+ * ORDERING, as everywhere in this file: requireCapability() FIRST, then input
+ * validation, then the service. The actor is taken from the authenticated
+ * session — never from the payload, which is why the input carries no actor
+ * field for a browser to populate.
+ */
+export type SetSolicitudApprovedAmountInput = {
+  applicationId: string;
+  /** null clears the decision. Never a string; the money shape here is number. */
+  approvedAmount: number | null;
+};
+
+export type SetSolicitudApprovedAmountResult =
+  | { status: "success"; application: Application; changed: boolean }
+  | {
+      status: "error";
+      code:
+        | "INVALID_INPUT"
+        | "UNAUTHENTICATED"
+        | "FORBIDDEN"
+        | "NOT_FOUND"
+        | "INVALID_AMOUNT"
+        | "NOT_FORMAL"
+        | "SAVE_FAILED";
+    };
+
+export async function setSolicitudApprovedAmount(
+  input: SetSolicitudApprovedAmountInput
+): Promise<SetSolicitudApprovedAmountResult> {
+  const auth = await requireCapability("application:set_status");
+  if (auth.status === "denied") {
+    return { status: "error", code: auth.code };
+  }
+
+  if (!isNonEmptyString(input.applicationId) || !UUID_PATTERN.test(input.applicationId)) {
+    return { status: "error", code: "INVALID_INPUT" };
+  }
+  // `null` is meaningful; anything else non-numeric is a malformed payload
+  // rather than an out-of-range figure, so it fails as INVALID_INPUT before the
+  // service ever sees it.
+  if (input.approvedAmount !== null && typeof input.approvedAmount !== "number") {
+    return { status: "error", code: "INVALID_INPUT" };
+  }
+
+  // Re-read through the caller's own branch scope first, so an id naming an
+  // application in another branch resolves to NOT_FOUND here — the RPC repeats
+  // the check inside its own transaction; this layer exists for the error
+  // contract, that one for the boundary.
+  const targetResult = await getApplicationById(auth.profile.branchScope, input.applicationId);
+  if (targetResult.status !== "ok") {
+    return { status: "error", code: "NOT_FOUND" };
+  }
+
+  const { setApplicationApprovedAmount } = await import("@/lib/services/applications");
+  const result = await setApplicationApprovedAmount(
+    input.applicationId,
+    input.approvedAmount,
+    auth.profile.id
+  );
+
+  if (result.status !== "ok") {
+    return {
+      status: "error",
+      code: result.code === "UPDATE_FAILED" ? "SAVE_FAILED" : result.code,
+    };
+  }
+
+  // Only re-read the surfaces when something actually changed. Re-submitting
+  // the same figure writes nothing and should invalidate nothing.
+  if (result.changed) {
+    revalidatePath("/solicitudes");
+    revalidatePath(`/solicitudes/${input.applicationId}`);
+  }
+
+  return { status: "success", application: result.application, changed: result.changed };
+}

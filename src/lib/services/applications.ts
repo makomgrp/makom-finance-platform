@@ -42,6 +42,7 @@ interface ApplicationRow {
   client_id: string;
   product_id: string;
   requested_amount: number;
+  approved_amount: number | null;
   requested_term_months: number | null;
   created_at: string;
   created_by_profile_id: string | null;
@@ -54,8 +55,22 @@ interface ApplicationRow {
   branch: BranchOriginRow | null;
 }
 
+/**
+ * MILESTONE 26B-23C — the money ceiling this system already applies.
+ *
+ * Same value the portal's own validators use for `requestedAmount`
+ * (src/lib/validation/portal-step-one.ts, public-application-intake.ts), so a
+ * figure ODL may approve cannot exceed one an applicant may request. It sits
+ * well inside numeric(12,2)'s own limit; the point is consistency with the
+ * business ceiling, not with the column's arithmetic maximum.
+ */
+const MAX_MONEY_AMOUNT = 99_999_999.99;
+
 const APPLICATION_SELECT =
-  "id, application_number, client_id, product_id, requested_amount, requested_term_months, created_at, created_by_profile_id, created_source, status, status_changed_at, status_changed_by_profile_id, status_changed_source, assigned_advisor_profile_id, " +
+  // MILESTONE 26B-23C — approved_amount joins the ONE select every application
+  // read is built from, so no surface that loads a whole application silently
+  // loses ODL's own figure while showing the customer's.
+  "id, application_number, client_id, product_id, requested_amount, approved_amount, requested_term_months, created_at, created_by_profile_id, created_source, status, status_changed_at, status_changed_by_profile_id, status_changed_source, assigned_advisor_profile_id, " +
   // MILESTONE 25C-2 — the application's OWN branch, never inferred from its
   // client. 25B-3 transfers the two independently, so a file may legitimately
   // sit in David while its client's home branch is Panamá; reading one from the
@@ -69,6 +84,8 @@ function toApplication(row: ApplicationRow): Application {
     clientId: row.client_id,
     productId: row.product_id,
     requestedAmount: row.requested_amount,
+    // NULL => undefined: "ODL has not decided an amount", never zero (26B-23C).
+    approvedAmount: row.approved_amount ?? undefined,
     // NULL => undefined: "not yet determined" (26B-1A), never zero.
     requestedTermMonths: row.requested_term_months ?? undefined,
     createdAt: row.created_at,
@@ -586,6 +603,103 @@ export async function setApplicationStatus(
   }
 
   return { status: "ok", application: toApplication(updated) };
+}
+
+export type SetApplicationApprovedAmountResult =
+  | { status: "ok"; application: Application; changed: boolean }
+  | {
+      status: "error";
+      code: "NOT_FOUND" | "INVALID_AMOUNT" | "NOT_FORMAL" | "UPDATE_FAILED";
+    };
+
+/**
+ * ============================================================================
+ * MILESTONE 26B-23C — RECORDING WHAT ODL DECIDED TO LEND
+ * ============================================================================
+ *
+ * A SEPARATE OPERATION FROM APPROVING. `setApplicationStatus` moves the loan
+ * through its lifecycle; this records a figure. Keeping them apart means
+ * setting an amount can never silently approve a loan, and approving one can
+ * never silently invent an amount — which also leaves 26B-23D free to decide
+ * where in the interface the two are presented together without either
+ * mechanism having to know about the other.
+ *
+ * IT NEVER TOUCHES requested_amount. That column has no update path anywhere in
+ * this file, deliberately: it is the record of what somebody asked for.
+ *
+ * `null` CLEARS THE DECISION. Recording an amount by mistake must be
+ * correctable, and returning to "not decided yet" is itself a decision worth an
+ * audit entry — so it is written and audited like any other change rather than
+ * being silently forbidden.
+ *
+ * The write goes through `set_application_approved_amount`, a SECURITY DEFINER
+ * function, for the reason every audited write in this system does: `crm_events`
+ * grants `service_role` SELECT only, so this process cannot append the audit row
+ * itself. The function performs the update and the event in one transaction,
+ * re-checks branch scope inside it, and refuses a draft.
+ */
+export async function setApplicationApprovedAmount(
+  applicationId: string,
+  approvedAmount: number | null,
+  actorProfileId: string
+): Promise<SetApplicationApprovedAmountResult> {
+  // Mirrors applications_approved_amount_check and the MAX_AMOUNT ceiling the
+  // portal validators already use, so a bad figure comes back as INVALID_AMOUNT
+  // instead of a raw constraint violation — the posture createApplication()
+  // takes for requested_amount.
+  if (approvedAmount !== null) {
+    if (!Number.isFinite(approvedAmount)) return { status: "error", code: "INVALID_AMOUNT" };
+    if (approvedAmount <= 0) return { status: "error", code: "INVALID_AMOUNT" };
+    if (approvedAmount > MAX_MONEY_AMOUNT) return { status: "error", code: "INVALID_AMOUNT" };
+    // The column is numeric(12,2). A third decimal is a caller mistake, not a
+    // value to round away silently on their behalf.
+    if (Math.round(approvedAmount * 100) !== approvedAmount * 100) {
+      return { status: "error", code: "INVALID_AMOUNT" };
+    }
+  }
+
+  const supabase = getSupabaseServerClient();
+
+  const { data: outcome, error } = await supabase.rpc("set_application_approved_amount", {
+    p_application_id: applicationId,
+    p_approved_amount: approvedAmount,
+    p_source: "crm_manual",
+    p_actor_profile_id: actorProfileId,
+  });
+
+  if (error) {
+    // Out of branch scope reports NOT_FOUND, exactly like an application that
+    // does not exist — see setApplicationStatus and BRANCH_DENIED_SQLSTATE.
+    if (isBranchDeniedError(error.code)) return { status: "error", code: "NOT_FOUND" };
+    // 22023 is the function's own refusal: a draft, a missing actor, or a
+    // source it will not accept. Only the first is reachable from here.
+    if (error.code === "22023") return { status: "error", code: "NOT_FORMAL" };
+    console.error(
+      "[applications service] Failed to record the approved amount:",
+      error.message
+    );
+    return { status: "error", code: "UPDATE_FAILED" };
+  }
+
+  // null => the application does not exist. Same meaning the status function's
+  // null return carries.
+  if (outcome === null) return { status: "error", code: "NOT_FOUND" };
+
+  const { data: updated, error: readError } = await supabase
+    .from("applications")
+    .select(APPLICATION_SELECT)
+    .eq("id", applicationId)
+    .maybeSingle<ApplicationRow>();
+
+  if (readError || !updated) {
+    console.error(
+      "[applications service] Approved amount written but the application could not be re-read:",
+      readError?.message ?? "no row returned"
+    );
+    return { status: "error", code: "UPDATE_FAILED" };
+  }
+
+  return { status: "ok", application: toApplication(updated), changed: outcome === "updated" };
 }
 
 export type AssignApplicationAdvisorResult =
