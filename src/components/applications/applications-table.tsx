@@ -38,7 +38,7 @@ import {
 import {
   APPLICATION_STATUS_BADGE_CLASS,
   APPLICATION_STATUS_ORDER,
-  APPLICATION_STATUS_TRANSITIONS,
+  genericStatusMenuTargets,
 } from "@/lib/config/application";
 import { formatDate, formatRelativeTime } from "@/lib/format";
 import { useCapability } from "@/lib/auth/use-capability";
@@ -195,7 +195,7 @@ export function ApplicationsTable({
             <TableBody>
               {paginated.map((app) => {
                 const docs = documentProgress[app.id] ?? { received: 0, reviewed: 0, total: 0 };
-                const legalTargets = APPLICATION_STATUS_TRANSITIONS[app.status];
+                const legalTargets = genericStatusMenuTargets(app.status);
 
                 return (
                   <TableRow key={app.id}>

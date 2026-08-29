@@ -53,6 +53,35 @@ export const APPLICATION_STATUS_TRANSITIONABLE: ApplicationStatus[] = APPLICATIO
   (status) => status !== "new"
 );
 
+/**
+ * ============================================================================
+ * MILESTONE 26B-23D.1 — APPROVAL IS NOT A STATUS CHANGE YOU PICK FROM A LIST
+ * ============================================================================
+ *
+ * The generic "change status" dropdown appears in three places — the formal
+ * Solicitudes table, the board card, and the client dossier header — and it
+ * offers whatever `APPLICATION_STATUS_TRANSITIONS` says is legal. That was
+ * right while every transition was just a transition.
+ *
+ * 26B-23D made approval carry a figure. A loan approved for an unknown amount
+ * is not a lesser record, it is a wrong one: the file says ODL committed to
+ * lend and cannot say how much. Leaving `approved` in a dropdown that has
+ * nowhere to ask for the amount would leave three ways to produce exactly that
+ * row, one click each.
+ *
+ * SO THE TRANSITION STAYS LEGAL AND THE MENU STOPS OFFERING IT. This is not a
+ * change to the lifecycle — `in_review -> approved` is still the move the
+ * decision block performs, and the server still enforces the graph. It is a
+ * statement about WHERE that move may be initiated: from the one surface that
+ * can ask for the amount and write both in a single transaction.
+ *
+ * The other targets are untouched. Not-approved and cancelled carry no figure,
+ * and a dropdown remains the right place for them.
+ */
+export function genericStatusMenuTargets(status: ApplicationStatus): ApplicationStatus[] {
+  return APPLICATION_STATUS_TRANSITIONS[status].filter((target) => target !== "approved");
+}
+
 // Same semantic-color convention used throughout this schema (see
 // REQUIREMENT_SLOT_STATUS_BADGE_CLASS, LOAN_STATUS_BADGE_CLASS): secondary
 // for the initial state, navy for "actively being worked on," success for

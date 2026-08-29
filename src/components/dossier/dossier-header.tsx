@@ -9,7 +9,7 @@ import { StatusBadge } from "@/components/shared/status-badge";
 import { ApplicationStatusMenu } from "@/components/applications/application-status-menu";
 import { RealClientFormDialog } from "@/components/clients/real-client-form-dialog";
 import { CLIENT_STATUS_BADGE_CLASS } from "@/lib/config/client-status";
-import { APPLICATION_STATUS_BADGE_CLASS, APPLICATION_STATUS_TRANSITIONS } from "@/lib/config/application";
+import { APPLICATION_STATUS_BADGE_CLASS, genericStatusMenuTargets } from "@/lib/config/application";
 import { formatDate, getInitials } from "@/lib/format";
 import { useCapability } from "@/lib/auth/use-capability";
 import type { Locale } from "@/i18n/config";
@@ -50,7 +50,7 @@ export function DossierHeader({
   // never actually displayed in the no-application branch either), and
   // now comes resolved from the real engine (assignedAdvisorFullName),
   // not a demo lookup.
-  const legalStatusTargets = activeApplication ? APPLICATION_STATUS_TRANSITIONS[activeApplication.status] : [];
+  const legalStatusTargets = activeApplication ? genericStatusMenuTargets(activeApplication.status) : [];
 
   return (
     <div className="rounded-xl border border-border bg-card p-5">

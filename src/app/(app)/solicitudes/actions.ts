@@ -142,6 +142,23 @@ export async function setSolicitudApplicationStatus(
   if (!(APPLICATION_STATUS_TRANSITIONABLE as string[]).includes(input.status)) {
     return { status: "error", code: "INVALID_INPUT" };
   }
+  // MILESTONE 26B-23D.1 — APPROVAL DOES NOT COME THROUGH THIS DOOR.
+  //
+  // Since 26B-23D an approval carries the amount ODL committed to lend, and the
+  // two are written together or not at all. This action has no amount to write,
+  // so allowing `approved` here would be a way to produce the one row the whole
+  // design exists to prevent: a loan approved for an unknown sum.
+  //
+  // The three generic status menus stopped offering it, and that is what a
+  // person sees. This is what a person cannot get around — a tab left open
+  // before the menus changed, a replayed request, or a hand-made call. Use
+  // approveSolicitudWithAmount, which asks for the figure and writes both.
+  //
+  // Every other transition is untouched: not_eligible and cancelled carry no
+  // figure and still belong here.
+  if (input.status === "approved") {
+    return { status: "error", code: "INVALID_INPUT" };
+  }
 
   // MILESTONE 25B-2 — the application is re-read through the caller's own
   // effective branch scope, so an id naming an application in another branch

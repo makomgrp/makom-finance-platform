@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ApplicationStatusMenu } from "@/components/applications/application-status-menu";
 import { AdvisorAssignMenu } from "@/components/applications/advisor-assign-menu";
 import { useSearchParamState } from "@/lib/hooks/use-search-param-state";
-import { APPLICATION_STATUS_TRANSITIONS } from "@/lib/config/application";
+import { genericStatusMenuTargets } from "@/lib/config/application";
 import { PIPELINE_STAGE_ORDER, isPortalDrivenStage } from "@/lib/config/pipeline";
 import { formatDateTime, formatRelativeTime, getInitials } from "@/lib/format";
 import { useCapability } from "@/lib/auth/use-capability";
@@ -260,7 +260,7 @@ function PipelineCardView({
   const locale = useLocale() as Locale;
   const t = useTranslations();
   const isLead = card.kind === "lead";
-  const legalTargets = APPLICATION_STATUS_TRANSITIONS[card.status];
+  const legalTargets = genericStatusMenuTargets(card.status);
   const receivedPercent =
     card.documentsRequired > 0
       ? Math.round((card.documentsReceived / card.documentsRequired) * 100)
