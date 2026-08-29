@@ -1948,6 +1948,24 @@
       "UPDATE_FAILED": "No se pudo actualizar la solicitud. Intente nuevamente."
     },
     "recommendationNeedsNoteHint": "Escriba un comentario para poder guardar esta recomendación.",
-    "recommendationAlreadySaved": "Esta recomendación ya está guardada. Cambie la recomendación o el comentario para volver a guardar."
+    "recommendationAlreadySaved": "Esta recomendación ya está guardada. Cambie la recomendación o el comentario para volver a guardar.",
+    "approveTitle": "Aprobar solicitud",
+    "approveExplanation": "El monto aprobado puede ser distinto del solicitado. Escriba el monto que ODL aprueba.",
+    "approveRequestedLabel": "Monto solicitado",
+    "approveAmountLabel": "Monto a aprobar (USD)",
+    "approveAmountPlaceholder": "0.00",
+    "approveContinue": "Continuar",
+    "approveCancel": "Cancelar",
+    "approveConfirm": "Confirmar aprobación",
+    "approveExceedsWarningTitle": "El monto aprobado supera el monto solicitado por el cliente.",
+    "approveExceedsWarningBody": "Solicitado {requested} · A aprobar {approved}. Confirme que ODL aprueba un monto mayor al que el cliente pidió.",
+    "approveExceedsConfirm": "Sí, aprobar un monto mayor",
+    "approveAmountRequired": "Escriba el monto que ODL aprueba.",
+    "approveAmountInvalid": "Escriba un monto válido, mayor que cero y con un máximo de dos decimales.",
+    "approveAmountTooLarge": "El monto excede el máximo admitido.",
+    "approveSuccess": "Solicitud aprobada por {amount}.",
+    "approveError": "No se pudo aprobar la solicitud. Vuelva a intentarlo.",
+    "approveErrorTransition": "La solicitud ya no admite ese cambio de estado. Vuelva a cargar la página.",
+    "approvedAmountLabel": "Monto aprobado"
   }
 }

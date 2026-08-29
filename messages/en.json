@@ -1948,6 +1948,24 @@
       "UPDATE_FAILED": "Could not update the application. Please try again."
     },
     "recommendationNeedsNoteHint": "Add a comment to save this recommendation.",
-    "recommendationAlreadySaved": "This recommendation is already saved. Change the recommendation or the comment to save again."
+    "recommendationAlreadySaved": "This recommendation is already saved. Change the recommendation or the comment to save again.",
+    "approveTitle": "Approve application",
+    "approveExplanation": "The approved amount may differ from the requested one. Enter the amount ODL is approving.",
+    "approveRequestedLabel": "Requested amount",
+    "approveAmountLabel": "Amount to approve (USD)",
+    "approveAmountPlaceholder": "0.00",
+    "approveContinue": "Continue",
+    "approveCancel": "Cancel",
+    "approveConfirm": "Confirm approval",
+    "approveExceedsWarningTitle": "The approved amount exceeds the amount the client requested.",
+    "approveExceedsWarningBody": "Requested {requested} · To approve {approved}. Confirm that ODL is approving more than the client asked for.",
+    "approveExceedsConfirm": "Yes, approve a higher amount",
+    "approveAmountRequired": "Enter the amount ODL is approving.",
+    "approveAmountInvalid": "Enter a valid amount, greater than zero and with at most two decimals.",
+    "approveAmountTooLarge": "The amount exceeds the maximum allowed.",
+    "approveSuccess": "Application approved for {amount}.",
+    "approveError": "The application could not be approved. Please try again.",
+    "approveErrorTransition": "The application no longer accepts that status change. Please reload the page.",
+    "approvedAmountLabel": "Approved amount"
   }
 }

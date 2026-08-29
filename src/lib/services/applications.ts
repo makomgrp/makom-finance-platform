@@ -702,6 +702,100 @@ export async function setApplicationApprovedAmount(
   return { status: "ok", application: toApplication(updated), changed: outcome === "updated" };
 }
 
+export type ApproveApplicationWithAmountResult =
+  | { status: "ok"; application: Application }
+  | {
+      status: "error";
+      code: "NOT_FOUND" | "INVALID_AMOUNT" | "INVALID_TRANSITION" | "UPDATE_FAILED";
+    };
+
+/**
+ * ============================================================================
+ * MILESTONE 26B-23D — APPROVING, WITH THE FIGURE, AS ONE ACT
+ * ============================================================================
+ *
+ * Approving a loan and saying how much are not two decisions that happen to be
+ * taken together; they are one decision. Performing them as two calls would
+ * leave a window in which the row says a loan was approved and does not say for
+ * how much — a window no amount of care in the browser can close, because it
+ * exists on the server. So both writes and both audit events happen inside
+ * `approve_application_with_amount`, under one row lock, in one transaction.
+ *
+ * THE TRANSITION GRAPH STAYS IN TYPESCRIPT. `APPLICATION_STATUS_TRANSITIONS` is
+ * checked here, and the function reproduces only the `status = expected` guard
+ * — the same division `setApplicationStatus` already keeps with
+ * `record_application_status_change`. The database refuses a stale write; it
+ * does not hold a second opinion about which moves are legal.
+ *
+ * A SECOND CALL CANNOT RE-APPROVE. The expected status it carries no longer
+ * matches the row, so it matches nothing and comes back INVALID_TRANSITION: a
+ * double click appends no second pair of events, and — the case that matters —
+ * cannot quietly overwrite the figure of an approval that already happened.
+ * Amending a decided amount is a different act with its own audited path
+ * (`setApplicationApprovedAmount`).
+ */
+export async function approveApplicationWithAmount(
+  applicationId: string,
+  expectedStatus: ApplicationStatus,
+  approvedAmount: number,
+  actorProfileId: string
+): Promise<ApproveApplicationWithAmountResult> {
+  // The graph decides whether this move exists at all, before anything else.
+  if (!APPLICATION_STATUS_TRANSITIONS[expectedStatus].includes("approved")) {
+    return { status: "error", code: "INVALID_TRANSITION" };
+  }
+
+  // Same money shape the column and the portal validators enforce. A bad figure
+  // returns INVALID_AMOUNT rather than a raw constraint violation.
+  if (!Number.isFinite(approvedAmount)) return { status: "error", code: "INVALID_AMOUNT" };
+  if (approvedAmount <= 0) return { status: "error", code: "INVALID_AMOUNT" };
+  if (approvedAmount > MAX_MONEY_AMOUNT) return { status: "error", code: "INVALID_AMOUNT" };
+  if (Math.round(approvedAmount * 100) !== approvedAmount * 100) {
+    return { status: "error", code: "INVALID_AMOUNT" };
+  }
+
+  const supabase = getSupabaseServerClient();
+
+  const { data: outcome, error } = await supabase.rpc("approve_application_with_amount", {
+    p_application_id: applicationId,
+    p_expected_status: expectedStatus,
+    p_approved_amount: approvedAmount,
+    p_source: "crm_manual",
+    p_actor_profile_id: actorProfileId,
+  });
+
+  if (error) {
+    if (isBranchDeniedError(error.code)) return { status: "error", code: "NOT_FOUND" };
+    // 22023 is the function's own refusal: a draft, a missing actor, a source it
+    // will not take, or an amount it will not accept. The first three are
+    // unreachable from here, so INVALID_AMOUNT is the honest mapping.
+    if (error.code === "22023") return { status: "error", code: "INVALID_AMOUNT" };
+    console.error("[applications service] Failed to approve the application:", error.message);
+    return { status: "error", code: "UPDATE_FAILED" };
+  }
+
+  // null covers both "no such application" and "it moved underneath us". The
+  // caller has already re-read the row through its own scope, so by the time
+  // this happens the second is overwhelmingly the likelier one.
+  if (outcome === null) return { status: "error", code: "INVALID_TRANSITION" };
+
+  const { data: updated, error: readError } = await supabase
+    .from("applications")
+    .select(APPLICATION_SELECT)
+    .eq("id", applicationId)
+    .maybeSingle<ApplicationRow>();
+
+  if (readError || !updated) {
+    console.error(
+      "[applications service] Approved but the application could not be re-read:",
+      readError?.message ?? "no row returned"
+    );
+    return { status: "error", code: "UPDATE_FAILED" };
+  }
+
+  return { status: "ok", application: toApplication(updated) };
+}
+
 export type AssignApplicationAdvisorResult =
   | { status: "ok"; application: Application }
   | { status: "error"; code: "NOT_FOUND" | "INVALID_ADVISOR" | "UPDATE_FAILED" };

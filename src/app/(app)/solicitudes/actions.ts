@@ -1131,3 +1131,95 @@ export async function setSolicitudApprovedAmount(
 
   return { status: "success", application: result.application, changed: result.changed };
 }
+
+/**
+ * ============================================================================
+ * MILESTONE 26B-23D — "APROBAR B/. 6,000 DE LOS B/. 5,000 SOLICITADOS"
+ * ============================================================================
+ *
+ * The approval a decision-maker actually performs: the loan is approved AND the
+ * figure is recorded, or neither happens. One call, one transaction, so there
+ * is no moment — not even one the browser could recover from — in which the
+ * file says a loan was approved without saying for how much.
+ *
+ * WHY THIS IS NOT `setSolicitudApplicationStatus` WITH AN EXTRA ARGUMENT. That
+ * action moves an application between any two legal states and knows nothing
+ * about money; teaching it about amounts would mean every other transition had
+ * to explain why it does not carry one. Approval is the transition that owns a
+ * figure, so it gets its own boundary and reuses everything else unchanged.
+ *
+ * THE EXPECTED STATUS IS READ HERE, NOT SENT BY THE BROWSER. The application is
+ * re-read through the caller's own branch scope, and its current status becomes
+ * the optimistic-concurrency token the function checks under its lock — the
+ * same shape `setSolicitudApplicationStatus` already uses. A browser that
+ * believes the file is still under review cannot assert that as a fact.
+ *
+ * ORDERING, as everywhere in this file: requireCapability() FIRST, then input
+ * validation, then the read, then the service. The actor comes from the
+ * session; the input has no field for one.
+ */
+export type ApproveSolicitudWithAmountInput = {
+  applicationId: string;
+  /** Required. Approving without a figure is not an approval — the RPC refuses
+   * it too, so a stale tab cannot produce one either. */
+  approvedAmount: number;
+};
+
+export type ApproveSolicitudWithAmountResult =
+  | { status: "success"; application: Application }
+  | {
+      status: "error";
+      code:
+        | "INVALID_INPUT"
+        | "UNAUTHENTICATED"
+        | "FORBIDDEN"
+        | "NOT_FOUND"
+        | "INVALID_AMOUNT"
+        | "INVALID_TRANSITION"
+        | "SAVE_FAILED";
+    };
+
+export async function approveSolicitudWithAmount(
+  input: ApproveSolicitudWithAmountInput
+): Promise<ApproveSolicitudWithAmountResult> {
+  const auth = await requireCapability("application:set_status");
+  if (auth.status === "denied") {
+    return { status: "error", code: auth.code };
+  }
+
+  if (!isNonEmptyString(input.applicationId) || !UUID_PATTERN.test(input.applicationId)) {
+    return { status: "error", code: "INVALID_INPUT" };
+  }
+  // A missing or non-numeric amount is a malformed payload, not an out-of-range
+  // figure, so it fails before the service is asked about its value.
+  if (typeof input.approvedAmount !== "number") {
+    return { status: "error", code: "INVALID_INPUT" };
+  }
+
+  const targetResult = await getApplicationById(auth.profile.branchScope, input.applicationId);
+  if (targetResult.status !== "ok") {
+    return { status: "error", code: "NOT_FOUND" };
+  }
+
+  const { approveApplicationWithAmount } = await import("@/lib/services/applications");
+  const result = await approveApplicationWithAmount(
+    input.applicationId,
+    targetResult.application.status,
+    input.approvedAmount,
+    auth.profile.id
+  );
+
+  if (result.status !== "ok") {
+    return {
+      status: "error",
+      code: result.code === "UPDATE_FAILED" ? "SAVE_FAILED" : result.code,
+    };
+  }
+
+  // The application leaves `in_review` and its figure appears, so every surface
+  // that renders either has to be re-read.
+  revalidatePath("/solicitudes");
+  revalidatePath(`/solicitudes/${input.applicationId}`);
+
+  return { status: "success", application: result.application };
+}

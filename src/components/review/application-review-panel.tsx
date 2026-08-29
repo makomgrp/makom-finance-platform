@@ -34,7 +34,7 @@ import {
 } from "@/components/ui/dialog";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { useCapability } from "@/lib/auth/use-capability";
-import { formatDateTime } from "@/lib/format";
+import { formatCurrency, formatDateTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import {
   REVIEW_ITEM_STATES,
@@ -54,6 +54,7 @@ import {
   setReviewItemStateAction,
   setReviewRecommendationAction,
   setSolicitudApplicationStatus,
+  approveSolicitudWithAmount,
   type ReviewActionResult,
 } from "@/app/(app)/solicitudes/actions";
 import type { ApplicationReviewView, ReviewItemView } from "@/lib/services/application-review";
@@ -97,6 +98,11 @@ export interface ApplicationReviewPanelProps {
   applicationId: string;
   applicationStatus: ApplicationStatus;
   review: ApplicationReviewView;
+  /** MILESTONE 26B-23D — the customer's figure, so the decision block can show
+   * it beside the one being decided and warn when the second exceeds it. */
+  requestedAmount: number;
+  /** Undefined until ODL has decided one. Never a placeholder. */
+  approvedAmount?: number;
 }
 
 const ITEM_STATE_ICON = {
@@ -123,6 +129,8 @@ export function ApplicationReviewPanel({
   applicationId,
   applicationStatus,
   review: initialReview,
+  requestedAmount,
+  approvedAmount,
 }: ApplicationReviewPanelProps) {
   const t = useTranslations();
   const locale = useLocale() as Locale;
@@ -207,6 +215,8 @@ export function ApplicationReviewPanel({
           review={review}
           applicationId={applicationId}
           applicationStatus={applicationStatus}
+          requestedAmount={requestedAmount}
+          approvedAmount={approvedAmount}
         />
       )}
     </section>
@@ -904,14 +914,30 @@ function DecisionCard({
   review,
   applicationId,
   applicationStatus,
+  requestedAmount,
+  approvedAmount,
 }: {
   review: ApplicationReviewView;
   applicationId: string;
   applicationStatus: ApplicationStatus;
+  requestedAmount: number;
+  approvedAmount?: number;
 }) {
   const t = useTranslations();
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+
+  /**
+   * MILESTONE 26B-23D — APROBAR PIDE UNA CIFRA.
+   *
+   * "idle" son los botones de siempre. "amount" es el formulario del monto, y
+   * "exceeds" la segunda confirmación que solo aparece cuando lo aprobado supera
+   * lo solicitado. Nada de esto toca el servidor: mientras el paso no es "sent",
+   * la solicitud sigue exactamente como estaba.
+   */
+  const [step, setStep] = useState<"idle" | "amount" | "exceeds">("idle");
+  const [amountText, setAmountText] = useState("");
+  const [amountError, setAmountError] = useState<string | null>(null);
 
   // MILESTONE 26B-23B.2 — EL ESTADO SE LEE, NO SE COPIA.
   //
@@ -950,8 +976,93 @@ function DecisionCard({
     });
   };
 
+  /**
+   * El mismo contrato monetario que el servidor, repetido aquí para dar un
+   * mensaje concreto en vez de un fallo genérico. El servidor sigue siendo la
+   * autoridad: valida otra vez, y la función de base de datos otra más.
+   *
+   * Nada se redondea ni se corrige en silencio. Un tercer decimal es un error
+   * de quien escribe, no algo que este formulario deba decidir por él.
+   */
+  const parseAmount = (): number | null => {
+    const raw = amountText.trim().replace(/,/g, "");
+    if (raw === "") {
+      setAmountError(t("review.approveAmountRequired"));
+      return null;
+    }
+    if (!/^\d+(\.\d{1,2})?$/.test(raw)) {
+      setAmountError(t("review.approveAmountInvalid"));
+      return null;
+    }
+    const value = Number(raw);
+    if (!Number.isFinite(value) || value <= 0) {
+      setAmountError(t("review.approveAmountInvalid"));
+      return null;
+    }
+    if (value > 99_999_999.99) {
+      setAmountError(t("review.approveAmountTooLarge"));
+      return null;
+    }
+    setAmountError(null);
+    return value;
+  };
+
+  const approve = (amount: number) => {
+    startTransition(async () => {
+      const result = await approveSolicitudWithAmount({ applicationId, approvedAmount: amount });
+      if (result.status === "success") {
+        setStep("idle");
+        setAmountText("");
+        toast.success(
+          t("review.approveSuccess", { amount: formatCurrency(amount) })
+        );
+        router.refresh();
+        return;
+      }
+      toast.error(
+        result.code === "INVALID_TRANSITION"
+          ? t("review.approveErrorTransition")
+          : result.code === "INVALID_AMOUNT"
+            ? t("review.approveAmountInvalid")
+            : t("review.approveError")
+      );
+    });
+  };
+
+  // Se recalcula en cada render a partir de lo escrito, para que el aviso y la
+  // etiqueta del botón no puedan quedarse describiendo una cifra anterior.
+  const typedAmount = /^\d+(\.\d{1,2})?$/.test(amountText.trim().replace(/,/g, ""))
+    ? Number(amountText.trim().replace(/,/g, ""))
+    : undefined;
+  const exceedsRequested = typedAmount !== undefined && typedAmount > requestedAmount;
+
+  const cancel = () => {
+    setStep("idle");
+    setAmountText("");
+    setAmountError(null);
+  };
+
   return (
     <Panel title={t("review.decisionTitle")} description={t("review.decisionSubtitle")}>
+      {/* MILESTONE 26B-23D — las dos cifras, siempre juntas y siempre
+          etiquetadas. Ninguna sustituye a la otra: lo solicitado es del cliente
+          y lo aprobado es de ODL, y un expediente que mostrara una sola dejaría
+          al lector sin saber cuál está viendo. El monto aprobado solo aparece
+          cuando existe; no hay marcador de posición para una decisión que
+          todavía no se ha tomado. */}
+      <dl className="flex flex-wrap gap-x-8 gap-y-2 text-sm">
+        <div>
+          <dt className="text-muted-foreground">{t("review.approveRequestedLabel")}</dt>
+          <dd className="font-medium text-foreground">{formatCurrency(requestedAmount)}</dd>
+        </div>
+        {approvedAmount !== undefined && (
+          <div>
+            <dt className="text-muted-foreground">{t("review.approvedAmountLabel")}</dt>
+            <dd className="font-medium text-foreground">{formatCurrency(approvedAmount)}</dd>
+          </div>
+        )}
+      </dl>
+
       <p className="text-sm text-muted-foreground">
         {t("review.decisionContext", {
           recommendation: t(
@@ -968,18 +1079,114 @@ function DecisionCard({
             ),
           })}
         </p>
-      ) : (
+      ) : step === "idle" ? (
         <div className="flex flex-wrap gap-2">
           {targets.map((target) => (
             <Button
               key={target}
               variant={target === "approved" ? "default" : "outline"}
               disabled={isPending}
-              onClick={() => decide(target)}
+              // MILESTONE 26B-23D — aprobar ya no decide nada por sí solo: abre
+              // el formulario del monto. Los demás destinos (no aprobar,
+              // cancelar) conservan exactamente el camino de siempre, porque no
+              // llevan cifra asociada y nada de esto les concierne.
+              onClick={() => (target === "approved" ? setStep("amount") : decide(target))}
             >
               {t(`review.decisionSetTo.${target}` as "review.decisionSetTo.approved")}
             </Button>
           ))}
+        </div>
+      ) : step === "amount" ? (
+        <div className="flex max-w-md flex-col gap-3 rounded-lg border border-border bg-muted/30 p-4">
+          <div>
+            <h4 className="text-sm font-semibold text-foreground">{t("review.approveTitle")}</h4>
+            <p className="mt-1 text-sm text-muted-foreground">{t("review.approveExplanation")}</p>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor={`approved-amount-${applicationId}`}>
+              {t("review.approveAmountLabel")}
+            </Label>
+            {/* Empieza VACÍO y nunca se precarga con lo solicitado: rellenarlo
+                sería sugerir una respuesta a una decisión que no es nuestra. */}
+            <Input
+              id={`approved-amount-${applicationId}`}
+              inputMode="decimal"
+              autoComplete="off"
+              placeholder={t("review.approveAmountPlaceholder")}
+              value={amountText}
+              disabled={isPending}
+              aria-invalid={Boolean(amountError)}
+              onChange={(e) => {
+                setAmountText(e.target.value);
+                if (amountError) setAmountError(null);
+              }}
+            />
+            {amountError && <p className="text-xs text-destructive">{amountError}</p>}
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <Button
+              disabled={isPending}
+              onClick={() => {
+                const value = parseAmount();
+                if (value === null) return;
+                // Superar lo solicitado nunca se aprueba en este clic: pasa a la
+                // confirmación explícita. Por debajo o igual, este clic ES la
+                // confirmación, y la etiqueta lo dice.
+                if (value > requestedAmount) setStep("exceeds");
+                else approve(value);
+              }}
+            >
+              {exceedsRequested ? t("review.approveContinue") : t("review.approveConfirm")}
+            </Button>
+            <Button variant="ghost" disabled={isPending} onClick={cancel}>
+              {t("review.approveCancel")}
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <div
+          role="alert"
+          className="flex max-w-md flex-col gap-3 rounded-lg border border-warning/40 bg-warning/[0.07] p-4"
+        >
+          {/* MILESTONE 26B-23D — no es un bloqueo. ODL permite aprobar más de lo
+              pedido; lo que no permite es hacerlo sin darse cuenta. */}
+          <div className="flex gap-2.5">
+            <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warning" aria-hidden="true" />
+            <div>
+              <p className="text-sm font-semibold text-foreground">
+                {t("review.approveExceedsWarningTitle")}
+              </p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {t("review.approveExceedsWarningBody", {
+                  requested: formatCurrency(requestedAmount),
+                  approved: typedAmount !== undefined ? formatCurrency(typedAmount) : "—",
+                })}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <Button
+              disabled={isPending}
+              onClick={() => {
+                // Se vuelve a validar lo escrito en vez de confiar en lo que se
+                // calculó al pasar de paso: el campo sigue siendo la fuente.
+                const value = parseAmount();
+                if (value === null) {
+                  setStep("amount");
+                  return;
+                }
+                approve(value);
+              }}
+            >
+              {t("review.approveExceedsConfirm")}
+            </Button>
+            <Button variant="ghost" disabled={isPending} onClick={() => setStep("amount")}>
+              {t("review.approveCancel")}
+            </Button>
+          </div>
         </div>
       )}
     </Panel>

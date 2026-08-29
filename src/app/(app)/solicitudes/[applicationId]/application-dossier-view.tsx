@@ -184,6 +184,17 @@ export function ApplicationDossierView({
             label={t("applicationDossier.requestedAmount")}
             value={formatCurrency(application.requestedAmount)}
           />
+          {/* MILESTONE 26B-23D — appears only once ODL has decided one, right
+              beside the customer's figure and under its own label. Neither
+              replaces the other: an application whose approved amount stood
+              where the requested one used to be would leave a reader unable to
+              tell which of the two they are looking at. */}
+          {application.approvedAmount !== undefined && (
+            <HeaderFact
+              label={t("review.approvedAmountLabel")}
+              value={formatCurrency(application.approvedAmount)}
+            />
+          )}
           <HeaderFact
             label={t("applicationDossier.term")}
             value={
@@ -239,6 +250,8 @@ export function ApplicationDossierView({
           applicationId={application.id}
           applicationStatus={application.status}
           review={review}
+          requestedAmount={application.requestedAmount}
+          approvedAmount={application.approvedAmount}
         />
       )}
 
