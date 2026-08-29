@@ -6,7 +6,9 @@ import { getApplicationDocumentProgress } from "@/lib/services/requirement-slots
 import { getFollowUpSummaries } from "@/lib/services/follow-ups";
 import { isStep2Complete } from "@/lib/services/portal-progress";
 import { stageForFormalStatus } from "@/lib/config/pipeline";
+import { isManualDraft } from "@/types";
 import type {
+  ApplicationSource,
   ApplicationStatus,
   PipelineCard,
   PipelineStage,
@@ -69,7 +71,9 @@ import type {
 export type GetPipelineResult = { status: "ok"; cards: PipelineCard[] } | { status: "error" };
 
 const PIPELINE_SELECT =
-  "id, application_number, status, created_at, client_id, product_id, assigned_advisor_profile_id, " +
+  // MILESTONE 26B-23B.1 — created_source joins the select because the board can
+  // no longer tell a portal lead from a staff-created draft by status alone.
+  "id, application_number, status, created_source, created_at, client_id, product_id, assigned_advisor_profile_id, " +
   "product:products!applications_product_id_fkey(code, application_code, name), " +
   "advisor:profiles!applications_assigned_advisor_profile_id_fkey(full_name), " +
   "client:clients!applications_client_id_fkey(full_name, email, phone), " +
@@ -80,6 +84,7 @@ interface PipelineRow {
   id: string;
   application_number: string | null;
   status: ApplicationStatus;
+  created_source: ApplicationSource;
   created_at: string;
   client_id: string;
   product_id: string;
@@ -138,10 +143,16 @@ export async function getPipelineCards(scope: BranchScope): Promise<GetPipelineR
       const docs = progress[row.id] ?? { received: 0, reviewed: 0, total: 0 };
       const isDraft = row.status === "draft";
       const intake = Array.isArray(row.intake) ? row.intake[0] : row.intake;
+      // MILESTONE 26B-23B.1 — a LEAD is a member of the public part-way through
+      // the portal. That used to be every draft; since 23A a draft may equally
+      // be a file an employee started here, and calling that a lead put a
+      // PORTAL badge on ODL's own work and sent the card to the client's
+      // profile instead of to the application it belongs to.
+      const isLead = isDraft && !isManualDraft({ status: row.status, createdSource: row.created_source });
 
       return {
         id: row.id,
-        kind: isDraft ? "lead" : "application",
+        kind: isLead ? "lead" : "application",
         clientId: row.client_id,
         applicationNumber: row.application_number ?? undefined,
         fullName: row.client?.full_name ?? "—",

@@ -9,7 +9,7 @@ import { getRequirementSlotsByApplicationId } from "@/lib/services/requirement-s
 import { getEvidenceByApplicationId } from "@/lib/services/document-evidence";
 import { getClientById } from "@/lib/services/clients";
 import { getApplicationReview } from "@/lib/services/application-review";
-import { isFormalApplication } from "@/types";
+import { isStaffManageableApplication } from "@/types";
 import { ApplicationDossierView } from "./application-dossier-view";
 import type { Locale } from "@/i18n/config";
 
@@ -37,9 +37,25 @@ import type { Locale } from "@/i18n/config";
  * never existed — so this route cannot be used to confirm that a case exists in
  * a branch the viewer may not see.
  *
- * A DRAFT ALSO 404s. It is not an application ODL has received, it has no
- * official number, and it is absent from Solicitudes; giving it an operational
- * dossier would put it back into the workflow through a side door.
+ * ----------------------------------------------------------------------------
+ * A PORTAL DRAFT STILL 404s. A MANUAL ONE DOES NOT (26B-23B.1)
+ * ----------------------------------------------------------------------------
+ * This guard was written in 26B-5, when a draft could only mean one thing: a
+ * member of the public part-way through the portal who had not pressed Enviar.
+ * Opening an operational dossier on that would put someone else's unfinished
+ * form into the workflow through a side door, so it 404ed — and for a portal
+ * draft that is still exactly right.
+ *
+ * 26B-23A introduced a second kind of draft: one an employee created here, on
+ * purpose, which is waiting for that same employee to formalise it. 23B put the
+ * Formalise panel on this page — behind a guard that rejected the only status
+ * the panel renders for, so the panel could never appear and a manually-created
+ * application could never be finished. That is the defect this fixes.
+ *
+ * The condition is now `isStaffManageableApplication`, which asks about origin
+ * as well as status. Nothing else about this route changes: the branch scope
+ * still decides visibility first, and a portal draft still resolves to the same
+ * plain 404 as an id that never existed.
  */
 export default async function ApplicationDossierPage({
   params,
@@ -57,8 +73,9 @@ export default async function ApplicationDossierPage({
 
   const application = applicationResult.application;
 
-  // Not received by ODL => not an operational case => no dossier.
-  if (!isFormalApplication(application.status)) notFound();
+  // Received by ODL, or a draft this CRM started itself. Anything else — which
+  // today means a portal form still being filled in — is not an internal file.
+  if (!isStaffManageableApplication(application)) notFound();
 
   const [
     step2Result,

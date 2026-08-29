@@ -5,7 +5,7 @@ import { getLocale } from "next-intl/server";
 import { getClientById } from "@/lib/services/clients";
 import { getNotesByClientId } from "@/lib/services/notes";
 import { getAlertsByClientId } from "@/lib/services/alerts";
-import { getApplications } from "@/lib/services/applications";
+import { getClientDossierApplications } from "@/lib/services/applications";
 import { getClientEmails } from "@/lib/services/email-messages";
 import { getMailboxAddress } from "@/lib/config/mail";
 import { getActiveDraftForClient } from "@/lib/services/pipeline";
@@ -97,16 +97,23 @@ export default async function ExpedientePage({
   // without reading it.
   // MILESTONE 26B-5B — the ACTIVE DRAFT joins the load.
   //
-  // `getApplications` is formal-only (26B-5), which is correct for the
-  // application list but left a prospect halfway through the portal looking
-  // like someone with no process at all. The draft is read separately, through
-  // its own branch predicate, so knowing a client id never becomes authority to
-  // see an application.
+  // The application list is formal-only (26B-5), which is correct for the
+  // register but left a prospect halfway through the portal looking like
+  // someone with no process at all. The draft is read separately, through its
+  // own branch predicate, so knowing a client id never becomes authority to see
+  // an application.
+  //
+  // MILESTONE 26B-23B.1 — the list itself is now read through
+  // `getClientDossierApplications`, which adds the drafts this CRM created.
+  // Those are files an employee is working on; the portal drafts this
+  // separation was built for still arrive only through `getActiveDraftForClient`
+  // and still render as a process, not as a file. Scoped by client in the
+  // query now rather than filtered afterwards.
   const [notesResult, alertsResult, applicationsResult, crmEventsResult, activeDraft, clientFollowUp, emailsResult] =
     await Promise.all([
       getNotesByClientId(scope, client.id),
       getAlertsByClientId(scope, client.id),
-      getApplications(scope),
+      getClientDossierApplications(scope, client.id),
       getClientCrmEvents(scope, client.id),
       getActiveDraftForClient(scope, client.id),
       // MILESTONE 26B-15 — de qué solicitud sale el seguimiento cuando el
@@ -119,13 +126,10 @@ export default async function ExpedientePage({
       getClientEmails(scope, client.id),
     ]);
 
-  const applications =
-    applicationsResult.status === "ok"
-      ? applicationsResult.applications.filter((application) => application.clientId === client.id)
-      : [];
+  const applications = applicationsResult.status === "ok" ? applicationsResult.applications : [];
 
-  // Requires the filtered application list above, so it cannot join the
-  // Promise.all — a genuine data dependency, not a duplicated query.
+  // Requires the application list above, so it cannot join the Promise.all —
+  // a genuine data dependency, not a duplicated query.
   const requirementsByApplicationId = await resolveRequirementsByApplicationId(scope, applications);
 
   // Milestone 19: the Activity feed is DERIVED, not fetched. Every record it

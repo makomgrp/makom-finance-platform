@@ -93,8 +93,18 @@ export function DossierHeader({
             </div>
             {activeApplication ? (
               <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
-                <span className="font-medium text-foreground">
-                  {activeApplication.applicationNumber}
+                {/* MILESTONE 26B-23B.1 — a manual draft now reaches this list,
+                    and it has no number until it is formalised. Same fallback
+                    word its own dossier header uses; no placeholder reference
+                    is invented for something ODL has not issued. */}
+                <span
+                  className={
+                    activeApplication.applicationNumber
+                      ? "font-medium text-foreground"
+                      : "italic text-muted-foreground"
+                  }
+                >
+                  {activeApplication.applicationNumber ?? t("applicationDossier.draftLabel")}
                 </span>
                 <span>{activeApplication.productName[locale]}</span>
                 <span>
@@ -139,7 +149,7 @@ export function DossierHeader({
                         : "border-border text-muted-foreground hover:bg-muted")
                     }
                   >
-                    {app.applicationNumber}
+                    {app.applicationNumber ?? t("applicationDossier.draftLabel")}
                   </button>
                 ))}
               </div>

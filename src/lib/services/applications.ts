@@ -280,6 +280,72 @@ export async function getApplications(scope: BranchScope): Promise<GetApplicatio
   }
 }
 
+/**
+ * ============================================================================
+ * MILESTONE 26B-23B.1 — THE FILES ONE CLIENT'S DOSSIER MAY WORK ON
+ * ============================================================================
+ *
+ * Everything `getApplications` returns for this client, PLUS the drafts an
+ * employee started here.
+ *
+ * A SEPARATE FUNCTION, NOT A FLAG ON THE EXISTING ONE. The register at
+ * /solicitudes must keep listing only applications ODL has received — that is
+ * the whole point of 26B-5's filter, and 23B.1 does not change it. The client's
+ * dossier is answering a different question: what is on this person's desk. A
+ * manual draft with four requirement slots and a document attached is
+ * unmistakably on it, and the dossier saying "Sin solicitud asociada" over the
+ * top of that document was simply false.
+ *
+ * A PORTAL DRAFT IS STILL EXCLUDED. It reaches this screen the way it always
+ * has, through `getActiveDraftForClient`, which renders it as a process in
+ * progress rather than as a file — see DossierHeader. Two different things, two
+ * different reads, unchanged for the one that already worked.
+ *
+ * The scope predicate is the same `applyBranchScope` every other read uses, so
+ * widening WHAT is returned does not widen WHO may see it.
+ */
+export async function getClientDossierApplications(
+  scope: BranchScope,
+  clientId: string
+): Promise<GetApplicationsResult> {
+  if (isEmptyScope(scope)) return { status: "ok", applications: [] };
+
+  try {
+    const supabase = getSupabaseServerClient();
+    const { data, error } = await applyBranchScope(
+      supabase
+        .from("applications")
+        .select(APPLICATION_LIST_SELECT)
+        .eq("client_id", clientId)
+        // Formal, or a draft this CRM created. Expressed as an `or` on the two
+        // columns that hold the two facts rather than as "not a portal draft",
+        // so a source added later is excluded until somebody decides otherwise.
+        .or(
+          `status.in.(${FORMAL_APPLICATION_STATUSES.join(",")}),` +
+            `and(status.eq.draft,created_source.eq.crm_manual)`
+        ),
+      scope
+    ).order("created_at", { ascending: false });
+
+    if (error) {
+      console.error(
+        "[applications service] Failed to load client dossier applications:",
+        error.message
+      );
+      return { status: "error" };
+    }
+
+    const rows = (data ?? []) as unknown as ApplicationListRow[];
+    return { status: "ok", applications: rows.map(toApplicationListItem) };
+  } catch (error) {
+    console.error(
+      "[applications service] Unexpected failure loading client dossier applications:",
+      error instanceof Error ? error.message : "unknown error"
+    );
+    return { status: "error" };
+  }
+}
+
 export interface CreateApplicationInput {
   clientId: string;
   productId: string;

@@ -51,6 +51,53 @@ export function isFormalApplication(status: ApplicationStatus): boolean {
   return status !== "draft";
 }
 
+/**
+ * ============================================================================
+ * MILESTONE 26B-23B.1 — A DRAFT NO LONGER TELLS YOU WHERE IT CAME FROM
+ * ============================================================================
+ *
+ * Until 26B-23A there was exactly one way to be a draft: a member of the public
+ * had started a form on the portal and had not pressed Enviar. So `draft` and
+ * "portal lead" were the same fact, and the internal surfaces were free to read
+ * either one and get the same answer.
+ *
+ * 23A made staff-created applications start as drafts too — deliberately, so
+ * that opening a form stops consuming an official number. From that moment
+ * `draft` answers only "does this have a number yet"; it no longer answers "who
+ * started it". The surfaces that kept asking the old question got the wrong
+ * answer: the dossier route 404ed a file its own Formalise panel was written
+ * for, and the board labelled a manually-created application PORTAL.
+ *
+ * The two questions are now asked separately and answered from the two columns
+ * that actually hold them — `status` for lifecycle, `created_source` for origin.
+ */
+
+/** A draft an employee started in the CRM. Not a portal lead. */
+export function isManualDraft(
+  application: Pick<Application, "status" | "createdSource">
+): boolean {
+  return application.status === "draft" && application.createdSource === "crm_manual";
+}
+
+/**
+ * May staff work this application as a file — open its dossier, see its
+ * requirements, attach documents?
+ *
+ * TRUE for everything ODL has formally received, and for a manual draft, which
+ * an employee created on purpose and must be able to finish. FALSE for a portal
+ * draft: that is somebody else's unfinished form, and treating it as an
+ * internal file would put it into the workflow through a side door — the reason
+ * the 26B-5 guard exists, and still the right answer for that case.
+ *
+ * This is NOT "may they see it at all". The board and the client's profile
+ * legitimately show portal drafts; they simply show them as leads.
+ */
+export function isStaffManageableApplication(
+  application: Pick<Application, "status" | "createdSource">
+): boolean {
+  return isFormalApplication(application.status) || isManualDraft(application);
+}
+
 /** Which channel/actor-type created the application or performed a status
  * transition — same vocabulary as RequirementSlotSource and
  * EvidenceUploadedSource. `email` added in Milestone 15B (Application

@@ -286,11 +286,21 @@ function PipelineCardView({
           </div>
         ) : (
           <div>
+            {/* MILESTONE 26B-23B.1 — a manual draft is a card of this kind and
+                has no number yet, so the title falls back to the same word its
+                dossier header uses rather than rendering an empty link. Not
+                monospaced when it is a word instead of a reference, and muted
+                because there is nothing to quote back to a customer yet. */}
             <Link
               href={`/solicitudes/${card.id}`}
-              className="rounded-sm font-mono text-sm font-medium text-foreground underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+              className={
+                "rounded-sm text-sm font-medium underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none " +
+                (card.applicationNumber
+                  ? "font-mono text-foreground"
+                  : "italic text-muted-foreground")
+              }
             >
-              {card.applicationNumber}
+              {card.applicationNumber ?? t("applicationDossier.draftLabel")}
             </Link>
             <p className="mt-0.5 text-xs text-muted-foreground">{card.fullName}</p>
           </div>
