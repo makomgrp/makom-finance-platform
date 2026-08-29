@@ -1624,7 +1624,17 @@
     "sourceOfFunds": "Source of funds",
     "creditConsent": "Credit consultation",
     "consentGranted": "Granted",
-    "consentRefused": "Not granted"
+    "consentRefused": "Not granted",
+    "draftLabel": "Draft",
+    "formalizeTitle": "Submit application",
+    "formalizeExplanation": "Submitting gives this application an official number and sends it to review. This does not mean the loan has been approved.",
+    "formalizePendingDocuments": "Some documents are still pending. You can submit anyway and complete them later.",
+    "formalizeConfirm": "Confirm submission",
+    "formalizeCancel": "Cancel",
+    "formalizeSuccess": "Application submitted with number {number}.",
+    "formalizeErrorNotDraft": "This application has already been submitted.",
+    "formalizeErrorForbidden": "You do not have permission to submit this application.",
+    "formalizeError": "The application could not be submitted. Please try again."
   },
   "pipeline": {
     "stages": {

@@ -1624,7 +1624,17 @@
     "sourceOfFunds": "Origen de los fondos",
     "creditConsent": "Consulta crediticia",
     "consentGranted": "Autorizada",
-    "consentRefused": "No autorizada"
+    "consentRefused": "No autorizada",
+    "draftLabel": "Borrador",
+    "formalizeTitle": "Formalizar solicitud",
+    "formalizeExplanation": "Al formalizar, esta solicitud recibirá un número oficial y pasará a revisión. Esto no significa que el préstamo esté aprobado.",
+    "formalizePendingDocuments": "Hay documentos pendientes. Puedes formalizar igualmente y completarlos después.",
+    "formalizeConfirm": "Confirmar formalización",
+    "formalizeCancel": "Cancelar",
+    "formalizeSuccess": "Solicitud formalizada con el número {number}.",
+    "formalizeErrorNotDraft": "Esta solicitud ya fue formalizada.",
+    "formalizeErrorForbidden": "No tiene permisos para formalizar esta solicitud.",
+    "formalizeError": "No se pudo formalizar la solicitud. Vuelva a intentarlo."
   },
   "pipeline": {
     "stages": {

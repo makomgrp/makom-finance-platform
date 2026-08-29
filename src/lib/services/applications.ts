@@ -709,3 +709,80 @@ export async function autoAssignLeadAdvisor(
     return { status: "ok" };
   }
 }
+
+/**
+ * ============================================================================
+ * MILESTONE 26B-23B — FORMALISING AN APPLICATION STAFF STARTED
+ * ============================================================================
+ *
+ * The internal counterpart to `submitPortalApplication`, and deliberately a
+ * much smaller one: everything that actually matters — the row lock, the single
+ * allocation of the official number, the transition to `in_review`, the audit
+ * event, and the idempotency that ties all four together — lives in
+ * `submit_application()` and is reused unchanged. This adds the two things the
+ * RPC cannot know: that the caller is allowed to act on this application, and
+ * who the caller is.
+ *
+ * ----------------------------------------------------------------------------
+ * IT DOES NOT CHECK DOCUMENTS, ON PURPOSE
+ * ----------------------------------------------------------------------------
+ * The portal refuses to submit until every required document is in, which is
+ * right for someone filling in their own form: they are the only person who can
+ * supply them, and letting them "finish" without them would be a lie.
+ *
+ * Staff are in the opposite position. ODL holds paper files from before the CRM
+ * existed, some complete and some not, and an application that arrived months
+ * ago IS a real application whatever is still missing from it. Blocking here
+ * would leave those files with no way into the system at all — so the pending
+ * requirements travel with the application into review, where the review panel
+ * already reports "received" and "reviewed" separately and lists what is open.
+ *
+ * This asymmetry is intentional and is the one place portal and manual
+ * legitimately differ. `evaluatePortalProgress` is untouched.
+ */
+export type FormalizeApplicationResult =
+  | { status: "ok"; applicationNumber: string }
+  | { status: "error"; code: "NOT_FOUND" | "NOT_DRAFT" | "FORMALIZE_FAILED" };
+
+/**
+ * Give a draft its official number.
+ *
+ * Safe to call twice: the RPC returns the number the row already owns without
+ * allocating a second one or appending a second event, so a double click, a
+ * retry and a refresh all converge on one application with one number.
+ */
+export async function formalizeApplication(
+  scope: BranchScope,
+  applicationId: string,
+  actorProfileId: string
+): Promise<FormalizeApplicationResult> {
+  // Read through the caller's OWN scope, so an id naming an application in a
+  // branch they cannot see resolves to NOT_FOUND rather than being formalised.
+  const existing = await getApplicationById(scope, applicationId);
+  if (existing.status !== "ok") return { status: "error", code: "NOT_FOUND" };
+
+  // Already formal. Reported distinctly because the recovery differs: there is
+  // nothing to do, rather than something that failed.
+  if (existing.application.status !== "draft") {
+    return { status: "error", code: "NOT_DRAFT" };
+  }
+
+  const supabase = getSupabaseServerClient();
+  const { data: allocatedNumber, error } = await supabase.rpc("submit_application", {
+    p_application_id: applicationId,
+    // Server-defined. A caller cannot choose the source, which is what keeps a
+    // CRM submission from being recorded as if it came from the website.
+    p_source: "crm_manual",
+    p_actor_profile_id: actorProfileId,
+  });
+
+  if (error || typeof allocatedNumber !== "string" || allocatedNumber.length === 0) {
+    console.error(
+      "[applications service] Manual formalisation failed:",
+      error?.message ?? "no application number returned"
+    );
+    return { status: "error", code: "FORMALIZE_FAILED" };
+  }
+
+  return { status: "ok", applicationNumber: allocatedNumber };
+}

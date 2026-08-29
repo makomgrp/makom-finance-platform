@@ -970,3 +970,64 @@ export async function resolveIntakeAsNewClientAction(input: {
   revalidatePath("/solicitudes");
   return { status: "ok" };
 }
+
+/**
+ * ============================================================================
+ * MILESTONE 26B-23B — "FORMALIZAR SOLICITUD"
+ * ============================================================================
+ *
+ * Turns a staff-created draft into a received application. Formalising is NOT
+ * approving: the application lands in `in_review`, exactly where a portal
+ * submission lands, and every credit decision still happens afterwards through
+ * `application:set_status`.
+ *
+ * WHICH CAPABILITY, AND WHY NOT set_status. Originating an application and
+ * deciding one are different authorities — 26B-10 separated them precisely so a
+ * gerente or asesor can file a request they may not rule on. Formalising is the
+ * end of origination, not the start of adjudication, so it sits with
+ * `application:create`: whoever could create the draft can finish creating it.
+ * Reaching for `application:set_status` would quietly bar the advisors who do
+ * this work all day, for an act that decides nothing.
+ *
+ * THE BROWSER SUPPLIES ONE ID AND NOTHING ELSE. No number, no source, no
+ * status, no actor. The actor comes from the session, the source is fixed here,
+ * and the number is allocated by the database — a client that names any of them
+ * is simply not listened to.
+ */
+export type FormalizeSolicitudApplicationResult =
+  | { status: "success"; applicationNumber: string }
+  | {
+      status: "error";
+      code: "INVALID_INPUT" | "UNAUTHENTICATED" | "FORBIDDEN" | "NOT_FOUND" | "NOT_DRAFT" | "FORMALIZE_FAILED";
+    };
+
+export async function formalizeSolicitudApplication(
+  applicationId: string
+): Promise<FormalizeSolicitudApplicationResult> {
+  const auth = await requireCapability("application:create");
+  if (auth.status === "denied") {
+    return { status: "error", code: auth.code };
+  }
+
+  if (!isNonEmptyString(applicationId) || !UUID_PATTERN.test(applicationId)) {
+    return { status: "error", code: "INVALID_INPUT" };
+  }
+
+  const { formalizeApplication } = await import("@/lib/services/applications");
+  const result = await formalizeApplication(
+    auth.profile.branchScope,
+    applicationId,
+    auth.profile.id
+  );
+
+  if (result.status !== "ok") {
+    return { status: "error", code: result.code };
+  }
+
+  // The application leaves the drafts and joins the formal register, so both
+  // the list and the dossier that showed it as a draft have to be re-read.
+  revalidatePath("/solicitudes");
+  revalidatePath(`/solicitudes/${applicationId}`);
+
+  return { status: "success", applicationNumber: result.applicationNumber };
+}

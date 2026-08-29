@@ -2,7 +2,13 @@
 
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { ArrowLeft, FileText } from "lucide-react";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+import { ArrowLeft, FileCheck2, FileText } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useCapability } from "@/lib/auth/use-capability";
+import { formalizeSolicitudApplication } from "@/app/(app)/solicitudes/actions";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { ApplicationReviewPanel } from "@/components/review/application-review-panel";
 import { BranchOriginLabel } from "@/components/shared/branch-origin-label";
@@ -131,12 +137,29 @@ export function ApplicationDossierView({
         {t("applicationDossier.backToList")}
       </Link>
 
+      {application.status === "draft" && (
+        <FormalizePanel
+          applicationId={application.id}
+          pendingRequirements={requirementSlots.some(
+            (slot) => slot.status !== "satisfied" && slot.status !== "waived"
+          )}
+        />
+      )}
+
       {/* ================= HEADER (§19) ================= */}
       <header className="flex flex-col gap-4 rounded-xl border border-border bg-card p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
-            <h1 className="font-mono text-xl font-semibold break-all text-foreground sm:text-2xl">
-              {application.applicationNumber}
+            {/* MILESTONE 26B-23B — a draft has no number, and the CHECK on
+                the table guarantees it never will until it is formalised.
+                Rendering the empty value left the page headed by nothing. */}
+            <h1
+              className={cn(
+                "text-xl font-semibold break-all text-foreground sm:text-2xl",
+                application.applicationNumber ? "font-mono" : "italic text-muted-foreground"
+              )}
+            >
+              {application.applicationNumber ?? t("applicationDossier.draftLabel")}
             </h1>
             {/* Client-level identity, linked — but the APPLICATION's own status
                 is what the badge above shows. The two are different lifecycles
@@ -577,4 +600,102 @@ function Th({ children, align = "left" }: { children: React.ReactNode; align?: "
 
 function EmptyNote({ text }: { text: string }) {
   return <p className="text-sm text-muted-foreground">{text}</p>;
+}
+
+/**
+ * ============================================================================
+ * MILESTONE 26B-23B — THE ONE MOMENT A NUMBER IS SPENT
+ * ============================================================================
+ *
+ * Formalising is irreversible in the only sense that matters: the official
+ * consecutive it takes can never be returned or reused, and a gap in ODL's
+ * numbering is visible forever. So the action asks first — INLINE, not through
+ * `window.confirm`, which cannot be translated, cannot be styled, and reads to
+ * a user like the browser is warning them about the page rather than the CRM
+ * asking about their work.
+ *
+ * The copy says what will happen in the order it happens — a number, then
+ * review — and says plainly that none of it means approval, because "submit"
+ * and "approve" are the two words most easily confused in a lending CRM.
+ *
+ * PENDING DOCUMENTS ARE MENTIONED, NEVER ENFORCED. Staff formalise historical
+ * files whose paperwork is genuinely incomplete; the note tells them what they
+ * are carrying forward without standing in their way. See the service.
+ */
+function FormalizePanel({
+  applicationId,
+  pendingRequirements,
+}: {
+  applicationId: string;
+  pendingRequirements: boolean;
+}) {
+  const t = useTranslations();
+  const router = useRouter();
+  const canFormalize = useCapability("application:create");
+  const [confirming, setConfirming] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  if (!canFormalize) return null;
+
+  const handleConfirm = async () => {
+    if (busy) return;
+    setBusy(true);
+    const result = await formalizeSolicitudApplication(applicationId);
+    setBusy(false);
+
+    if (result.status !== "success") {
+      toast.error(
+        t(
+          result.code === "NOT_DRAFT"
+            ? "applicationDossier.formalizeErrorNotDraft"
+            : result.code === "FORBIDDEN" || result.code === "UNAUTHENTICATED"
+              ? "applicationDossier.formalizeErrorForbidden"
+              : "applicationDossier.formalizeError"
+        )
+      );
+      return;
+    }
+
+    setConfirming(false);
+    toast.success(
+      t("applicationDossier.formalizeSuccess", { number: result.applicationNumber })
+    );
+    router.refresh();
+  };
+
+  return (
+    <section className="flex flex-col gap-3 rounded-xl border border-warning/30 bg-warning/[0.05] p-5">
+      <div>
+        <h2 className="text-base font-semibold text-foreground">
+          {t("applicationDossier.formalizeTitle")}
+        </h2>
+        <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+          {t("applicationDossier.formalizeExplanation")}
+        </p>
+        {pendingRequirements && (
+          <p className="mt-2 text-sm text-muted-foreground">
+            {t("applicationDossier.formalizePendingDocuments")}
+          </p>
+        )}
+      </div>
+
+      {confirming ? (
+        <div className="flex flex-wrap gap-2">
+          <Button disabled={busy} onClick={handleConfirm}>
+            {t("applicationDossier.formalizeConfirm")}
+          </Button>
+          <Button variant="ghost" disabled={busy} onClick={() => setConfirming(false)}>
+            {t("applicationDossier.formalizeCancel")}
+          </Button>
+        </div>
+      ) : (
+        <div>
+          <Button onClick={() => setConfirming(true)}>
+            <FileCheck2 className="size-4" />
+            {t("applicationDossier.formalizeTitle")}
+          </Button>
+        </div>
+      )}
+    </section>
+  );
 }
