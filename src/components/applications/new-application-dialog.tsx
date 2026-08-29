@@ -22,6 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { RequiredFieldsNote, RequiredMark } from "@/components/shared/required-mark";
 import { ClientSelector } from "@/components/applications/client-selector";
 import { RealClientFormDialog } from "@/components/clients/real-client-form-dialog";
 import { createSolicitudApplication } from "@/app/(app)/solicitudes/actions";
@@ -213,22 +214,27 @@ export function NewApplicationDialog({
     }
 
     const application = result.application;
-    // A CRM-created application is formally originated, so it is numbered at
-    // insert (26B-5 defers numbering for portal DRAFTS only, and this dialog
-    // never creates one). The fallback exists because the field is optional on
-    // the shared type — it is not a state this path can reach.
-    const createdNumber = application.applicationNumber ?? application.id;
+    // MILESTONE 26B-24 — ESTE AVISO YA NO PROMETE UN NÚMERO.
+    //
+    // Decía "Solicitud {número} creada" y caía a `application.id` cuando no
+    // había número. El comentario que estaba aquí razonaba que ese respaldo era
+    // inalcanzable porque el CRM numeraba al insertar — cierto hasta 26B-23A,
+    // que hizo que este diálogo cree BORRADORES. Desde entonces el respaldo era
+    // el único camino, y el operador leía un UUID presentado como si fuera el
+    // número de su solicitud. El número oficial existe al formalizar, no antes.
+    const productName =
+      products.find((product) => product.id === application.productId)?.name[locale] ?? "";
 
     if (result.status === "partial") {
       // SLOT_SNAPSHOT_FAILED. The application EXISTS and is valid; only
       // its Requirement Slot snapshot did not complete. Never reported as
       // a plain success, and never rolled back.
       toast.warning(
-        t("applications.create.toasts.partial", { number: createdNumber })
+        t("applications.create.toasts.partial")
       );
     } else {
       toast.success(
-        t("applications.create.toasts.created", { number: createdNumber })
+        t("applications.create.toasts.created", { product: productName })
       );
     }
 
@@ -289,6 +295,7 @@ export function NewApplicationDialog({
                 <div className="space-y-2">
                   <Label htmlFor="application-product">
                     {t("applications.create.product.label")}
+                    <RequiredMark />
                   </Label>
                   <Select
                     value={productId}
@@ -296,7 +303,17 @@ export function NewApplicationDialog({
                     disabled={isSubmitting}
                   >
                     <SelectTrigger id="application-product">
-                      <SelectValue placeholder={t("applications.create.product.placeholder")} />
+                      {/* MILESTONE 26B-24 — base-ui pinta el VALOR crudo si no se
+                          le da un mapper, y aquí el valor es el id del producto:
+                          el operador elegía "Préstamos con Descuento por Nómina" y
+                          el campo se quedaba mostrando un UUID, sin forma de
+                          confirmar qué había escogido. Mismo render-prop que ya
+                          usan los otros catorce Select de la aplicación. */}
+                      <SelectValue placeholder={t("applications.create.product.placeholder")}>
+                        {(value: string) =>
+                          products.find((product) => product.id === value)?.name[locale] ?? value
+                        }
+                      </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                       {products.map((product) => (
@@ -327,6 +344,7 @@ export function NewApplicationDialog({
                 <div className="space-y-2">
                   <Label htmlFor="application-amount">
                     {t("applications.create.terms.amountLabel")}
+                    <RequiredMark />
                   </Label>
                   <Input
                     id="application-amount"
@@ -343,6 +361,7 @@ export function NewApplicationDialog({
                 <div className="space-y-2">
                   <Label htmlFor="application-term">
                     {t("applications.create.terms.termLabel")}
+                    <RequiredMark />
                   </Label>
                   <Input
                     id="application-term"
@@ -361,6 +380,8 @@ export function NewApplicationDialog({
             </section>
 
             {error && <p className="text-sm text-destructive">{error}</p>}
+
+            <RequiredFieldsNote />
 
             <DialogFooter>
               <Button

@@ -39,7 +39,9 @@
       "spanish": "Español",
       "english": "English"
     },
-    "saving": "Guardando…"
+    "saving": "Guardando…",
+    "requiredFieldsNote": "* Campo obligatorio",
+    "requiredFieldAria": "obligatorio"
   },
   "navigation": {
     "dashboard": "Dashboard",
@@ -291,8 +293,8 @@
       "submitting": "Creando...",
       "cancel": "Cancelar",
       "toasts": {
-        "created": "Solicitud {number} creada.",
-        "partial": "Solicitud {number} creada, pero no se generaron sus requisitos. Revise los requisitos del producto en Configuración.",
+        "created": "Solicitud de {product} creada como borrador.",
+        "partial": "La solicitud se creó como borrador, pero no se generaron sus requisitos. Revise los requisitos del producto en Configuración.",
         "errorGeneric": "No se pudo crear la solicitud. Intente nuevamente.",
         "errorForbidden": "No tiene permisos para crear solicitudes.",
         "errorClientNotFound": "El cliente seleccionado ya no está disponible.",

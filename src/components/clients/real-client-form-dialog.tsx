@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { RequiredFieldsNote, RequiredMark } from "@/components/shared/required-mark";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
@@ -183,7 +184,7 @@ export function RealClientFormDialog({
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-1.5 sm:col-span-2">
-              <Label htmlFor="fullName">{t("clients.form.fullName")}</Label>
+              <Label htmlFor="fullName">{t("clients.form.fullName")}<RequiredMark /></Label>
               <Input
                 id="fullName"
                 required
@@ -215,7 +216,7 @@ export function RealClientFormDialog({
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="identificationNumber">{t("clients.form.idNumber")}</Label>
+              <Label htmlFor="identificationNumber">{t("clients.form.idNumber")}<RequiredMark /></Label>
               <Input
                 id="identificationNumber"
                 required
@@ -225,7 +226,7 @@ export function RealClientFormDialog({
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="phone">{t("clients.form.phone")}</Label>
+              <Label htmlFor="phone">{t("clients.form.phone")}<RequiredMark /></Label>
               <Input
                 id="phone"
                 required
@@ -235,7 +236,7 @@ export function RealClientFormDialog({
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="email">{t("clients.form.email")}</Label>
+              <Label htmlFor="email">{t("clients.form.email")}<RequiredMark /></Label>
               <Input
                 id="email"
                 type="email"
@@ -256,7 +257,7 @@ export function RealClientFormDialog({
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="position">{t("clients.form.position")}</Label>
+              <Label htmlFor="position">{t("clients.form.position")}<RequiredMark /></Label>
               <Input
                 id="position"
                 required
@@ -266,11 +267,18 @@ export function RealClientFormDialog({
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="monthlySalary">{t("clients.form.monthlySalary")}</Label>
+              <Label htmlFor="monthlySalary">{t("clients.form.monthlySalary")}<RequiredMark /></Label>
               <Input
                 id="monthlySalary"
                 type="number"
                 min="0"
+                // MILESTONE 26B-24 — sin `step`, HTML asume 1 y el navegador
+                // rechaza B/. 1,850.50 pidiendo "1850 o 1851". La columna es
+                // numeric(12,2): los centavos siempre cupieron en el modelo, y
+                // obligar a redondear un salario real es inventar el dato. Mismo
+                // par que ya usa el monto solicitado en Nueva solicitud.
+                step="0.01"
+                inputMode="decimal"
                 required
                 value={form.monthlySalary}
                 onChange={(e) => update("monthlySalary", e.target.value)}
@@ -278,7 +286,7 @@ export function RealClientFormDialog({
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="birthDate">{t("clients.form.birthDate")}</Label>
+              <Label htmlFor="birthDate">{t("clients.form.birthDate")}<RequiredMark /></Label>
               <Input
                 id="birthDate"
                 type="date"
@@ -289,7 +297,7 @@ export function RealClientFormDialog({
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="nationality">{t("clients.form.nationality")}</Label>
+              <Label htmlFor="nationality">{t("clients.form.nationality")}<RequiredMark /></Label>
               <Input
                 id="nationality"
                 required
@@ -299,7 +307,7 @@ export function RealClientFormDialog({
             </div>
 
             <div className="space-y-1.5 sm:col-span-2">
-              <Label htmlFor="address">{t("clients.form.address")}</Label>
+              <Label htmlFor="address">{t("clients.form.address")}<RequiredMark /></Label>
               <Input
                 id="address"
                 required
@@ -318,6 +326,8 @@ export function RealClientFormDialog({
               />
             </div>
           </div>
+
+          <RequiredFieldsNote />
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setOpen(false)} disabled={isSubmitting}>

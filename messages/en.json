@@ -39,7 +39,9 @@
       "spanish": "Español",
       "english": "English"
     },
-    "saving": "Saving…"
+    "saving": "Saving…",
+    "requiredFieldsNote": "* Required field",
+    "requiredFieldAria": "required"
   },
   "navigation": {
     "dashboard": "Dashboard",
@@ -291,8 +293,8 @@
       "submitting": "Creating...",
       "cancel": "Cancel",
       "toasts": {
-        "created": "Application {number} created.",
-        "partial": "Application {number} was created, but its requirements were not generated. Review the product's requirements in Settings.",
+        "created": "{product} application created as a draft.",
+        "partial": "The application was created as a draft, but its requirements were not generated. Check the product requirements in Settings.",
         "errorGeneric": "Could not create the application. Please try again.",
         "errorForbidden": "You do not have permission to create applications.",
         "errorClientNotFound": "The selected client is no longer available.",
