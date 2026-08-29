@@ -912,21 +912,33 @@ function DecisionCard({
   const t = useTranslations();
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
-  const [status, setStatus] = useState(applicationStatus);
 
-  const targets = APPLICATION_STATUS_TRANSITIONS[status];
+  // MILESTONE 26B-23B.2 — EL ESTADO SE LEE, NO SE COPIA.
+  //
+  // Esto era `useState(applicationStatus)`, y una copia sólo sabe lo que sabía
+  // cuando se creó. Servía para la única transición que este bloque provoca él
+  // mismo, y mentía sobre cualquier otra: al formalizar desde el panel de
+  // 26B-23B, la cabecera pasaba a "En evaluación" y este bloque seguía diciendo
+  // que la solicitud era un borrador que no admite cambios de estado, hasta que
+  // alguien recargaba a mano. Un `useEffect` que sincronizara la copia sería
+  // arreglar el síntoma manteniendo las dos verdades.
+  //
+  // Ahora la prop del servidor es la única. `decide` ya vive dentro de una
+  // transición que incluye el `router.refresh()`, así que `isPending` cubre la
+  // ventana entre la acción y el nuevo render: los botones quedan desactivados
+  // en vez de mostrar brevemente el estado anterior como si fuera actual.
+  const targets = APPLICATION_STATUS_TRANSITIONS[applicationStatus];
 
   const decide = (target: ApplicationStatus) => {
     startTransition(async () => {
       const result = await setSolicitudApplicationStatus({ applicationId, status: target });
       if (result.status === "success") {
-        setStatus(result.application.status);
         toast.success(t("review.decisionRecorded"));
         // La decisión cambia el estado OFICIAL de la solicitud, y ese estado se
         // pinta en varios sitios de esta página que el servidor ya había
-        // renderizado — la insignia de la cabecera, sobre todo. Sin esto la
-        // cabecera seguía diciendo "En evaluación" después de aprobar, hasta
-        // que alguien recargaba a mano.
+        // renderizado — la insignia de la cabecera, y ahora también los botones
+        // de aquí. Sin esto la cabecera seguía diciendo "En evaluación" después
+        // de aprobar, hasta que alguien recargaba a mano.
         //
         // Se refresca la ruta en vez de duplicar el estado en el cliente: el
         // servidor vuelve a ser la única fuente de verdad del estado, que es
@@ -951,7 +963,9 @@ function DecisionCard({
       {targets.length === 0 ? (
         <p className="text-sm text-muted-foreground">
           {t("review.decisionNoTargets", {
-            status: t(`statuses.applicationStatus.${status}` as "statuses.applicationStatus.new"),
+            status: t(
+              `statuses.applicationStatus.${applicationStatus}` as "statuses.applicationStatus.new"
+            ),
           })}
         </p>
       ) : (

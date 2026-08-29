@@ -15,6 +15,7 @@ import { BranchOriginLabel } from "@/components/shared/branch-origin-label";
 import { APPLICATION_STATUS_BADGE_CLASS } from "@/lib/config/application";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { isFormalApplication } from "@/types";
 import type { ApplicationReviewView } from "@/lib/services/application-review";
 import type { Locale } from "@/i18n/config";
 import type {
@@ -224,7 +225,16 @@ export function ApplicationDossierView({
           a decision-maker needs the recommendation without hunting for it. The
           application's own data sits below, unchanged and still the source for
           every fact in it. */}
-      {review && (
+      {/* MILESTONE 26B-23B.2 — and only once ODL has received the application.
+          A draft is still being prepared by the employee who created it, so
+          there is nothing for compliance to certify and no file for a verdict
+          to attach to. The panel is absent rather than disabled: a greyed-out
+          checklist of twenty unanswered questions reads as work outstanding,
+          when the truth is that the work has not started and should not.
+
+          This is presentation only. The service refuses the same thing (see
+          isApplicationReviewable), which is what actually makes it a rule. */}
+      {review && isFormalApplication(application.status) && (
         <ApplicationReviewPanel
           applicationId={application.id}
           applicationStatus={application.status}

@@ -15,6 +15,7 @@ import {
   type ReviewRecommendation,
   type ReviewSection,
 } from "@/lib/config/application-review";
+import { isFormalApplication } from "@/types";
 import type { BranchScope } from "@/types";
 
 /**
@@ -130,6 +131,49 @@ const REVIEW_SELECT =
 async function isApplicationInScope(scope: BranchScope, applicationId: string): Promise<boolean> {
   const result = await getApplicationById(scope, applicationId);
   return result.status === "ok";
+}
+
+/**
+ * ============================================================================
+ * MILESTONE 26B-23B.2 — THERE IS NOTHING TO REVIEW UNTIL ODL HAS RECEIVED IT
+ * ============================================================================
+ *
+ * Compliance and credit review is work ODL performs on an application it has
+ * formally received. A draft has not been received: it has no official number,
+ * it is absent from the register, and the person who created it can still
+ * abandon it. Recording a compliance verdict against that would produce an
+ * audit trail about a file that, as far as ODL's books are concerned, does not
+ * yet exist — and one that keeps its reviewer, its observations and its
+ * recommendation if the draft is later abandoned.
+ *
+ * WHY THIS IS A SERVER CHECK AND NOT ONLY A HIDDEN PANEL. Until 26B-23B.1 a
+ * draft's dossier 404ed, so no caller could reach these functions with one; the
+ * absence of a status check was safe by accident rather than by decision. That
+ * accident is gone. Hiding the panel fixes what a person sees, and a person
+ * with a stale tab, a replayed request or a direct call still would not be a
+ * person doing anything wrong — the boundary belongs here, where every mutating
+ * entry point already asks its authorization question.
+ *
+ * IT REPLACES THE SCOPE CHECK RATHER THAN JOINING IT, so there is no second
+ * read: `getApplicationById` was already loading the whole row and discarding
+ * everything but "did this resolve".
+ *
+ * NOT_ACCESSIBLE, THE SAME CODE AS OUT-OF-SCOPE, deliberately: the action layer
+ * turns both into NOT_FOUND, and a review workspace that answered "this exists
+ * but is a draft" would be an existence oracle for files in branches the caller
+ * cannot see. The reader of this file is the reviewer, and the reviewer reaches
+ * it from a dossier that no longer offers the panel at all.
+ *
+ * READS ARE NOT AFFECTED. `getApplicationReview` keeps the scope-only check, so
+ * a draft's review state can still be read as "not started" without any of this
+ * becoming writable.
+ */
+async function isApplicationReviewable(
+  scope: BranchScope,
+  applicationId: string
+): Promise<boolean> {
+  const result = await getApplicationById(scope, applicationId);
+  return result.status === "ok" && isFormalApplication(result.application.status);
 }
 
 /**
@@ -463,7 +507,7 @@ export async function setReviewItemState(
   note: string | null,
   actorProfileId: string
 ): Promise<ReviewMutationResult> {
-  if (!(await isApplicationInScope(scope, applicationId))) {
+  if (!(await isApplicationReviewable(scope, applicationId))) {
     return { status: "error", code: "NOT_ACCESSIBLE" };
   }
 
@@ -523,7 +567,7 @@ export async function addReviewObservation(
   body: string,
   actorProfileId: string
 ): Promise<ReviewMutationResult> {
-  if (!(await isApplicationInScope(scope, applicationId))) {
+  if (!(await isApplicationReviewable(scope, applicationId))) {
     return { status: "error", code: "NOT_ACCESSIBLE" };
   }
   const trimmed = body.trim();
@@ -565,7 +609,7 @@ export async function setReviewRecommendation(
   note: string | null,
   actorProfileId: string
 ): Promise<ReviewMutationResult> {
-  if (!(await isApplicationInScope(scope, applicationId))) {
+  if (!(await isApplicationReviewable(scope, applicationId))) {
     return { status: "error", code: "NOT_ACCESSIBLE" };
   }
   if (await isReviewLocked(applicationId)) return { status: "error", code: "INVALID" };
@@ -631,7 +675,7 @@ export async function completeReview(
   applicationId: string,
   actorProfileId: string
 ): Promise<CompleteReviewResult> {
-  if (!(await isApplicationInScope(scope, applicationId))) {
+  if (!(await isApplicationReviewable(scope, applicationId))) {
     return { status: "error", code: "NOT_ACCESSIBLE" };
   }
 
@@ -698,7 +742,7 @@ export async function reopenReview(
   reason: string,
   actorProfileId: string
 ): Promise<ReviewMutationResult> {
-  if (!(await isApplicationInScope(scope, applicationId))) {
+  if (!(await isApplicationReviewable(scope, applicationId))) {
     return { status: "error", code: "NOT_ACCESSIBLE" };
   }
   const trimmed = reason.trim();
