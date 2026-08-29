@@ -298,9 +298,21 @@ export async function createSolicitudApplication(
     requestedTermMonths: input.requestedTermMonths,
     source: "crm_manual",
     actorProfileId: auth.profile.id,
-    // Staff originating an application in the CRM ARE formally receiving it,
-    // so it is numbered at creation exactly as before 26B-5.
-    lifecycle: "formal",
+    // MILESTONE 26B-23A — OPENING A FORM IS NOT RECEIVING AN APPLICATION.
+    //
+    // This said "formal", on the reasoning that staff filling this in ARE
+    // receiving the application. That is true at the END of the task and wrong
+    // at the start: the dialog asks for a client, a product and an amount, and
+    // then the person still has to gather documents that may take days to
+    // arrive. Numbering at that first click spent an official consecutive on
+    // work barely begun, and an abandoned dialog burned a number ODL can never
+    // reuse — the numbers are consecutive, so a gap is permanent and visible.
+    //
+    // A draft holds exactly the same requirement slots and accepts exactly the
+    // same documents; the only thing it lacks is the number, which is the one
+    // thing that should wait. 26B-23B adds the explicit "Formalizar solicitud"
+    // that allocates it through the same `submit_application` the portal uses.
+    lifecycle: "draft",
   });
 
   if (result.status === "error") {

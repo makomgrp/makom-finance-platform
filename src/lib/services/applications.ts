@@ -294,13 +294,27 @@ export interface CreateApplicationInput {
    * applications_created_by_source_check. */
   actorProfileId: string | null;
   /**
-   * MILESTONE 26B-5 — IS ODL FORMALLY ORIGINATING THIS, OR IS IT STILL THE
-   * CUSTOMER'S DRAFT?
+   * DOES THIS APPLICATION GET ITS OFFICIAL NUMBER NOW, OR LATER?
    *
-   * "formal"  — staff created it in the CRM. It is received the moment it
-   *             exists, so the insert trigger allocates its official number.
-   * "draft"   — the public portal created it to hold Step 2 and Step 3 work.
-   *             No number until the applicant presses "Enviar solicitud".
+   * "draft"   — created without a number. It holds requirement slots and
+   *             accepts documents like any other application; it simply has
+   *             not been formally received yet. Numbered later, once, by
+   *             `submit_application`.
+   * "formal"  — received on arrival, so the insert trigger allocates the
+   *             official number immediately.
+   *
+   * ----------------------------------------------------------------------------
+   * IT IS ABOUT NUMBERING, NOT ABOUT WHO CREATED IT (26B-23A)
+   * ----------------------------------------------------------------------------
+   * 26B-5 described these as "staff created it" versus "the portal created it",
+   * because at the time those were the only two callers and the distinction
+   * happened to line up. It stopped lining up the moment staff needed to start
+   * an application before they had the documents for it — and that description
+   * is what led `createSolicitudApplication` to pass "formal" and spend an
+   * official consecutive on a form somebody had only just opened.
+   *
+   * WHO created it is `source`, which already says `crm_manual`,
+   * `website_form` and the rest. This says only when the number is issued.
    *
    * Required rather than defaulted: every caller has to state which kind of
    * thing it is creating, because getting this wrong is exactly the defect
