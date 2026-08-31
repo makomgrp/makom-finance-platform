@@ -139,9 +139,17 @@ test("los textos visibles en ES y EN tampoco lo afirman", () => {
       if (word === "desembolsado" || word === "disbursed amount") {
         assert.ok(!flat.includes(word), `${file} afirma "${word}"`);
       } else {
-        const note = (analytics.financial.notDisbursedNote as string).toLowerCase();
-        const outsideNote = flat.replace(note, "");
-        assert.ok(!outsideNote.includes(word), `${file} usa "${word}" fuera de la nota aclaratoria`);
+        // Las frases que NIEGAN la existencia del dato son justamente la
+        // declaración exigida. Se excluyen las dos que existen —la nota
+        // financiera de la pantalla y la de metodología del PDF— y se comprueba
+        // que la palabra no aparece en ningún otro sitio.
+        const negaciones = [
+          analytics.financial.notDisbursedNote as string,
+          analytics.pdf?.methodApprovedNotDisbursed as string | undefined,
+        ].filter(Boolean) as string[];
+        let outside = flat;
+        for (const negacion of negaciones) outside = outside.replace(negacion.toLowerCase(), "");
+        assert.ok(!outside.includes(word), `${file} usa "${word}" fuera de una nota aclaratoria`);
       }
     }
   }

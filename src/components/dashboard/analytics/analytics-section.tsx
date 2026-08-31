@@ -12,6 +12,7 @@ import {
   StackedBar,
 } from "./analytics-primitives";
 import { PeriodSelector } from "./period-selector";
+import { PdfDownloadButton } from "./pdf-download-button";
 import {
   AcquisitionSection,
   DocumentSection,
@@ -139,7 +140,14 @@ export async function AnalyticsSection({
       <div>
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-lg font-semibold text-foreground">{t("title")}</h2>
-          <PeriodSelector activeKind={activeKind} rangeLabel={rangeLabel} />
+          {/* MILESTONE 26B-26E — el selector manda y la descarga acompaña. El
+              botón va aquí, junto al período que va a exportar, y no arriba
+              compitiendo con las cifras: quien abre esto por la mañana viene a
+              leer, no a descargar. */}
+          <div className="flex flex-wrap items-center gap-3">
+            <PeriodSelector activeKind={activeKind} rangeLabel={rangeLabel} />
+            <PdfDownloadButton />
+          </div>
         </div>
 
         {/* «Este mes» comparado con el mes anterior COMPLETO compara quince días
