@@ -122,3 +122,33 @@ export const APPLICATION_STATUS_BADGE_CLASS: Record<ApplicationStatus, string> =
  */
 export const APPLICATION_TERM_MONTHS_MIN = 1;
 export const APPLICATION_TERM_MONTHS_MAX = 360;
+
+/**
+ * ============================================================================
+ * MILESTONE 26B-25 — WHICH PRODUCTS ASK THE APPLICANT ABOUT A GUARANTOR
+ * ============================================================================
+ *
+ * Was `productCode !== "E"`, written out at each of the three places that
+ * needed it: the Step 2 section, the Step 2 validator, and the Step 2 save.
+ * Business loans never asked, everything else did.
+ *
+ * ODL removed the question from PAYROLL DEDUCTION. That product is designed for
+ * applicants whose employer discounts the instalment from their payroll, and
+ * the employer's participation is what secures it — asking for a guarantor on
+ * top was asking for a second guarantee the product does not use, at the exact
+ * moment the applicant is deciding whether to bother finishing the form.
+ *
+ * So the rule is now "D and V", which is no longer expressible as "not E" and
+ * would have become three copies of a two-condition expression free to drift.
+ * It is one function instead, and the reason lives beside it.
+ *
+ * THE GUARANTOR REQUIREMENTS FOR PAYROLL ARE LEFT IN PLACE, deliberately. They
+ * are conditional on `has_guarantor`, and 26A-3 does not materialise a
+ * conditional requirement until its condition is met — a question that is never
+ * asked can never answer yes, so those templates are inert rather than wrong.
+ * Deactivating them would be a data change with no behavioural effect and one
+ * more thing to undo if ODL reverses this.
+ */
+export function productAsksForGuarantor(productCode: string): boolean {
+  return productCode === "D" || productCode === "V";
+}

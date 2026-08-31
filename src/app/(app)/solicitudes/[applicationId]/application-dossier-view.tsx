@@ -335,6 +335,43 @@ export function ApplicationDossierView({
               label={t("applicationDossier.monthlyExpenses")}
               value={money(step2?.financialProfile?.monthlyExpenses)}
             />
+            {/* MILESTONE 26B-25 — separado del salario a propósito. Sí/No es la
+                respuesta, y el monto solo acompaña cuando la respuesta es sí;
+                mezclar ambas cifras en una fila haría imposible saber cuál es
+                el ingreso principal. Ausente = nunca se preguntó, y `Fact` ya
+                pinta eso como «—» sin fingir un «No». */}
+            <Fact
+              label={t("applicationDossier.additionalIncome")}
+              value={
+                step2?.financialProfile?.hasAdditionalIncome === undefined
+                  ? undefined
+                  : t(step2.financialProfile.hasAdditionalIncome ? "common.yes" : "common.no")
+              }
+            />
+            {step2?.financialProfile?.hasAdditionalIncome === true && (
+              <>
+                <Fact
+                  label={t("applicationDossier.additionalIncomeAmount")}
+                  value={money(step2.financialProfile.additionalMonthlyIncome)}
+                />
+                <Fact
+                  label={t("applicationDossier.additionalIncomeSource")}
+                  value={step2.financialProfile.additionalIncomeSource}
+                />
+              </>
+            )}
+            {/* La red social es del CLIENTE, no de la solicitud (26B-25). Se
+                muestra aquí porque es donde el asesor está mirando el caso. */}
+            <Fact
+              label={t("applicationDossier.socialNetwork")}
+              value={
+                client?.primarySocialNetwork
+                  ? client.primarySocialNetwork === "other"
+                    ? client.primarySocialNetworkOther
+                    : t(`socialNetworks.${client.primarySocialNetwork}` as "socialNetworks.instagram")
+                  : undefined
+              }
+            />
             {productCode === "payroll_deduction" && (
               <Fact
                 label={t("applicationDossier.payrollDeduction")}

@@ -11,11 +11,13 @@ import {
   saveBusinessProfile,
   saveCollateral,
   saveEmployment,
+  saveClientPrimarySocialNetwork,
   saveFinancialProfile,
   saveGuarantor,
   saveObligations,
   type Step2WriteResult,
 } from "@/lib/services/application-step2-write";
+import { productAsksForGuarantor } from "@/lib/config/application";
 import {
   validatePortalStepTwo,
   type Step2Errors,
@@ -101,11 +103,33 @@ export async function submitPortalStepTwo(input: Step2SubmitInput): Promise<Step
   const results: Step2WriteResult[] = [];
 
   if (value.employment) results.push(await saveEmployment(applicationId, value.employment));
-  if (productCode !== "E") {
-    results.push(await saveFinancialProfile(applicationId, value.monthlyExpenses));
-  }
+  // MILESTONE 26B-25 — los otros ingresos se preguntan en los CUATRO productos,
+  // así que el perfil financiero deja de escribirse solo para N/D/V. Para el
+  // producto empresarial `monthlyExpenses` sigue sin recogerse y viaja
+  // undefined, que es lo que ya significaba antes.
+  results.push(
+    await saveFinancialProfile(
+      applicationId,
+      productCode === "E" ? undefined : value.monthlyExpenses,
+      value.hasAdditionalIncome === undefined
+        ? undefined
+        : {
+            has: value.hasAdditionalIncome,
+            monthlyAmount: value.additionalMonthlyIncome,
+            source: value.additionalIncomeSource,
+          }
+    )
+  );
+  // La red social es del cliente, no de la solicitud — ver saveClientPrimarySocialNetwork.
+  results.push(
+    await saveClientPrimarySocialNetwork(
+      application.application.clientId,
+      value.primarySocialNetwork,
+      value.primarySocialNetworkOther
+    )
+  );
   results.push(await saveObligations(applicationId, obligationOwner, value.obligations));
-  if (productCode !== "E") {
+  if (productAsksForGuarantor(productCode)) {
     results.push(await saveGuarantor(applicationId, value.guarantor));
   }
   if (productCode === "D") results.push(await saveBankAccount(applicationId, value.bankAccount));

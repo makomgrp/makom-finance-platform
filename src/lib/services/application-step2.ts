@@ -52,7 +52,7 @@ const EMPLOYMENT_SELECT =
   "id, application_id, employment_status, employer_name, job_title, contract_type, " +
   "self_employed_activity, start_date, monthly_income, payroll_deduction_available";
 
-const FINANCIAL_SELECT = "id, application_id, monthly_expenses";
+const FINANCIAL_SELECT = "id, application_id, monthly_expenses, has_additional_income, additional_monthly_income, additional_income_source";
 
 /** DELIBERATELY OMITS account_number. See the module header. */
 const BANK_ACCOUNT_SUMMARY_SELECT =
@@ -97,6 +97,10 @@ function toFinancialProfile(row: Row): ApplicationFinancialProfile {
     id: row.id,
     applicationId: row.application_id,
     monthlyExpenses: row.monthly_expenses ?? undefined,
+    // MILESTONE 26B-25 — NULL => undefined: la pregunta no se hizo. Nunca `false`.
+    hasAdditionalIncome: row.has_additional_income ?? undefined,
+    additionalMonthlyIncome: row.additional_monthly_income ?? undefined,
+    additionalIncomeSource: row.additional_income_source ?? undefined,
   };
 }
 

@@ -116,13 +116,31 @@ export async function saveEmployment(
 
 export async function saveFinancialProfile(
   applicationId: string,
-  monthlyExpenses: number | undefined
+  monthlyExpenses: number | undefined,
+  // MILESTONE 26B-25 — otros ingresos. Los tres viajan juntos porque responden
+  // una sola pregunta y la tabla los constriñe juntos: sin responder deja los
+  // tres nulos, "no" deja los detalles nulos, "sí" exige el monto.
+  additionalIncome?: {
+    has: boolean;
+    monthlyAmount?: number;
+    source?: string;
+  }
 ): Promise<Step2WriteResult> {
   const supabase = getSupabaseServerClient();
   const { error } = await supabase
     .from("application_financial_profiles")
     .upsert(
-      { application_id: applicationId, monthly_expenses: monthlyExpenses ?? null },
+      {
+        application_id: applicationId,
+        monthly_expenses: monthlyExpenses ?? null,
+        has_additional_income: additionalIncome ? additionalIncome.has : null,
+        // Un "no" borra explícitamente lo que hubiera: quien se corrige retira
+        // el dato, y conservarlo guardaría algo que la persona ya desmintió.
+        additional_monthly_income:
+          additionalIncome?.has ? (additionalIncome.monthlyAmount ?? null) : null,
+        additional_income_source:
+          additionalIncome?.has ? (additionalIncome.source ?? null) : null,
+      },
       { onConflict: "application_id" }
     );
 
@@ -533,6 +551,48 @@ export async function saveBusinessProfile(
 
   if (error) {
     console.error("[step2-write] Failed to save business profile:", error.message);
+    return { status: "error", code: "WRITE_FAILED" };
+  }
+  return { status: "ok" };
+}
+
+
+/* ------------------------------------------------------------------------- */
+/* Primary social network — on the CLIENT                                     */
+/* ------------------------------------------------------------------------- */
+
+/**
+ * MILESTONE 26B-25 — LA RED SOCIAL ES DE LA PERSONA, NO DE LA SOLICITUD.
+ *
+ * Es la única escritura de Paso 2 que no toca una tabla de la solicitud, y lo
+ * hace a propósito: quien pide tres préstamos tiene un solo Instagram, y
+ * guardarlo por solicitud dejaría el mismo hecho en tres filas libres de
+ * contradecirse. Así además queda donde el expediente del cliente ya lo puede
+ * mostrar, y donde el personal que carga clientes a mano también lo registra.
+ *
+ * `undefined` NO borra: significa que el formulario no trae respuesta, y una
+ * pregunta sin contestar no es motivo para descartar lo que ya se sabía.
+ */
+export async function saveClientPrimarySocialNetwork(
+  clientId: string,
+  network: string | undefined,
+  otherDescription: string | undefined
+): Promise<Step2WriteResult> {
+  if (network === undefined) return { status: "ok" };
+
+  const supabase = getSupabaseServerClient();
+  const { error } = await supabase
+    .from("clients")
+    .update({
+      primary_social_network: network,
+      // El texto libre existe solo para `other`; el CHECK de la tabla lo exige
+      // ahí y lo prohíbe en el resto, así que cambiar de opción lo limpia.
+      primary_social_network_other: network === "other" ? (otherDescription ?? null) : null,
+    })
+    .eq("id", clientId);
+
+  if (error) {
+    console.error("[step2-write] Failed to save primary social network:", error.message);
     return { status: "error", code: "WRITE_FAILED" };
   }
   return { status: "ok" };

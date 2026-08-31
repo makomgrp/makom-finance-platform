@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { SYSTEM_NATIONAL_SCOPE } from "@/lib/services/branch-scope-query";
 import { resolveContinuationToken } from "@/lib/services/continuation-tokens";
 import { getApplicationById } from "@/lib/services/applications";
+import { getClientById } from "@/lib/services/clients";
 import { getProductById } from "@/lib/services/products";
 import { getApplicationStep2 } from "@/lib/services/application-step2";
 import { redirectIfSubmitted } from "@/lib/services/portal-submitted-guard";
@@ -50,12 +51,18 @@ export default async function PortalStepTwoPage({
   const application = await getApplicationById(SYSTEM_NATIONAL_SCOPE, applicationId);
   if (application.status !== "ok") return <StepTwoProblem kind="link" />;
 
-  const [productResult, step2Result] = await Promise.all([
+  const [productResult, step2Result, clientResult] = await Promise.all([
     getProductById(application.application.productId),
     // Returns the MASKED bank-account shape. The full number has its own
     // single-record function and is not called here — see 26A-2.
     getApplicationStep2(SYSTEM_NATIONAL_SCOPE, applicationId),
+    // MILESTONE 26B-25 — la red social vive en la persona, no en la solicitud,
+    // así que reanudar el paso necesita leer el cliente. Un fallo aquí NO
+    // rompe el paso: el campo simplemente vuelve vacío, que es indistinguible
+    // de no haberlo contestado todavía.
+    getClientById(SYSTEM_NATIONAL_SCOPE, application.application.clientId),
   ]);
+  const client = clientResult.status === "ok" ? clientResult.client : undefined;
 
   if (productResult.status !== "ok" || !productResult.product.applicationCode) {
     return <StepTwoProblem kind="link" />;
@@ -89,6 +96,25 @@ export default async function PortalStepTwoPage({
       step2.financialProfile?.monthlyExpenses != null
         ? String(step2.financialProfile.monthlyExpenses)
         : "",
+
+    // MILESTONE 26B-25 — misma disciplina que las obligaciones: la respuesta se
+    // deriva de lo guardado, no se recuerda aparte. `undefined` (nunca
+    // preguntado) vuelve como cadena vacía, que es "sin responder"; un `false`
+    // guardado vuelve como "no", que es una respuesta real y debe conservarse.
+    hasAdditionalIncome:
+      step2.financialProfile?.hasAdditionalIncome === undefined
+        ? ""
+        : step2.financialProfile.hasAdditionalIncome
+          ? "yes"
+          : "no",
+    additionalMonthlyIncome:
+      step2.financialProfile?.additionalMonthlyIncome != null
+        ? String(step2.financialProfile.additionalMonthlyIncome)
+        : "",
+    additionalIncomeSource: step2.financialProfile?.additionalIncomeSource ?? "",
+
+    primarySocialNetwork: client?.primarySocialNetwork ?? "",
+    primarySocialNetworkOther: client?.primarySocialNetworkOther ?? "",
 
     // The answer is derived from what is stored rather than remembered
     // separately — a customer with saved obligations comes back to "yes".

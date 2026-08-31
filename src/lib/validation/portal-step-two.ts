@@ -1,4 +1,7 @@
 import "server-only";
+import { productAsksForGuarantor } from "@/lib/config/application";
+import { isPrimarySocialNetwork } from "@/types";
+import type { PrimarySocialNetwork } from "@/types";
 import type {
   BankAccountType,
   BusinessRelationship,
@@ -84,6 +87,15 @@ export interface Step2Payload {
 
   monthlyExpenses?: string;
 
+  // MILESTONE 26B-25 — otros ingresos. Los cuatro productos.
+  hasAdditionalIncome?: string;
+  additionalMonthlyIncome?: string;
+  additionalIncomeSource?: string;
+
+  // MILESTONE 26B-25 — red social principal. Los cuatro productos.
+  primarySocialNetwork?: string;
+  primarySocialNetworkOther?: string;
+
   hasObligations?: string;
   obligations?: Array<{
     id?: string;
@@ -137,6 +149,12 @@ export interface NormalizedStep2 {
     payrollDeductionAvailable?: PayrollDeductionAvailability;
   };
   monthlyExpenses?: number;
+  /** MILESTONE 26B-25 — undefined = no preguntado; false = respondió que no. */
+  hasAdditionalIncome?: boolean;
+  additionalMonthlyIncome?: number;
+  additionalIncomeSource?: string;
+  primarySocialNetwork?: PrimarySocialNetwork;
+  primarySocialNetworkOther?: string;
   obligations: Array<{
     id?: string;
     lenderName: string;
@@ -328,6 +346,54 @@ export function validatePortalStepTwo(
     }
 
     value.monthlyExpenses = checkMoney("monthlyExpenses", payload.monthlyExpenses);
+  }
+
+  /* ---- Otros ingresos (los cuatro productos) ----------------------------- */
+  //
+  // MILESTONE 26B-25. Tres campos que responden UNA pregunta, así que se validan
+  // juntos y se guardan juntos. Sin responder deja los tres vacíos, y eso no es
+  // un error: nadie preguntó esto a quien empezó su solicitud antes de hoy.
+  //
+  // "Sí" exige el monto. La fuente queda opcional a propósito: quien dice
+  // "sí, unos B/. 300" y no elabora ya ha dicho algo cierto, y rechazarlo sería
+  // perder la cifra por proteger una frase. Mismo criterio que el CHECK.
+  const rawAdditional = text(payload.hasAdditionalIncome);
+  if (rawAdditional === "yes" || rawAdditional === "no") {
+    const yes = rawAdditional === "yes";
+    value.hasAdditionalIncome = yes;
+    if (yes) {
+      const amount = checkMoney("additionalMonthlyIncome", payload.additionalMonthlyIncome);
+      if (amount === undefined || amount <= 0) {
+        if (!errors.additionalMonthlyIncome) errors.additionalMonthlyIncome = "REQUIRED";
+      } else {
+        value.additionalMonthlyIncome = amount;
+      }
+      const source = checkText("additionalIncomeSource", payload.additionalIncomeSource, 200);
+      if (source) value.additionalIncomeSource = source;
+    }
+    // Si respondió "no", monto y fuente NO se copian: el CHECK de la tabla los
+    // exige nulos, y arrastrar lo que llegó a escribir antes de cambiar de idea
+    // guardaría un dato que la persona ya retiró.
+  }
+
+  /* ---- Red social principal (los cuatro productos) ----------------------- */
+  //
+  // MILESTONE 26B-25. Se guarda en el CLIENTE, no en la solicitud: quien tiene
+  // tres préstamos tiene un solo Instagram.
+  const rawSocial = text(payload.primarySocialNetwork);
+  if (rawSocial !== "") {
+    if (!isPrimarySocialNetwork(rawSocial)) {
+      errors.primarySocialNetwork = "INVALID_OPTION";
+    } else {
+      value.primarySocialNetwork = rawSocial;
+      if (rawSocial === "other") {
+        const other = checkText("primarySocialNetworkOther", payload.primarySocialNetworkOther, 60);
+        if (!other) errors.primarySocialNetworkOther = "REQUIRED";
+        else value.primarySocialNetworkOther = other;
+      }
+      // Si NO es `other`, el texto libre no se copia — así cambiar de opción no
+      // puede dejar varada la descripción anterior.
+    }
   }
 
   /* ---- Banking (D) ------------------------------------------------------- */
@@ -527,8 +593,8 @@ export function validatePortalStepTwo(
   // "No" leaves value.obligations empty, which the write layer reconciles into
   // "remove the ones that were there" — the honest meaning of answering no.
 
-  /* ---- Guarantor (N, D, V) ---------------------------------------------- */
-  if (productCode !== "E" && isTrue(payload.hasGuarantor)) {
+  /* ---- Guarantor (D, V) — see productAsksForGuarantor (26B-25) ---------- */
+  if (productAsksForGuarantor(productCode) && isTrue(payload.hasGuarantor)) {
     const fullName = checkText("guarantorFullName", payload.guarantorFullName);
     const email = checkText("guarantorEmail", payload.guarantorEmail, 254);
     const phone = checkText("guarantorPhone", payload.guarantorPhone, 30);

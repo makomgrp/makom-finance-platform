@@ -211,7 +211,9 @@
       "submitNew": "Register client",
       "submitEdit": "Save changes",
       "employer": "Employer",
-      "employerPlaceholder": "Employer name (optional)"
+      "employerPlaceholder": "Employer name (optional)",
+      "socialNetwork": "Primary social network",
+      "socialNetworkOther": "Which one?"
     },
     "restriction": {
       "badge": "Restricted"
@@ -447,7 +449,17 @@
         "requirementStatusUpdated": "{requirement}: status updated to \"{status}\".",
         "requirementStatusError": "Could not update the requirement status. Please try again.",
         "refetchError": "Could not refresh the information. Try reloading the page."
-      }
+      },
+      "addManual": "Add document",
+      "addManualTitle": "Add a document to the file",
+      "addManualHint": "For documents received by WhatsApp, email, or another channel. Give it a name, then upload it like any other.",
+      "addManualName": "Document name",
+      "addManualNamePlaceholder": "For example: Signed payroll deduction authorization",
+      "addManualDescription": "Description (optional)",
+      "addManualSubmit": "Add",
+      "addManualCancel": "Cancel",
+      "addManualSuccess": "Document added. You can upload the file now.",
+      "addManualError": "The document could not be added. Please try again."
     },
     "notes": {
       "addNote": "Add note",
@@ -1338,7 +1350,15 @@
       "back": "Back",
       "continue": "Continue",
       "continueSaving": "Saving…",
-      "saveForLater": "Save and continue later"
+      "saveForLater": "Save and continue later",
+      "additionalIncomeLegend": "Other income",
+      "additionalIncomeQuestion": "Do you receive any income in addition to your main income?",
+      "additionalIncomeAmount": "Approximate additional monthly income",
+      "additionalIncomeSource": "Source of the additional income",
+      "additionalIncomeSourceHint": "Briefly describe where this income comes from. For example: rent, your own business, commissions, freelance work, or a pension.",
+      "socialLegend": "How we reach you",
+      "socialQuestion": "Which social network do you mainly use?",
+      "socialOther": "Which one?"
     },
     "step3": {
       "title": "Your documents",
@@ -1636,7 +1656,11 @@
     "formalizeSuccess": "Application submitted with number {number}.",
     "formalizeErrorNotDraft": "This application has already been submitted.",
     "formalizeErrorForbidden": "You do not have permission to submit this application.",
-    "formalizeError": "The application could not be submitted. Please try again."
+    "formalizeError": "The application could not be submitted. Please try again.",
+    "additionalIncome": "Other income",
+    "additionalIncomeAmount": "Additional monthly income",
+    "additionalIncomeSource": "Source of additional income",
+    "socialNetwork": "Primary social network"
   },
   "pipeline": {
     "stages": {
@@ -1969,5 +1993,13 @@
     "approveError": "The application could not be approved. Please try again.",
     "approveErrorTransition": "The application no longer accepts that status change. Please reload the page.",
     "approvedAmountLabel": "Approved amount"
+  },
+  "socialNetworks": {
+    "instagram": "Instagram",
+    "facebook": "Facebook",
+    "tiktok": "TikTok",
+    "linkedin": "LinkedIn",
+    "x": "X",
+    "other": "Other"
   }
 }

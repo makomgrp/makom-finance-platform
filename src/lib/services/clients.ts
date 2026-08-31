@@ -9,6 +9,7 @@ import type {
   Client,
   ClientStatus,
   IdentificationType,
+  PrimarySocialNetwork,
 } from "@/types";
 
 /**
@@ -29,6 +30,8 @@ import type {
  */
 
 interface ClientRow {
+  primary_social_network: string | null;
+  primary_social_network_other: string | null;
   id: string;
   legacy_id: string | null;
   full_name: string;
@@ -56,6 +59,8 @@ const CLIENT_SELECT =
   "id, legacy_id, full_name, identification_type, identification_number, phone, email, employer_name, company_legacy_id, " +
   "position, monthly_salary, birth_date, nationality, address, observations, status, restricted, created_at, " +
   "created_by_profile_id, created_source, " +
+  // MILESTONE 26B-25 — la red social principal de la persona.
+  "primary_social_network, primary_social_network_other, " +
   // MILESTONE 25C-2 — branch origin, joined onto the row the scope already
   // authorized. NOT `!inner`: an inner join would drop every unassigned client,
   // which are exactly the rows a national administrator needs to find and
@@ -85,6 +90,9 @@ function toClient(row: ClientRow): Client {
     createdAt: row.created_at,
     createdByProfileId: row.created_by_profile_id ?? undefined,
     createdSource: row.created_source as ApplicationSource,
+    // MILESTONE 26B-25 — NULL => undefined: "nunca se preguntó", nunca "ninguna".
+    primarySocialNetwork: (row.primary_social_network as PrimarySocialNetwork | null) ?? undefined,
+    primarySocialNetworkOther: row.primary_social_network_other ?? undefined,
     branchOrigin: toBranchOrigin(row.branch),
   };
 }

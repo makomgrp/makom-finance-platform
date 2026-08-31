@@ -1240,3 +1240,58 @@ export async function approveSolicitudWithAmount(
 
   return { status: "success", application: result.application };
 }
+
+/**
+ * ============================================================================
+ * MILESTONE 26B-25 — INCORPORAR UN DOCUMENTO QUE LLEGÓ POR OTRO CANAL
+ * ============================================================================
+ *
+ * Crea el hueco; la subida sigue siendo la de siempre. Dos pasos deliberados en
+ * vez de uno: el archivo viaja por el camino de evidencia ya existente, con su
+ * validación de tipo y tamaño, su historial y su reemplazo, en lugar de por un
+ * segundo mecanismo escrito para esta pantalla.
+ *
+ * `evidence:upload`, no una capability nueva: quien puede adjuntar evidencia a
+ * un expediente puede incorporar un documento a ese mismo expediente. Inventar
+ * un permiso aparte separaría dos actos que en la práctica son el mismo.
+ */
+export type AddManualDocumentResult =
+  | { status: "success"; slotId: string }
+  | {
+      status: "error";
+      code: "INVALID_INPUT" | "UNAUTHENTICATED" | "FORBIDDEN" | "NOT_FOUND" | "SAVE_FAILED";
+    };
+
+export async function addManualDocumentToApplication(input: {
+  applicationId: string;
+  name: string;
+  description?: string;
+}): Promise<AddManualDocumentResult> {
+  const auth = await requireCapability("evidence:upload");
+  if (auth.status === "denied") return { status: "error", code: auth.code };
+
+  if (!isNonEmptyString(input.applicationId) || !UUID_PATTERN.test(input.applicationId)) {
+    return { status: "error", code: "INVALID_INPUT" };
+  }
+  if (!isNonEmptyString(input.name)) return { status: "error", code: "INVALID_INPUT" };
+
+  const { addManualDocumentSlot } = await import("@/lib/services/requirement-slots");
+  const result = await addManualDocumentSlot(auth.profile.branchScope, input.applicationId, {
+    name: input.name,
+    description: input.description,
+  });
+
+  if (result.status !== "ok") {
+    return {
+      status: "error",
+      code: result.code === "NOT_FOUND" ? "NOT_FOUND"
+        : result.code === "INVALID_INPUT" ? "INVALID_INPUT"
+        : "SAVE_FAILED",
+    };
+  }
+
+  revalidatePath(`/solicitudes/${input.applicationId}`);
+  revalidatePath("/documentos");
+
+  return { status: "success", slotId: result.slotId };
+}

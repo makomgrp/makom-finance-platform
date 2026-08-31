@@ -77,6 +77,17 @@ export interface ApplicationFinancialProfile {
   id: string;
   applicationId: string;
   monthlyExpenses?: number;
+  /**
+   * MILESTONE 26B-25 — ¿declaró ingresos además del principal?
+   *
+   * `undefined` significa que nunca se le preguntó — cierto para toda solicitud
+   * anterior a este milestone — y jamás debe leerse como "no". `false` es una
+   * respuesta real; en ese caso monto y fuente quedan ausentes por constraint.
+   */
+  hasAdditionalIncome?: boolean;
+  additionalMonthlyIncome?: number;
+  /** Descripción breve del propio solicitante. Texto libre a propósito. */
+  additionalIncomeSource?: string;
 }
 
 /**

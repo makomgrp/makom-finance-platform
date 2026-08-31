@@ -2,6 +2,7 @@ import "server-only";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { applyBranchScope, isBranchDeniedError, isEmptyScope, withScopedParent } from "@/lib/services/branch-scope-query";
 import { REQUIREMENT_SLOT_STATUS_TRANSITIONS } from "@/lib/config/requirement-slot";
+import { getApplicationById } from "@/lib/services/applications";
 import type {
   BranchScope,
   DocumentEvidence,
@@ -849,4 +850,101 @@ export function summariseDocumentProgress(
     if (slot.status === "rejected") summary.rejected += 1;
   }
   return summary;
+}
+
+export type AddManualDocumentSlotResult =
+  | { status: "ok"; slotId: string }
+  | { status: "error"; code: "NOT_FOUND" | "INVALID_INPUT" | "NO_TEMPLATE" | "INSERT_FAILED" };
+
+/**
+ * ============================================================================
+ * MILESTONE 26B-25 — UN DOCUMENTO QUE LLEGÓ POR OTRO CANAL
+ * ============================================================================
+ *
+ * ODL recibe cosas por WhatsApp, por correo y en mano. Hasta ahora el
+ * expediente solo aceptaba un archivo contra un requisito previsto de antemano,
+ * y lo que no estaba previsto se quedaba fuera del expediente — es decir, fuera
+ * del sitio donde alguien lo buscaría después.
+ *
+ * Esto crea el hueco donde colgarlo, y nada más: la subida en sí sigue pasando
+ * por la evidencia de siempre, con su almacenamiento, su historial y su
+ * reemplazo. No hay un segundo mecanismo documental.
+ *
+ * NO ES UN REQUISITO QUE SE PIDA. Nace `applicant_visible = false` y
+ * `required = false`: no se muestra en el portal y no cuenta para completar
+ * ningún paso. Es el registro de algo que YA llegó, no una petición.
+ *
+ * EL NOMBRE LO PONE QUIEN LO INCORPORA. Cada slot fotografía su propio nombre
+ * y descripción (26A-3), así que una sola plantilla `other_document` respalda
+ * tantos documentos distintos como haga falta. Pedir una plantilla por tipo
+ * sería pedir que ODL prevea lo imprevisto.
+ */
+export async function addManualDocumentSlot(
+  scope: BranchScope,
+  applicationId: string,
+  input: { name: string; description?: string }
+): Promise<AddManualDocumentSlotResult> {
+  const name = input.name.trim();
+  if (name.length === 0 || name.length > 120) return { status: "error", code: "INVALID_INPUT" };
+  const description = (input.description ?? "").trim().slice(0, 300);
+
+  // La solicitud se re-resuelve por el scope del llamador: conocer un id nunca
+  // es autorización, y una solicitud de otra sucursal no existe para quien
+  // pregunta. Misma postura que el resto de este servicio.
+  const application = await getApplicationById(scope, applicationId);
+  if (application.status !== "ok") return { status: "error", code: "NOT_FOUND" };
+
+  const supabase = getSupabaseServerClient();
+
+  const { data: template, error: templateError } = await supabase
+    .from("requirement_templates")
+    .select("id")
+    .eq("product_id", application.application.productId)
+    .eq("code", "other_document")
+    .maybeSingle<{ id: string }>();
+
+  if (templateError) {
+    console.error("[requirement-slots] Failed to load other_document template:", templateError.message);
+    return { status: "error", code: "INSERT_FAILED" };
+  }
+  if (!template) return { status: "error", code: "NO_TEMPLATE" };
+
+  // Al final de la lista y sin colisionar con los requisitos del producto, que
+  // usan órdenes bajos. Varios documentos manuales se ordenan entre sí por su
+  // propia creación, que es el orden en que llegaron.
+  const { data: last } = await supabase
+    .from("requirement_slots")
+    .select("display_order")
+    .eq("application_id", applicationId)
+    .order("display_order", { ascending: false })
+    .limit(1)
+    .maybeSingle<{ display_order: number }>();
+
+  const { data: inserted, error } = await supabase
+    .from("requirement_slots")
+    .insert({
+      application_id: applicationId,
+      requirement_template_id: template.id,
+      code: "other_document",
+      name: { es: name, en: name },
+      description: { es: description, en: description },
+      requirement_kind: "document",
+      required: false,
+      applicant_visible: false,
+      min_files: 1,
+      allows_multiple_files: true,
+      stage: "application",
+      actor: "internal",
+      subject_type: "application",
+      display_order: Math.max(last?.display_order ?? 0, 900) + 1,
+    })
+    .select("id")
+    .maybeSingle<{ id: string }>();
+
+  if (error || !inserted) {
+    console.error("[requirement-slots] Failed to add manual document slot:", error?.message);
+    return { status: "error", code: "INSERT_FAILED" };
+  }
+
+  return { status: "ok", slotId: inserted.id };
 }

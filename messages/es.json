@@ -211,7 +211,9 @@
       "submitNew": "Registrar cliente",
       "submitEdit": "Guardar cambios",
       "employer": "Empresa donde labora",
-      "employerPlaceholder": "Nombre del empleador (opcional)"
+      "employerPlaceholder": "Nombre del empleador (opcional)",
+      "socialNetwork": "Red social principal",
+      "socialNetworkOther": "¿Cuál?"
     },
     "restriction": {
       "badge": "Restringido"
@@ -447,7 +449,17 @@
         "requirementStatusUpdated": "{requirement}: estado actualizado a \"{status}\".",
         "requirementStatusError": "No se pudo actualizar el estado del requisito. Intente de nuevo.",
         "refetchError": "No se pudo actualizar la información. Intente recargar la página."
-      }
+      },
+      "addManual": "Agregar documento",
+      "addManualTitle": "Incorporar un documento al expediente",
+      "addManualHint": "Para documentos recibidos por WhatsApp, correo u otro canal. Dale un nombre y luego súbelo como cualquier otro.",
+      "addManualName": "Nombre del documento",
+      "addManualNamePlaceholder": "Por ejemplo: Autorización de descuento firmada",
+      "addManualDescription": "Descripción (opcional)",
+      "addManualSubmit": "Agregar",
+      "addManualCancel": "Cancelar",
+      "addManualSuccess": "Documento agregado. Ya puedes subir el archivo.",
+      "addManualError": "No se pudo agregar el documento. Vuelve a intentarlo."
     },
     "notes": {
       "addNote": "Añadir nota",
@@ -1338,7 +1350,15 @@
       "back": "Atrás",
       "continue": "Continuar",
       "continueSaving": "Guardando…",
-      "saveForLater": "Guardar y continuar después"
+      "saveForLater": "Guardar y continuar después",
+      "additionalIncomeLegend": "Otros ingresos",
+      "additionalIncomeQuestion": "¿Recibes ingresos adicionales además de tu ingreso principal?",
+      "additionalIncomeAmount": "Ingreso adicional mensual aproximado",
+      "additionalIncomeSource": "Fuente del ingreso adicional",
+      "additionalIncomeSourceHint": "Describe brevemente de dónde proviene este ingreso. Por ejemplo: alquiler, negocio propio, comisiones, actividad independiente o pensión.",
+      "socialLegend": "Cómo te contactamos",
+      "socialQuestion": "¿Qué red social utilizas principalmente?",
+      "socialOther": "¿Cuál?"
     },
     "step3": {
       "title": "Tus documentos",
@@ -1636,7 +1656,11 @@
     "formalizeSuccess": "Solicitud formalizada con el número {number}.",
     "formalizeErrorNotDraft": "Esta solicitud ya fue formalizada.",
     "formalizeErrorForbidden": "No tiene permisos para formalizar esta solicitud.",
-    "formalizeError": "No se pudo formalizar la solicitud. Vuelva a intentarlo."
+    "formalizeError": "No se pudo formalizar la solicitud. Vuelva a intentarlo.",
+    "additionalIncome": "Otros ingresos",
+    "additionalIncomeAmount": "Ingreso adicional mensual",
+    "additionalIncomeSource": "Fuente del ingreso adicional",
+    "socialNetwork": "Red social principal"
   },
   "pipeline": {
     "stages": {
@@ -1969,5 +1993,13 @@
     "approveError": "No se pudo aprobar la solicitud. Vuelva a intentarlo.",
     "approveErrorTransition": "La solicitud ya no admite ese cambio de estado. Vuelva a cargar la página.",
     "approvedAmountLabel": "Monto aprobado"
+  },
+  "socialNetworks": {
+    "instagram": "Instagram",
+    "facebook": "Facebook",
+    "tiktok": "TikTok",
+    "linkedin": "LinkedIn",
+    "x": "X",
+    "other": "Otro"
   }
 }

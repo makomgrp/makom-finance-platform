@@ -7,11 +7,20 @@ import { Loader2, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { PortalProgress } from "@/components/portal/portal-progress";
 import { PortalReferenceLine } from "@/components/portal/portal-reference-line";
 import { submitPortalStepTwo } from "./actions";
 import type { Step2Errors, Step2Mode } from "@/lib/validation/portal-step-two";
+import { PRIMARY_SOCIAL_NETWORKS } from "@/types";
 import type { LocalizedText } from "@/types";
+import { productAsksForGuarantor } from "@/lib/config/application";
 
 /**
  * ============================================================================
@@ -53,6 +62,12 @@ export interface StepTwoInitialValues {
     outstandingBalance: string;
     monthlyPayment: string;
   }>;
+  // MILESTONE 26B-25 — otros ingresos y red social. Los cuatro productos.
+  hasAdditionalIncome: string;
+  additionalMonthlyIncome: string;
+  additionalIncomeSource: string;
+  primarySocialNetwork: string;
+  primarySocialNetworkOther: string;
   hasGuarantor: string;
   guarantorFullName: string;
   guarantorEmail: string;
@@ -131,6 +146,9 @@ export function StepTwoForm({
   initialValues,
 }: StepTwoFormProps) {
   const t = useTranslations("portal.step2");
+  // Las etiquetas de red social son compartidas con el CRM, así que viven en su
+  // propio espacio del catálogo y no bajo el del paso 2.
+  const tSocial = useTranslations("socialNetworks");
   const tErrors = useTranslations("portal.errors");
   const locale = useLocale() as keyof LocalizedText;
   const router = useRouter();
@@ -680,7 +698,109 @@ export function StepTwoForm({
         </Section>
 
         {/* ---- Guarantor (N, D, V) --------------------------------------- */}
-        {productCode !== "E" && (
+        {/* ---- Otros ingresos (26B-25, los cuatro productos) -------------- */}
+        <Section title={t("additionalIncomeLegend")}>
+          <ChoiceGroup
+            legend={t("additionalIncomeQuestion")}
+            name={`${baseId}-hasAdditionalIncome`}
+            value={values.hasAdditionalIncome}
+            onChange={(v) => set("hasAdditionalIncome", v)}
+            options={[{ value: "no", label: t("no") }, { value: "yes", label: t("yes") }]}
+          />
+          {/* Los dependientes solo existen cuando la respuesta es sí. No se
+              ocultan con CSS: si no están montados, no pueden enviarse. */}
+          {values.hasAdditionalIncome === "yes" && (
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field
+                id={`${baseId}-additionalMonthlyIncome`}
+                label={t("additionalIncomeAmount")}
+                error={errorFor("additionalMonthlyIncome")}
+              >
+                {(p) => (
+                  <Input
+                    {...p}
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    inputMode="decimal"
+                    value={values.additionalMonthlyIncome}
+                    onChange={(e) => set("additionalMonthlyIncome", e.target.value)}
+                    className="h-11"
+                  />
+                )}
+              </Field>
+              <Field
+                id={`${baseId}-additionalIncomeSource`}
+                label={t("additionalIncomeSource")}
+                hint={t("additionalIncomeSourceHint")}
+                error={errorFor("additionalIncomeSource")}
+              >
+                {(p) => (
+                  <Input
+                    {...p}
+                    value={values.additionalIncomeSource}
+                    onChange={(e) => set("additionalIncomeSource", e.target.value)}
+                    className="h-11"
+                  />
+                )}
+              </Field>
+            </div>
+          )}
+        </Section>
+
+        {/* ---- Red social principal (26B-25, los cuatro productos) --------- */}
+        <Section title={t("socialLegend")}>
+          <Field
+            id={`${baseId}-primarySocialNetwork`}
+            label={t("socialQuestion")}
+            error={errorFor("primarySocialNetwork")}
+          >
+            {(p) => (
+              <Select
+                value={values.primarySocialNetwork || undefined}
+                onValueChange={(v) => {
+                  const next = v ?? "";
+                  set("primarySocialNetwork", next);
+                  // Cambiar de «Otro» a una red concreta limpia el texto libre:
+                  // el CHECK de la tabla lo prohíbe ahí, y dejarlo escrito
+                  // guardaría una descripción que ya no describe nada.
+                  if (next !== "other") set("primarySocialNetworkOther", "");
+                }}
+              >
+                <SelectTrigger id={p.id} className="h-11 w-full">
+                  <SelectValue placeholder={t("chooseOption")}>
+                    {(value: string) => tSocial(value as "instagram")}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {PRIMARY_SOCIAL_NETWORKS.map((network) => (
+                    <SelectItem key={network} value={network}>
+                      {tSocial(network)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </Field>
+          {values.primarySocialNetwork === "other" && (
+            <Field
+              id={`${baseId}-primarySocialNetworkOther`}
+              label={t("socialOther")}
+              error={errorFor("primarySocialNetworkOther")}
+            >
+              {(p) => (
+                <Input
+                  {...p}
+                  value={values.primarySocialNetworkOther}
+                  onChange={(e) => set("primarySocialNetworkOther", e.target.value)}
+                  className="h-11"
+                />
+              )}
+            </Field>
+          )}
+        </Section>
+
+        {productAsksForGuarantor(productCode) && (
           <Section title={t("guarantorLegend")}>
             <ChoiceGroup
               legend={t("guarantorQuestion")}
