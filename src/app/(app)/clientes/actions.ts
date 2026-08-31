@@ -9,6 +9,8 @@ import {
 } from "@/lib/services/clients";
 import { canCreateUnassignedEntity } from "@/lib/services/branch-scope-query";
 import { getClientTransferContext, transferClientBranch } from "@/lib/services/branch-transfers";
+import { isPrimarySocialNetwork } from "@/types";
+import type { PrimarySocialNetwork } from "@/types";
 import { requireCapability } from "@/lib/auth/authorize";
 import { CLIENT_STATUS_VALUES } from "@/lib/config/client-status";
 import type { Client, ClientStatus, IdentificationType } from "@/types";
@@ -64,6 +66,32 @@ export interface ClientProfileFields {
   nationality: string;
   address: string;
   observations?: string;
+  /** MILESTONE 26B-25.1 — red social principal. Opcional: no se convierte en
+   * obligatoria, porque de la mayoría de los clientes históricos simplemente no
+   * se sabe. Cadena vacía significa «sin responder». */
+  primarySocialNetwork?: string;
+  primarySocialNetworkOther?: string;
+}
+
+/**
+ * MILESTONE 26B-25.1 — el par red/descripción, validado en el servidor.
+ *
+ * El catálogo es cerrado: un valor fuera de él es un payload manipulado, no una
+ * respuesta. Y `other` sin descripción es un encogimiento de hombros, no una
+ * respuesta — el CHECK de la tabla lo rechazaría de todos modos, pero llegar
+ * ahí le mostraría al operador un fallo genérico en vez de decirle qué falta.
+ */
+function normalizeSocialNetwork(
+  network: string | undefined,
+  other: string | undefined
+): { ok: true; network?: PrimarySocialNetwork; other?: string } | { ok: false } {
+  const value = (network ?? "").trim();
+  if (value === "") return { ok: true };
+  if (!isPrimarySocialNetwork(value)) return { ok: false };
+  if (value !== "other") return { ok: true, network: value };
+  const description = (other ?? "").trim();
+  if (description === "") return { ok: false };
+  return { ok: true, network: value, other: description.slice(0, 60) };
 }
 
 function hasValidProfileFields(input: ClientProfileFields): boolean {
@@ -129,6 +157,9 @@ export async function createClientAction(input: ClientProfileFields): Promise<Cr
     return { status: "error", code: "FORBIDDEN" };
   }
 
+  const social = normalizeSocialNetwork(input.primarySocialNetwork, input.primarySocialNetworkOther);
+  if (!social.ok) return { status: "error", code: "INVALID_INPUT" };
+
   const result = await createClient({
     fullName: input.fullName,
     identificationType: input.identificationType,
@@ -146,6 +177,8 @@ export async function createClientAction(input: ClientProfileFields): Promise<Cr
     nationality: input.nationality,
     address: input.address,
     observations: input.observations,
+    primarySocialNetwork: social.network,
+    primarySocialNetworkOther: social.other,
     source: "crm_manual",
     actorProfileId: auth.profile.id,
   });
@@ -211,6 +244,12 @@ export async function updateClientProfileAction(
   // so the audit event this write produces names a real human. Authorization
   // is untouched — auth is still the requireCapability() call above, and this
   // action's guard, capability and result codes are unchanged.
+  const socialUpdate = normalizeSocialNetwork(
+    input.primarySocialNetwork,
+    input.primarySocialNetworkOther
+  );
+  if (!socialUpdate.ok) return { status: "error", code: "INVALID_INPUT" };
+
   const result = await updateClientProfile(
     input.clientId,
     {
@@ -227,6 +266,8 @@ export async function updateClientProfileAction(
       birthDate: input.birthDate,
       nationality: input.nationality,
       observations: input.observations,
+      primarySocialNetwork: socialUpdate.network,
+      primarySocialNetworkOther: socialUpdate.other,
     },
     auth.profile.id
   );

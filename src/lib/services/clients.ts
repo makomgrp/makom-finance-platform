@@ -329,6 +329,11 @@ export interface CreateClientInput {
   nationality?: string;
   address?: string;
   observations?: string;
+  /** MILESTONE 26B-25.1 — red social principal. Omitir la deja en NULL: nunca
+   * se rellena con un valor de relleno para satisfacer la forma. */
+  primarySocialNetwork?: PrimarySocialNetwork;
+  /** Obligatorio cuando la red es `other`, prohibido en el resto (CHECK). */
+  primarySocialNetworkOther?: string;
   source: ApplicationSource;
   /** Only valid (and only used) when source === "crm_manual" — see
    * clients_created_by_source_check. */
@@ -405,6 +410,10 @@ export async function createClient(input: CreateClientInput): Promise<CreateClie
       nationality: input.nationality ?? null,
       address: input.address ?? null,
       observations: input.observations ?? null,
+      primary_social_network: input.primarySocialNetwork ?? null,
+      // El texto libre existe solo para `other`; el CHECK lo prohíbe en el resto.
+      primary_social_network_other:
+        input.primarySocialNetwork === "other" ? (input.primarySocialNetworkOther ?? null) : null,
       created_by_profile_id: input.actorProfileId,
       created_source: input.source,
     })
@@ -423,6 +432,10 @@ export async function createClient(input: CreateClientInput): Promise<CreateClie
 }
 
 export interface UpdateClientProfileInput {
+  /** MILESTONE 26B-25.1 — red social principal. Omitir la deja en NULL. */
+  primarySocialNetwork?: PrimarySocialNetwork;
+  /** Obligatorio cuando la red es `other`; la función lo descarta en el resto. */
+  primarySocialNetworkOther?: string;
   fullName: string;
   identificationType: IdentificationType;
   identificationNumber: string;
@@ -485,6 +498,10 @@ export async function updateClientProfile(
     p_nationality: input.nationality,
     p_observations: input.observations ?? null,
     p_employer_name: input.employerName ?? null,
+    // MILESTONE 26B-25.1 — la función normaliza el par: descarta el texto libre
+    // cuando la red no es `other`, así que aquí basta con pasar lo que se tiene.
+    p_primary_social_network: input.primarySocialNetwork ?? null,
+    p_primary_social_network_other: input.primarySocialNetworkOther ?? null,
     p_actor_profile_id: actorProfileId,
   });
 

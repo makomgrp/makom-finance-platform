@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RequiredFieldsNote, RequiredMark } from "@/components/shared/required-mark";
+import { PRIMARY_SOCIAL_NETWORKS } from "@/types";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
@@ -69,6 +70,8 @@ const EMPTY_FORM = {
   nationality: "Panameña",
   address: "",
   observations: "",
+  primarySocialNetwork: "",
+  primarySocialNetworkOther: "",
 };
 
 export function RealClientFormDialog({
@@ -79,6 +82,7 @@ export function RealClientFormDialog({
   onOpenChange,
 }: RealClientFormDialogProps) {
   const t = useTranslations();
+  const tSocial = useTranslations("socialNetworks");
   const [internalOpen, setInternalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const isControlled = controlledOpen !== undefined;
@@ -110,6 +114,8 @@ export function RealClientFormDialog({
           nationality: initialClient.nationality ?? "",
           address: initialClient.address ?? "",
           observations: initialClient.observations ?? "",
+          primarySocialNetwork: initialClient.primarySocialNetwork ?? "",
+          primarySocialNetworkOther: initialClient.primarySocialNetworkOther ?? "",
         }
       : EMPTY_FORM
   );
@@ -141,6 +147,8 @@ export function RealClientFormDialog({
       nationality: form.nationality,
       address: form.address,
       observations: form.observations || undefined,
+      primarySocialNetwork: form.primarySocialNetwork || undefined,
+      primarySocialNetworkOther: form.primarySocialNetworkOther || undefined,
     };
 
     const result = initialClient
@@ -325,6 +333,53 @@ export function RealClientFormDialog({
                 onChange={(e) => update("observations", e.target.value)}
               />
             </div>
+            <div className="space-y-1.5">
+              {/* MILESTONE 26B-25.1 — mismo catálogo y mismo comportamiento que
+                  el formulario público: sin él, un cliente captado por WhatsApp
+                  jamás podría tener este dato. Opcional a propósito — de la
+                  mayoría de los históricos simplemente no se sabe. */}
+              <Label htmlFor="primarySocialNetwork">{t("clients.form.socialNetwork")}</Label>
+              <Select
+                value={form.primarySocialNetwork || undefined}
+                onValueChange={(value) => {
+                  const next = value ?? "";
+                  update("primarySocialNetwork", next);
+                  // Pasar de «Otros» a una red catalogada limpia la descripción:
+                  // el CHECK la prohíbe ahí, y conservarla guardaría un texto
+                  // que ya no describe nada.
+                  if (next !== "other") update("primarySocialNetworkOther", "");
+                }}
+              >
+                <SelectTrigger id="primarySocialNetwork" className="w-full">
+                  <SelectValue placeholder={t("common.optional")}>
+                    {(value: string) => tSocial(value as "instagram")}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {PRIMARY_SOCIAL_NETWORKS.map((network) => (
+                    <SelectItem key={network} value={network}>
+                      {tSocial(network)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {form.primarySocialNetwork === "other" && (
+              <div className="space-y-1.5">
+                <Label htmlFor="primarySocialNetworkOther">
+                  {t("clients.form.socialNetworkOther")}
+                  <RequiredMark />
+                </Label>
+                <Input
+                  id="primarySocialNetworkOther"
+                  required
+                  maxLength={60}
+                  value={form.primarySocialNetworkOther}
+                  onChange={(e) => update("primarySocialNetworkOther", e.target.value)}
+                />
+              </div>
+            )}
           </div>
 
           <RequiredFieldsNote />

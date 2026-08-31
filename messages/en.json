@@ -41,7 +41,8 @@
     },
     "saving": "Saving…",
     "requiredFieldsNote": "* Required field",
-    "requiredFieldAria": "required"
+    "requiredFieldAria": "required",
+    "optional": "Optional"
   },
   "navigation": {
     "dashboard": "Dashboard",

@@ -41,7 +41,8 @@
     },
     "saving": "Guardando…",
     "requiredFieldsNote": "* Campo obligatorio",
-    "requiredFieldAria": "obligatorio"
+    "requiredFieldAria": "obligatorio",
+    "optional": "Opcional"
   },
   "navigation": {
     "dashboard": "Dashboard",
