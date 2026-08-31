@@ -4,6 +4,7 @@ import {
   APPLICATION_INTAKE_PROCESSING_CLAIM_STALE_AFTER_MS,
   APPLICATION_INTAKE_STATUS_TRANSITIONS,
 } from "@/lib/config/application-intake";
+import { PORTAL_RESUME_GAP_SECONDS } from "@/lib/config/portal-funnel";
 import { recordAutomationEvent } from "./automation-events";
 import { DEFAULT_LOCALE, isLocale, type Locale } from "@/i18n/config";
 import type {
@@ -600,8 +601,38 @@ export async function claimApplicationIntakeForProcessing(
  */
 
 export type UpdateIntakeDraftStateResult =
-  | { status: "ok"; intake: ApplicationIntake }
+  | { status: "ok"; resumed: boolean }
   | { status: "error"; code: "NOT_FOUND" | "UPDATE_FAILED" };
+
+/**
+ * ============================================================================
+ * MILESTONE 26B-26B — LA ACTIVIDAD SE REGISTRA DENTRO DE LA BASE
+ * ============================================================================
+ *
+ * Las dos funciones de abajo hacían cada una su propio UPDATE. Ahora las dos
+ * llaman a `record_portal_activity`, y no por gusto de centralizar: detectar una
+ * REANUDACIÓN exige comparar contra el `last_activity_at` anterior, y ese valor
+ * desaparece en el instante en que se escribe el nuevo.
+ *
+ * Hacerlo en dos sentencias desde aquí — leer, decidir, escribir — tendría dos
+ * defectos, y el segundo es el grave:
+ *
+ *   1. Dos escrituras simultáneas leerían las dos el valor viejo y registrarían
+ *      dos reanudaciones de una sola vuelta del solicitante.
+ *   2. El orden correcto sería una convención. Cualquier futuro autor que mueva
+ *      la lectura después de la escritura rompería la detección sin que nada
+ *      falle de forma visible: no habría error, simplemente dejarían de
+ *      aparecer reanudaciones.
+ *
+ * Dentro de la función es una sola sentencia con la fila bloqueada, y el orden
+ * deja de ser opinable. El umbral llega como parámetro desde
+ * `PORTAL_RESUME_GAP_SECONDS` para que la constante siga teniendo un solo dueño
+ * en TypeScript y no aparezca una copia en SQL.
+ *
+ * SE CONSERVA EL GUARDIA DE `submitted_at`, ahora en el WHERE de la función.
+ * Una solicitud ya enviada está con ODL, y una edición tardía no puede alterar
+ * en silencio lo que un humano ya está evaluando.
+ */
 
 /**
  * Record forward movement: where the customer now is, and that they did
@@ -611,39 +642,16 @@ export type UpdateIntakeDraftStateResult =
  * event. A step change is by definition activity, and letting them drift apart
  * would allow a draft to look abandoned while it was being worked on.
  *
- * REFUSES ON A SUBMITTED INTAKE. `.is("submitted_at", null)` is part of the
- * WHERE clause rather than a prior read, so the guard is atomic: a submission
- * landing between a check and an update cannot slip through. Once an
- * application is with ODL, a late draft edit must not silently alter what a
- * human is already assessing.
+ * Devuelve `resumed` en vez del intake completo: ningún llamador usaba la fila
+ * — los tres la descartaban — y devolverla obligaba a un SELECT de vuelta que
+ * ahora no hace falta. Lo que sí interesa saber es si esta escritura fue la
+ * vuelta de alguien que se había quedado parado.
  */
 export async function updateIntakeDraftState(
   intakeId: string,
   currentStep: PortalStep
 ): Promise<UpdateIntakeDraftStateResult> {
-  const supabase = getSupabaseServerClient();
-  const { data, error } = await supabase
-    .from("application_intakes")
-    .update({ current_step: currentStep, last_activity_at: new Date().toISOString() })
-    .eq("id", intakeId)
-    .is("submitted_at", null)
-    .select(APPLICATION_INTAKE_SELECT)
-    .maybeSingle();
-
-  if (error) {
-    console.error("[application-intakes service] Failed to update draft state:", error.message);
-    return { status: "error", code: "UPDATE_FAILED" };
-  }
-  if (!data) {
-    // Either no such intake, or it is already submitted. Both mean "this draft
-    // is not editable", and distinguishing them would tell an anonymous caller
-    // whether an intake exists.
-    return { status: "error", code: "NOT_FOUND" };
-  }
-
-  // maybeSingle() over a runtime-built select string leaves PostgREST unable to
-  // infer the row shape; every column read below is in APPLICATION_INTAKE_SELECT.
-  return { status: "ok", intake: toApplicationIntake(data as unknown as ApplicationIntakeRow) };
+  return recordPortalActivity(intakeId, currentStep);
 }
 
 /**
@@ -654,22 +662,43 @@ export async function updateIntakeDraftState(
  * would look busier than one who actually uploaded three documents, and the
  * future "you left an application unfinished" reminder would go to exactly the
  * wrong people.
+ *
+ * Esa disciplina es también lo que hace fiable a `portal_resumed`: si los
+ * renders marcaran actividad, un refresco tras tres días parecería una
+ * reanudación, y una reanudación es justamente lo que un refresco no es.
  */
 export async function touchIntakeActivity(
   intakeId: string
 ): Promise<{ status: "ok" } | { status: "error"; code: "UPDATE_FAILED" }> {
+  const result = await recordPortalActivity(intakeId, null);
+  return result.status === "ok" ? { status: "ok" } : { status: "error", code: "UPDATE_FAILED" };
+}
+
+async function recordPortalActivity(
+  intakeId: string,
+  currentStep: PortalStep | null
+): Promise<UpdateIntakeDraftStateResult> {
   const supabase = getSupabaseServerClient();
-  const { error } = await supabase
-    .from("application_intakes")
-    .update({ last_activity_at: new Date().toISOString() })
-    .eq("id", intakeId)
-    .is("submitted_at", null);
+  const { data, error } = await supabase.rpc("record_portal_activity", {
+    p_intake_id: intakeId,
+    p_current_step: currentStep,
+    p_resume_gap_seconds: PORTAL_RESUME_GAP_SECONDS,
+  });
 
   if (error) {
-    console.error("[application-intakes service] Failed to touch activity:", error.message);
+    console.error("[application-intakes service] Failed to record activity:", error.message);
     return { status: "error", code: "UPDATE_FAILED" };
   }
-  return { status: "ok" };
+
+  const row = (data as { activity_recorded: boolean; resume_recorded: boolean }[] | null)?.[0];
+  if (!row?.activity_recorded) {
+    // Either no such intake, or it is already submitted. Both mean "this draft
+    // is not editable", and distinguishing them would tell an anonymous caller
+    // whether an intake exists.
+    return { status: "error", code: "NOT_FOUND" };
+  }
+
+  return { status: "ok", resumed: row.resume_recorded };
 }
 
 export type ReleaseApplicationIntakeProcessingClaimResult =

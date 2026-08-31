@@ -1,9 +1,11 @@
+import { after } from "next/server";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SYSTEM_NATIONAL_SCOPE } from "@/lib/services/branch-scope-query";
 import { resolveContinuationToken } from "@/lib/services/continuation-tokens";
+import { recordStepReached } from "@/lib/services/portal-funnel-events";
 import { getApplicationById } from "@/lib/services/applications";
 import { getProductById } from "@/lib/services/products";
 import { getApplicationStep2 } from "@/lib/services/application-step2";
@@ -66,6 +68,22 @@ export default async function PortalStepThreePage({
 
   const documentsResult = await getPortalDocuments(applicationId, hasPropertyCollateral);
   if (documentsResult.status !== "ok") return <StepThreeProblem />;
+
+  // MILESTONE 26B-26B — SE REGISTRA AQUÍ, NO EN EL GUARDADO.
+  //
+  // `reached` es lo que separa "cinco personas vieron este paso" de "dos lo
+  // terminaron", y esa resta es la métrica de abandono. Si solo se registrara al
+  // guardar, quien llega y se va —el caso que más importa— no dejaría rastro.
+  //
+  // DESPUÉS DE TODOS LOS GUARDIAS, a propósito: las pantallas de error y la de
+  // "aún no hay solicitud" no son este paso, y contarlas inflaría el numerador
+  // con gente que no pudo trabajar aquí.
+  //
+  // Un refresco no suma: la unicidad la impone un índice en la base, no una
+  // comprobación previa que dos peticiones simultáneas se saltarían.
+  after(async () => {
+    await recordStepReached(resolved.resolved.intakeId, "documents");
+  });
 
   return (
     <StepThreeView

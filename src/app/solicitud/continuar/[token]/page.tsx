@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { after } from "next/server";
 import { getTranslations } from "next-intl/server";
 import { AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -7,6 +8,7 @@ import { resolveContinuationToken } from "@/lib/services/continuation-tokens";
 import { getApplicationIntakeById } from "@/lib/services/application-intakes";
 import { redirectIfSubmitted } from "@/lib/services/portal-submitted-guard";
 import { redirectIfUnderReview } from "@/lib/services/portal-review-guard";
+import { recordStepReached } from "@/lib/services/portal-funnel-events";
 import { StepOneForm, type StepOneInitialValues } from "../../step-one-form";
 
 /**
@@ -78,6 +80,29 @@ export default async function PortalContinuePage({
   }
 
   const intake = intakeResult.intake;
+
+  // MILESTONE 26B-26B — DOS PASOS, UNA SOLA PANTALLA.
+  //
+  // El Paso 1 visible contiene la identidad Y la elección de producto, así que
+  // `applicant_data` y `loan_selection` se alcanzan en el mismo instante: quien
+  // ve esta pantalla ve las dos secciones. Registrar solo uno dejaría un hueco
+  // artificial en el embudo, y fingir que son dos pantallas sería inventar un
+  // paso que el solicitante nunca vio por separado.
+  //
+  // El par reached/completed sigue diciendo cosas distintas para cada uno:
+  // `applicant_data` se completa con la identidad, y `loan_selection` solo
+  // cuando la Application existe de verdad (ver isStep1Complete).
+  //
+  // ⚠️ ESTO NO MIDE "SE ABRIÓ EL FORMULARIO". El evento cuelga de un intake, y
+  // en /solicitud —sin token— todavía no hay ninguno. Quien abre el formulario y
+  // se va sin enviar el Paso 1 no deja rastro, y no se le inventa uno: medirlo
+  // exigiría seguimiento anónimo, que es una decisión aparte. El denominador de
+  // este embudo son los intakes creados, nunca las visitas.
+  after(async () => {
+    await recordStepReached(intake.id, "applicant_data");
+    await recordStepReached(intake.id, "loan_selection");
+  });
+
   const products =
     productsResult.status === "ok"
       ? productsResult.products

@@ -72,11 +72,23 @@ export interface DashboardOperations {
   /** Every stage, including terminal ones, for the pipeline strip. */
   stageCounts: Record<PipelineStage, number>;
 
-  /** Pre-submission work: nuevo + paso_2 + paso_3. Never includes applications. */
+  /**
+   * Trabajo previo al envío que llegó POR EL PORTAL: nuevo + paso_2 + paso_3, y
+   * solo `kind === "lead"`. Nunca incluye applications, y desde 26B-26B tampoco
+   * los borradores que ODL creó a mano —que también viven en esas etapas—.
+   */
   activeLeads: number;
   /** Formally submitted and under evaluation. Never includes leads. */
   inEvaluation: number;
-  /** Both of the above — the honest "everything still open" figure. */
+  /**
+   * TODO lo que sigue abierto, en cualquier etapa activa.
+   *
+   * ⚠️ NO es `activeLeads + inEvaluation`. Desde 26B-26B hay un tercer grupo que
+   * no tiene cifra propia: los borradores manuales, que están abiertos pero no
+   * son leads del portal. Mientras ODL no cargue ninguno los tres números
+   * cuadran; en cuanto lo haga, dejan de cuadrar, y esa diferencia es real y no
+   * un error de suma.
+   */
   activeProcesses: number;
 
   /** Open processes with no advisor. Terminal work cannot be "unassigned". */
@@ -129,7 +141,33 @@ export async function getDashboardOperations(
 
   const activeCards = cards.filter((card) => isActiveStage(card.stage));
 
-  const activeLeads = activeCards.filter((card) => isLeadStage(card.stage)).length;
+  // ---------------------------------------------------------------------------
+  // MILESTONE 26B-26B — UN BORRADOR NO ES UN LEAD DEL PORTAL
+  //
+  // Esta línea filtraba solo por ETAPA, y la etapa no dice de dónde salió el
+  // expediente. Desde 23A un borrador puede ser igualmente algo que un empleado
+  // empezó a mano en el CRM, y ese expediente aterriza en `nuevo`, `paso_2` o
+  // `paso_3` como cualquier otro: la etapa se deriva de lo completo que esté,
+  // no de quién lo abrió. El resultado era que el trabajo propio de ODL se
+  // contaba como público — un lead de un formulario que nadie rellenó.
+  //
+  // Hoy no se nota porque no hay ninguna solicitud manual todavía. Se corrige
+  // ahora justamente por eso: el primer expediente que cargue Randol habría
+  // empezado a inflar la cifra en silencio, sin error y sin nada que mirar.
+  //
+  // `card.kind` ya responde a esto exactamente — la calcula el pipeline como
+  // `isDraft && !isManualDraft(...)` —, así que esto es usar el discriminador
+  // que ya existía en vez de añadir una segunda regla libre de discrepar. Es
+  // también lo que el comentario de `activeLeads` en la interfaz de arriba ya
+  // prometía ("Never includes applications") y la etapa por sí sola no cumplía.
+  //
+  // LA ETAPA SIGUE HACIENDO FALTA: `kind === "lead"` distingue el origen, e
+  // `isLeadStage` distingue el momento. Un lead del portal que ya envió pasa a
+  // `en_evaluacion` y deja de ser trabajo previo al envío.
+  // ---------------------------------------------------------------------------
+  const activeLeads = activeCards.filter(
+    (card) => card.kind === "lead" && isLeadStage(card.stage)
+  ).length;
   const inEvaluation = stageCounts.en_evaluacion;
 
   const unassignedActive = activeCards.filter((card) => !card.advisorProfileId).length;

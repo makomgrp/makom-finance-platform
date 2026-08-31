@@ -147,6 +147,21 @@ export async function submitPortalApplication(token: string): Promise<PortalSubm
     };
   }
 
+  // MILESTONE 26B-26B — EL ÚLTIMO `completed`, EN EL MOMENTO DE LA CONVERSIÓN.
+  //
+  // Enviar es lo único que puede completar `review`, y la ruta de escritura
+  // normal ya no sirve para registrarlo: a partir de aquí `submitted_at` está
+  // puesto y toda escritura de borrador queda —correctamente— rechazada.
+  //
+  // Los eventos son observaciones, no ediciones, así que registrarlos después
+  // del envío no reabre nada. En la práctica casi siempre son duplicados que el
+  // índice absorbe; existe para el caso en que la última acción del solicitante
+  // completó un paso sin pasar por el guardado de un paso.
+  after(async () => {
+    const { recordCompletedSteps } = await import("@/lib/services/portal-funnel-events");
+    await recordCompletedSteps(authorized.intakeId);
+  });
+
   // ---------------------------------------------------------------------------
   // MILESTONE 26B-17 — THE CONFIRMATION EMAIL
   //

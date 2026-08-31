@@ -1,11 +1,14 @@
 "use server";
 
+import { after } from "next/server";
+
 import { authorizePortalWrite } from "@/lib/services/portal-snapshot";
 import { getApplicationById } from "@/lib/services/applications";
 import { syncClientCurrentProfile } from "@/lib/services/clients";
 import { getProductById } from "@/lib/services/products";
 import { SYSTEM_NATIONAL_SCOPE } from "@/lib/services/branch-scope-query";
 import { updateIntakeDraftState } from "@/lib/services/application-intakes";
+import { recordCompletedSteps } from "@/lib/services/portal-funnel-events";
 import {
   saveBankAccount,
   saveBusinessProfile,
@@ -176,6 +179,20 @@ export async function submitPortalStepTwo(input: Step2SubmitInput): Promise<Step
   // Bookmark + activity. Deliberately AFTER the writes: a save that failed
   // should not leave the customer recorded as having moved on.
   await updateIntakeDraftState(authorized.intakeId, "financial_data");
+
+  // MILESTONE 26B-26B — QUÉ QUEDÓ COMPLETO DESPUÉS DE ESTA ESCRITURA.
+  //
+  // Se manda la lista entera de pasos completos, no solo el de esta pantalla, y
+  // no se compara con el estado anterior. El índice único se queda con la
+  // primera vez de cada paso, así que el evento acaba fechado en la escritura
+  // tras la cual el paso pasó a estar completo — que es lo que significa — y no
+  // hace falta que este código recuerde nada.
+  //
+  // `after()` porque es medición: si esto falla, el guardado del solicitante ya
+  // ocurrió y no puede deshacerse por un problema de telemetría.
+  after(async () => {
+    await recordCompletedSteps(authorized.intakeId);
+  });
 
   return { status: "ok", complete: input.mode === "complete" };
 }

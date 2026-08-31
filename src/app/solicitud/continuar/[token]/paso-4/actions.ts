@@ -1,5 +1,7 @@
 "use server";
 
+import { after } from "next/server";
+
 import { authorizePortalWrite } from "@/lib/services/portal-snapshot";
 import {
   recordCreditConsentDeclaration,
@@ -8,6 +10,7 @@ import {
 } from "@/lib/services/application-declarations";
 import { submitPortalApplication } from "@/lib/services/portal-submission";
 import { updateIntakeDraftState } from "@/lib/services/application-intakes";
+import { recordCompletedSteps } from "@/lib/services/portal-funnel-events";
 import type { SourceOfFundsCategory } from "@/types";
 import type { PortalStep } from "@/types";
 
@@ -107,6 +110,20 @@ export async function savePortalDeclarations(
   }
 
   await updateIntakeDraftState(authorized.intakeId, "review");
+
+  // MILESTONE 26B-26B — QUÉ QUEDÓ COMPLETO DESPUÉS DE ESTA ESCRITURA.
+  //
+  // Se manda la lista entera de pasos completos, no solo el de esta pantalla, y
+  // no se compara con el estado anterior. El índice único se queda con la
+  // primera vez de cada paso, así que el evento acaba fechado en la escritura
+  // tras la cual el paso pasó a estar completo — que es lo que significa — y no
+  // hace falta que este código recuerde nada.
+  //
+  // `after()` porque es medición: si esto falla, el guardado del solicitante ya
+  // ocurrió y no puede deshacerse por un problema de telemetría.
+  after(async () => {
+    await recordCompletedSteps(authorized.intakeId);
+  });
   return { status: "ok" };
 }
 

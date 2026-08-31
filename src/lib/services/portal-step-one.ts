@@ -1,4 +1,5 @@
 import "server-only";
+import { after } from "next/server";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import {
   createApplicationIntake,
@@ -212,6 +213,19 @@ export async function savePortalStepOne(
   // hold Step 2 and Step 3 work, and stays unnumbered and invisible to
   // Solicitudes until the applicant presses "Enviar solicitud" (26B-5).
   const processed = await processApplicationIntake(intake.id, "staged_portal");
+
+  // MILESTONE 26B-26B — `applicant_data` y `loan_selection` se completan aquí.
+  //
+  // El primero con la identidad; el segundo SOLO si el motor llegó a crear la
+  // Application, que es lo que `isStep1Complete` considera "producto elegido de
+  // verdad". Por eso se delega en `evaluatePortalProgress` en vez de deducirlo
+  // del resultado de aquí arriba: un lead que quedó en `awaiting_completion`
+  // eligió un producto en el formulario y no completó el paso, y esa diferencia
+  // es exactamente la que el embudo tiene que conservar.
+  after(async () => {
+    const { recordCompletedSteps } = await import("@/lib/services/portal-funnel-events");
+    await recordCompletedSteps(intake.id);
+  });
 
   switch (processed.status) {
     case "processed":

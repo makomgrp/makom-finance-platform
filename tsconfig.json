@@ -13,6 +13,12 @@
     "isolatedModules": true,
     "jsx": "react-jsx",
     "incremental": true,
+    // MILESTONE 26B-26B — las pruebas corren con `node --test`, que resuelve
+    // ficheros reales y por tanto exige la extensión `.ts` en el import. Sin
+    // esto habría que dejar los ficheros de prueba fuera de la comprobación de
+    // tipos, que es justo donde más se agradece tenerla. Legal porque `noEmit`
+    // ya está activo: TypeScript aquí solo verifica, nunca genera.
+    "allowImportingTsExtensions": true,
     "plugins": [
       {
         "name": "next"

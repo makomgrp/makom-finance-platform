@@ -1,10 +1,13 @@
 "use server";
 
+import { after } from "next/server";
+
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { SYSTEM_NATIONAL_SCOPE } from "@/lib/services/branch-scope-query";
 import { authorizePortalWrite } from "@/lib/services/portal-snapshot";
 import { createDocumentEvidence, createSignedEvidenceUrl } from "@/lib/services/document-evidence";
 import { updateIntakeDraftState } from "@/lib/services/application-intakes";
+import { recordCompletedSteps } from "@/lib/services/portal-funnel-events";
 import { ALLOWED_MIME_TYPES, MAX_FILE_SIZE_BYTES } from "@/lib/config/evidence-storage";
 
 /**
@@ -199,6 +202,20 @@ export async function uploadPortalDocuments(formData: FormData): Promise<PortalU
   const authorizedWrite = await authorizePortalWrite(token);
   if (authorizedWrite.status === "ok") {
     await updateIntakeDraftState(authorizedWrite.intakeId, "documents");
+
+    // MILESTONE 26B-26B — QUÉ QUEDÓ COMPLETO DESPUÉS DE ESTA ESCRITURA.
+    //
+    // Se manda la lista entera de pasos completos, no solo el de esta pantalla, y
+    // no se compara con el estado anterior. El índice único se queda con la
+    // primera vez de cada paso, así que el evento acaba fechado en la escritura
+    // tras la cual el paso pasó a estar completo — que es lo que significa — y no
+    // hace falta que este código recuerde nada.
+    //
+    // `after()` porque es medición: si esto falla, el guardado del solicitante ya
+    // ocurrió y no puede deshacerse por un problema de telemetría.
+    after(async () => {
+      await recordCompletedSteps(authorizedWrite.intakeId);
+    });
   }
 
   if (failedFiles.length > 0) {
