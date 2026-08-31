@@ -5,6 +5,7 @@ import { ensureContinuationToken, savePortalStepOne } from "@/lib/services/porta
 import { authorizePortalWrite } from "@/lib/services/portal-snapshot";
 import { getLocale } from "next-intl/server";
 import { DEFAULT_LOCALE, isLocale, type Locale } from "@/i18n/config";
+import { sanitizeAttribution } from "@/lib/validation/attribution";
 import {
   validatePortalStepOne,
   type PortalStepOneField,
@@ -84,6 +85,27 @@ export interface PortalStepOnePayload {
   continuationToken?: string;
   /** Honeypot. A real customer never sees or fills this. */
   website?: string;
+  /**
+   * MILESTONE 26B-26B.1 — la atribución que el servidor leyó al renderizar la
+   * página, devuelta con el envío.
+   *
+   * VIAJA POR EL NAVEGADOR PORQUE NO HAY OTRO SITIO DONDE PONERLA. La campaña
+   * está en la URL cuando la persona ABRE el formulario; el intake nace cuando
+   * lo ENVÍA, en otra petición que ya no tiene esa URL. Las alternativas eran
+   * peores: una cookie de marketing plantea una decisión de consentimiento que
+   * ODL no ha tomado, y crear una fila al abrir la página convertiría cada bot
+   * y cada visita en un lead.
+   *
+   * Que el navegador pueda alterar su propia atribución no es una debilidad que
+   * esto introduzca: la atribución ES la URL con la que esa persona llegó, y
+   * cualquiera puede escribir la URL que quiera. Lo que el sistema sí garantiza
+   * es que nadie toque la atribución de OTRO solicitante — se escribe solo al
+   * crear el lead, y la base la vuelve inmutable a partir de ahí.
+   *
+   * Se vuelve a sanear abajo. `unknown` a propósito: nada tipado debe sugerir
+   * que lo que llega aquí ya está limpio.
+   */
+  attribution?: unknown;
 }
 
 export async function submitPortalStepOne(
@@ -161,6 +183,19 @@ export async function submitPortalStepOne(
     submissionId: payload.submissionId,
     intakeId,
     locale: isLocale(locale) ? locale : DEFAULT_LOCALE,
+    // MILESTONE 26B-26B.1 — SANEADO AQUÍ, que es donde importa.
+    //
+    // La página ya lo saneó al leerlo, para no escribir nunca un valor sucio en
+    // el HTML. Esta segunda pasada es la que de verdad protege la base: lo que
+    // llega en el payload viene del navegador y podría ser cualquier cosa —una
+    // URL entera con un token, una ruta con un correo—, y de aquí sale
+    // recortado, en minúsculas y sin query ni fragmento.
+    //
+    // Solo se manda cuando NO hay `intakeId`. Con un lead ya existente esto es
+    // una reanudación, y `savePortalStepOne` lo ignoraría de todos modos; no
+    // enviarlo hace visible la intención en el punto de llamada en vez de
+    // dejarla escondida dos archivos más abajo.
+    attribution: intakeId ? undefined : sanitizeAttribution(payload.attribution),
   });
 
   if (saved.status === "error") {

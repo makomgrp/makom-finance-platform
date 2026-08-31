@@ -13,6 +13,7 @@ import {
   type PortalProductOption,
 } from "@/components/portal/product-choice-group";
 import { submitPortalStepOne } from "./actions";
+import type { Attribution } from "@/lib/validation/attribution";
 import type { PortalStepOneField, PortalStepOneFieldErrorCode } from "@/lib/validation/portal-step-one";
 
 /**
@@ -67,6 +68,16 @@ interface StepOneFormProps {
   continuationToken?: string;
   /** True when anything arrived prefilled, so the customer is told why. */
   hasPrefill: boolean;
+  /**
+   * MILESTONE 26B-26B.1 — de dónde llegó esta persona, ya saneado por el
+   * servidor al renderizar.
+   *
+   * SE DEVUELVE TAL CUAL, no se muestra ni se edita: este formulario es solo el
+   * transporte entre la petición que tenía la URL de campaña y la que crea el
+   * lead. Ausente cuando se reanuda por un enlace de continuación — en ese caso
+   * la atribución original ya está guardada y no debe tocarse.
+   */
+  attribution?: Attribution;
 }
 
 type FieldErrors = Partial<Record<PortalStepOneField, PortalStepOneFieldErrorCode>>;
@@ -76,6 +87,7 @@ export function StepOneForm({
   initialValues,
   continuationToken,
   hasPrefill,
+  attribution,
 }: StepOneFormProps) {
   const t = useTranslations("portal.step1");
   const tErrors = useTranslations("portal.errors");
@@ -89,6 +101,16 @@ export function StepOneForm({
 
   // Minted once for the lifetime of this form instance. See the header note.
   const submissionIdRef = useRef<string>(crypto.randomUUID());
+  // MILESTONE 26B-26B.1 — FIRST-TOUCH, TAMBIÉN EN EL NAVEGADOR.
+  //
+  // Congelada al montar el formulario y jamás reasignada. Un `useRef` y no un
+  // estado porque no dibuja nada: cambiarla no debe repintar, y no cambia.
+  //
+  // Es la primera de tres barreras contra sobrescribir la campaña original. Las
+  // otras dos son las que de verdad mandan: la Server Action no la envía cuando
+  // hay un intake previo, y un trigger de la base rechaza cualquier
+  // reescritura. Esta simplemente hace que ni siquiera se intente.
+  const attributionRef = useRef<Attribution | undefined>(attribution);
   // Set just before errors are shown, consumed by the summary's callback ref
   // below. A plain ref + requestAnimationFrame did NOT work here: rAF is
   // scheduled before React commits the re-render, so the summary element does
@@ -131,6 +153,7 @@ export function StepOneForm({
         requestedTermMonths: values.requestedTermMonths,
         submissionId: submissionIdRef.current,
         continuationToken,
+        attribution: attributionRef.current,
         website: honeypot,
       });
 

@@ -5,6 +5,7 @@ import {
   APPLICATION_INTAKE_STATUS_TRANSITIONS,
 } from "@/lib/config/application-intake";
 import { PORTAL_RESUME_GAP_SECONDS } from "@/lib/config/portal-funnel";
+import type { Attribution } from "@/lib/validation/attribution";
 import { recordAutomationEvent } from "./automation-events";
 import { DEFAULT_LOCALE, isLocale, type Locale } from "@/i18n/config";
 import type {
@@ -147,6 +148,20 @@ export interface CreateApplicationIntakeInput {
   /** MILESTONE 26B-17. Omitted means the column default ('es') applies —
    * callers that genuinely know the applicant's language pass it. */
   applicantLocale?: Locale;
+  /**
+   * MILESTONE 26B-26B.1 — de dónde vino este lead.
+   *
+   * SOLO EN LA CREACIÓN, y ese es el punto: la atribución es de primer
+   * contacto, así que el único momento honesto para escribirla es cuando el
+   * lead nace. No hay ninguna función en este módulo que la actualice, y un
+   * trigger de la base rechaza cualquier intento de reescribirla.
+   *
+   * Omitirla deja las ocho columnas en NULL, que es lo correcto para un canal
+   * que no captura atribución (el CRM manual, WhatsApp, correo). NULL significa
+   * "no se midió" y nunca "llegada directa" — para eso está
+   * `attribution_captured_at`.
+   */
+  attribution?: Attribution;
 }
 
 export type CreateApplicationIntakeResult =
@@ -194,6 +209,24 @@ export async function createApplicationIntake(
       // Left to the column default when the caller has no evidence, rather
       // than guessing 'es' here in a second place.
       ...(input.applicantLocale ? { locale: input.applicantLocale } : {}),
+      // MILESTONE 26B-26B.1 — la atribución entra entera o no entra.
+      //
+      // `attribution_captured_at` se pone SIEMPRE que el llamador midió, aunque
+      // los siete valores vengan vacíos: eso es una llegada directa, que es un
+      // hecho, y distinguirla de "nunca se midió" es justamente lo que esa
+      // columna existe para permitir. El CHECK de la base exige el par.
+      ...(input.attribution
+        ? {
+            attribution_utm_source: input.attribution.utmSource ?? null,
+            attribution_utm_medium: input.attribution.utmMedium ?? null,
+            attribution_utm_campaign: input.attribution.utmCampaign ?? null,
+            attribution_utm_content: input.attribution.utmContent ?? null,
+            attribution_utm_term: input.attribution.utmTerm ?? null,
+            attribution_referrer_host: input.attribution.referrerHost ?? null,
+            attribution_landing_path: input.attribution.landingPath ?? null,
+            attribution_captured_at: new Date().toISOString(),
+          }
+        : {}),
     })
     .select(APPLICATION_INTAKE_SELECT)
     .single<ApplicationIntakeRow>();

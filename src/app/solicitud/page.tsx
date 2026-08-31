@@ -1,4 +1,6 @@
+import { headers } from "next/headers";
 import { getAllProducts } from "@/lib/services/products";
+import { extractAttribution } from "@/lib/validation/attribution";
 import { StepOneForm, type StepOneInitialValues } from "./step-one-form";
 
 /**
@@ -62,6 +64,36 @@ export default async function PortalStepOnePage({
     ? requestedProduct
     : "";
 
+  // ---------------------------------------------------------------------------
+  // MILESTONE 26B-26B.1 — DE DÓNDE VIENE ESTA PERSONA
+  //
+  // Se lee AQUÍ porque aquí es el único sitio donde existe. La campaña está en
+  // la URL cuando alguien abre el formulario; el lead nace cuando lo envía, en
+  // otra petición que ya no tiene esa URL. Sin capturarlo en el render, se
+  // pierde — y una URL de llegada no se reconstruye después.
+  //
+  // NO SE ESCRIBE NADA TODAVÍA. Abrir la página no crea ninguna fila, así que
+  // un bot rastreando el sitio o alguien que mira y se va no inflan ningún
+  // recuento de leads. La atribución solo se persiste si esta persona llega a
+  // enviar el Paso 1.
+  //
+  // EL REFERENTE SALE DE LA CABECERA, no de `document.referrer`: así funciona
+  // sin JavaScript, y es lo que el navegador declaró al servidor en esta misma
+  // navegación. Se le pasa el host de ODL para que navegar dentro del propio
+  // sitio no se cuente como una fuente externa — sin eso, el portal aparecería
+  // como su propio mayor canal de captación.
+  //
+  // `extractAttribution` deja esto en host y ruta: ni query, ni fragmento, ni
+  // URL completa. Y la Server Action lo vuelve a sanear al recibirlo, porque
+  // vuelve por el navegador.
+  const requestHeaders = await headers();
+  const attribution = extractAttribution({
+    searchParams: params,
+    referrer: requestHeaders.get("referer"),
+    landingPath: "/solicitud",
+    selfHost: requestHeaders.get("host"),
+  });
+
   const initialValues: StepOneInitialValues = {
     fullName: "",
     phone: "",
@@ -81,6 +113,7 @@ export default async function PortalStepOnePage({
       // that explains "we already have some of your details" would be a lie
       // here, because we have none.
       hasPrefill={false}
+      attribution={attribution}
     />
   );
 }

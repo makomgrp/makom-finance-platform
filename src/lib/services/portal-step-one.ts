@@ -10,6 +10,7 @@ import { processApplicationIntake } from "@/lib/services/application-intake-proc
 import { issueContinuationToken } from "@/lib/services/continuation-tokens";
 import type { NormalizedPortalStepOne } from "@/lib/validation/portal-step-one";
 import type { ApplicationIntake } from "@/types";
+import type { Attribution } from "@/lib/validation/attribution";
 import type { Locale } from "@/i18n/config";
 
 /**
@@ -94,6 +95,20 @@ export interface SavePortalStepOneInput extends NormalizedPortalStepOne {
    * refuses a submitted application, so this cannot change after the fact.
    */
   locale: Locale;
+  /**
+   * MILESTONE 26B-26B.1 — la atribución de captación, ya saneada por el
+   * servidor.
+   *
+   * SE USA ÚNICAMENTE EN LA RAMA QUE CREA EL LEAD. Cuando la persona llega con
+   * un `intakeId` —está reanudando o corrigiendo el Paso 1— este valor se
+   * ignora por completo, y eso ES el first-touch: la campaña que la trajo la
+   * primera vez no la puede desplazar un enlace interno pulsado más tarde.
+   *
+   * Que se ignore aquí no es la única defensa. Un trigger en la base rechaza
+   * cualquier reescritura, así que si un futuro camino intentara actualizarla,
+   * fallaría en vez de mentir en silencio.
+   */
+  attribution?: Attribution;
 }
 
 /**
@@ -179,6 +194,11 @@ export async function savePortalStepOne(
       // Present only if the customer chose one; otherwise the column stays NULL.
       requestedTermMonths: input.requestedTermMonths,
       applicantLocale: input.locale,
+      // MILESTONE 26B-26B.1 — aquí, y en ningún otro sitio de este archivo.
+      // Este es el nacimiento del lead: el único momento en que "de dónde vino"
+      // es una pregunta con respuesta. La rama de arriba, la que carga un
+      // intake existente, no la toca.
+      attribution: input.attribution,
     });
 
     if (created.status === "ok") {
