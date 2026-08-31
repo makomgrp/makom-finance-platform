@@ -147,6 +147,166 @@
       "todayFollowUps": "{count, plural, one {# seguimiento para hoy} other {# seguimientos para hoy}}",
       "unassigned": "{count, plural, one {# proceso activo sin asesor} other {# procesos activos sin asesor}}",
       "documentsToReview": "{count, plural, one {# solicitud con documentos por revisar} other {# solicitudes con documentos por revisar}}"
+    },
+    "analytics": {
+      "title": "Informe de gestión",
+      "error": "No se pudieron cargar las cifras de gestión. Vuelve a intentarlo en unos minutos.",
+      "period": {
+        "today": "Hoy",
+        "yesterday": "Ayer",
+        "this_week": "Esta semana",
+        "this_month": "Este mes",
+        "this_quarter": "Este trimestre",
+        "this_year": "Este año",
+        "custom": "Personalizado",
+        "srSelect": "Cambiar período",
+        "partialNotice": "Período en curso: aún no ha terminado, así que la comparación con el período anterior completo no es una conclusión definitiva."
+      },
+      "comparison": {
+        "vsPrevious": "vs. período anterior",
+        "none": "Sin comparación"
+      },
+      "kpis": {
+        "leads": "Leads del portal",
+        "leadsFootnote": "{people} personas identificadas",
+        "formalized": "Solicitudes formalizadas",
+        "formalizedFootnote": "{created} creadas en el período",
+        "requested": "Monto solicitado",
+        "approved": "Monto aprobado",
+        "approvedEmpty": "Sin aprobaciones",
+        "approvalRate": "Tasa de aprobación",
+        "approvalRateEmpty": "Sin decisiones",
+        "approvalRateFootnote": "sobre {decisions} decisiones",
+        "documentsToReview": "Documentos por revisar",
+        "documentsFootnote": "Estado actual, no del período"
+      },
+      "attention": {
+        "title": "Requiere atención",
+        "allClear": "Nada pendiente de atención en este momento.",
+        "documentsToReview": "{count, plural, =1 {# documento esperando revisión} other {# documentos esperando revisión}}",
+        "overdueFollowUps": "{count, plural, =1 {# seguimiento vencido} other {# seguimientos vencidos}}",
+        "stalledLeads": "{count, plural, =1 {# solicitud estancada (más de 72 h sin actividad)} other {# solicitudes estancadas (más de 72 h sin actividad)}}",
+        "abandonedLeads": "{count, plural, =1 {# solicitud abandonada (más de 7 días sin actividad)} other {# solicitudes abandonadas (más de 7 días sin actividad)}}"
+      },
+      "leadHealth": {
+        "title": "Estado de las oportunidades",
+        "description": "Situación actual de los leads que entraron en el período. No indica cuándo se abandonaron.",
+        "active": "Activas",
+        "stalled": "Estancadas",
+        "abandoned": "Abandonadas",
+        "converted": "Convertidas",
+        "empty": "No entraron leads del portal en este período."
+      },
+      "funnel": {
+        "title": "Embudo del formulario",
+        "description": "Personas únicas que alcanzaron y completaron cada paso.",
+        "coverageNotice": "El seguimiento histórico del embudo está disponible desde el {date}. Lo anterior a esa fecha no se midió: la ausencia de eventos no significa que nadie llegara a estos pasos.",
+        "emptyCovered": "Nadie ha recorrido el formulario en este período.",
+        "emptyUncovered": "Este período no está cubierto por el seguimiento del embudo, así que no hay recorrido que mostrar.",
+        "reachedCompleted": "{reached} llegaron · {completed} completaron",
+        "conversion": "{rate} de conversión",
+        "steps": {
+          "applicant_data": "Datos personales",
+          "loan_selection": "Selección de préstamo",
+          "financial_data": "Datos financieros",
+          "documents": "Documentos",
+          "review": "Revisión y envío"
+        }
+      },
+      "products": {
+        "title": "Productos",
+        "description": "Actividad por producto en el período.",
+        "noActivity": "No hubo actividad de productos en este período.",
+        "product": "Producto",
+        "created": "Creadas",
+        "formalized": "Formalizadas",
+        "approved": "Aprobadas",
+        "declined": "No elegibles",
+        "requested": "Solicitado",
+        "approvedAmount": "Aprobado"
+      },
+      "financial": {
+        "title": "Montos",
+        "description": "Lo que se solicitó y lo que ODL decidió aprobar.",
+        "requestedTotal": "Total solicitado",
+        "requestedMedian": "Mediana solicitada",
+        "approvedTotal": "Total aprobado",
+        "approvedMedian": "Mediana aprobada",
+        "count": "{count, plural, =1 {# solicitud} other {# solicitudes}}",
+        "noApprovals": "Sin aprobaciones",
+        "noData": "Sin datos",
+        "notDisbursedNote": "El monto aprobado es una decisión de ODL, no dinero entregado. La diferencia con lo solicitado no representa desembolsos pendientes: una solicitud puede seguir en revisión. El sistema todavía no registra desembolsos."
+      },
+      "documents": {
+        "title": "Documentos",
+        "description": "Lo recibido en el período y el estado actual de los requisitos.",
+        "uploadedInPeriod": "Subidos en el período",
+        "awaitingReviewNow": "Esperando revisión ahora",
+        "slotsNowLabel": "Requisitos por estado (situación actual)",
+        "slots": {
+          "pending": "Pendientes",
+          "submitted": "Entregados",
+          "underReview": "En revisión",
+          "satisfied": "Satisfechos",
+          "rejected": "Rechazados",
+          "waived": "Dispensados",
+          "missing": "Faltantes"
+        }
+      },
+      "speed": {
+        "title": "Tiempos de proceso",
+        "description": "Mediana del período, con el percentil 90 como contexto.",
+        "noSamples": "Sin datos suficientes",
+        "p90": "p90 {value}",
+        "samples": "{count, plural, =1 {# caso} other {# casos}}",
+        "metrics": {
+          "intake_to_submission": "De la entrada al envío",
+          "submission_to_first_review": "Del envío a la primera revisión",
+          "submission_to_decision": "Del envío a la decisión",
+          "upload_to_document_review": "De la subida a la revisión del documento"
+        }
+      },
+      "units": {
+        "minutes": "{value} min",
+        "hours": "{value} h",
+        "days": "{value} d"
+      },
+      "acquisition": {
+        "title": "Origen de las solicitudes",
+        "description": "De dónde llegaron los solicitantes del portal.",
+        "coverageNotice": "La atribución de campañas está disponible desde el {date}. Los leads anteriores figuran como «sin medir»: no se sabe por dónde llegaron, y eso no es lo mismo que haber llegado de forma directa.",
+        "unmeasured": "Sin medir",
+        "measuredWithoutUtm": "Directas u orgánicas",
+        "measuredWithUtm": "Con campaña",
+        "noCampaigns": "Todavía no hay solicitudes con campaña identificada.",
+        "directArrival": "Llegada directa",
+        "leadsCount": "{count, plural, =1 {# lead} other {# leads}}"
+      },
+      "team": {
+        "title": "Equipo",
+        "description": "Volumen y carga por persona. No es una clasificación de rendimiento.",
+        "person": "Persona",
+        "assignedOpen": "Abiertas",
+        "formalized": "Formalizadas",
+        "decisions": "Decisiones",
+        "followUpsOpen": "Seguimientos",
+        "noProfiles": "No hay personal activo que mostrar.",
+        "noAssignments": "Todavía no hay solicitudes asignadas a ninguna persona."
+      },
+      "followUps": {
+        "title": "Seguimientos",
+        "openNow": "Abiertos ahora",
+        "overdueNow": "Vencidos ahora",
+        "created": "Creados",
+        "completed": "Completados"
+      },
+      "communications": {
+        "title": "Correo",
+        "sent": "Enviados",
+        "received": "Recibidos",
+        "linked": "Vinculados",
+        "unlinked": "Sin vincular"
+      }
     }
   },
   "clients": {

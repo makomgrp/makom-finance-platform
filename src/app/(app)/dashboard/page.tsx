@@ -24,6 +24,11 @@ import { AttentionCard } from "@/components/dashboard/attention-card";
 import { getClients } from "@/lib/services/clients";
 import { getApplications } from "@/lib/services/applications";
 import { getDashboardOperations } from "@/lib/services/dashboard-operations";
+import { getProfiles } from "@/lib/services/profiles";
+import { requireCapability } from "@/lib/auth/authorize";
+import { getReportingComparison } from "@/lib/services/reporting";
+import { resolvePeriodFromParams } from "@/lib/reporting/period-params";
+import { AnalyticsSection } from "@/components/dashboard/analytics/analytics-section";
 import type { ApplicationListItem } from "@/types";
 
 /**
@@ -68,7 +73,16 @@ import type { ApplicationListItem } from "@/types";
  * is the pipeline read plus, only for a viewer authorized to see it, the staff
  * roster). Fixed, regardless of how many leads or advisors exist.
  */
-export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ sucursal?: string }> }) {
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{
+    sucursal?: string;
+    periodo?: string;
+    desde?: string;
+    hasta?: string;
+  }>;
+}) {
   const t = await getTranslations("dashboard");
   // MILESTONE 25B-1 — effective branch scope, resolved server-side ONCE by
   // getCurrentProfile() (cached per request) and passed explicitly to every
@@ -82,7 +96,8 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   // falls back to their authorized default, with no error and no signal about
   // whether that branch exists. Everything downstream keeps receiving one
   // server-resolved BranchScope and is unchanged.
-  const { sucursal } = await searchParams;
+  const params = await searchParams;
+  const { sucursal } = params;
   const { viewScope: scope, selection: branchSelection } = await resolveBranchViewScope(
     profile?.branchScope ?? EMPTY_BRANCH_SCOPE,
     sucursal
@@ -123,11 +138,43 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       ? ({ selfProfileId: profile.id } as const)
       : ("none" as const);
 
-  const [applicationsResult, clientsResult, operationsResult] = await Promise.all([
-    getApplications(scope),
-    getClients(scope),
-    getDashboardOperations(scope, workloadFor),
-  ]);
+  // ---------------------------------------------------------------------------
+  // MILESTONE 26B-26D — LA CAPA GERENCIAL, DETRÁS DE SU PROPIA CAPACIDAD
+  //
+  // `requireCapability` es la MISMA puerta que usan las Server Actions, y se
+  // usa aquí por lo mismo: ocultar una sección no es controlar el acceso. Quien
+  // no tenga `analytics:view` no ve el bloque porque LOS DATOS NUNCA SE PIDEN —
+  // no hay respuesta que interceptar, ni petición que reproducir a mano.
+  //
+  // Esto NO cambia el Dashboard operativo. Un asesor sigue viendo sus KPIs, su
+  // pipeline y su carga exactamente igual que antes; lo que no ve es el informe
+  // de resultados del negocio, que es una pregunta distinta.
+  // ---------------------------------------------------------------------------
+  const analyticsAuth = await requireCapability("analytics:view");
+  const canSeeAnalytics = analyticsAuth.status === "authorized";
+  const periodSelection = resolvePeriodFromParams(params);
+
+  const [applicationsResult, clientsResult, operationsResult, reportingResult, profilesResult] =
+    await Promise.all([
+      getApplications(scope),
+      getClients(scope),
+      getDashboardOperations(scope, workloadFor),
+      // Una sola llamada: el servicio ya paraleliza sus catorce RPC por período
+      // y resuelve el actual y el anterior a la vez. Nada aquí itera.
+      canSeeAnalytics ? getReportingComparison(periodSelection.period) : Promise.resolve(null),
+      // Los nombres del personal se resuelven APARTE, contra el directorio que
+      // este perfil ya puede leer. La capa agregada lleva `profileId` y ningún
+      // dato personal, y así debe seguir: un informe de dirección no es el sitio
+      // donde ampliar el acceso a datos de personas.
+      canSeeAnalytics ? getProfiles() : Promise.resolve(null),
+    ]);
+
+  const reporting = reportingResult?.status === "ok" ? reportingResult.data : null;
+  const reportingFailed = canSeeAnalytics && reportingResult?.status !== "ok";
+  const nameByProfileId: Record<string, string> = {};
+  if (profilesResult?.status === "ok") {
+    for (const user of profilesResult.users) nameByProfileId[user.id] = user.fullName;
+  }
 
   const applications: ApplicationListItem[] =
     applicationsResult.status === "ok" ? applicationsResult.applications : [];
@@ -225,6 +272,31 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         )}
         <StatusDistributionCard applications={applications} />
       </div>
+
+      {/* MILESTONE 26B-26D — el informe de dirección, bajo `analytics:view`.
+          Va DEBAJO de lo operativo a propósito: quien abre el CRM por la mañana
+          necesita primero saber qué hay que hacer hoy, y después cómo va el
+          negocio. Un asesor no llega hasta aquí porque para él no existe. */}
+      {canSeeAnalytics && (
+        <div className="mt-10 border-t border-border pt-8">
+          {reportingFailed ? (
+            /* Una consulta fallida NO se convierte en ceros. Un cero es una
+               respuesta —«no pasó nada»— y presentarlo cuando en realidad no
+               pudimos leer sería el peor fallo posible en un informe. */
+            <div className="rounded-md border border-border bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
+              {t("analytics.error")}
+            </div>
+          ) : (
+            reporting && (
+              <AnalyticsSection
+                data={reporting}
+                activeKind={periodSelection.kind}
+                nameByProfileId={nameByProfileId}
+              />
+            )
+          )}
+        </div>
+      )}
     </div>
   );
 }

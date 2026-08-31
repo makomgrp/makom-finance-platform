@@ -147,6 +147,166 @@
       "todayFollowUps": "{count, plural, one {# follow-up due today} other {# follow-ups due today}}",
       "unassigned": "{count, plural, one {# active process with no advisor} other {# active processes with no advisor}}",
       "documentsToReview": "{count, plural, one {# application with documents to review} other {# applications with documents to review}}"
+    },
+    "analytics": {
+      "title": "Management report",
+      "error": "The management figures could not be loaded. Please try again in a few minutes.",
+      "period": {
+        "today": "Today",
+        "yesterday": "Yesterday",
+        "this_week": "This week",
+        "this_month": "This month",
+        "this_quarter": "This quarter",
+        "this_year": "This year",
+        "custom": "Custom",
+        "srSelect": "Change period",
+        "partialNotice": "Period in progress: it has not finished yet, so the comparison against the full previous period is not a settled conclusion."
+      },
+      "comparison": {
+        "vsPrevious": "vs. previous period",
+        "none": "No comparison"
+      },
+      "kpis": {
+        "leads": "Portal leads",
+        "leadsFootnote": "{people} identified people",
+        "formalized": "Formalised applications",
+        "formalizedFootnote": "{created} created in the period",
+        "requested": "Requested amount",
+        "approved": "Approved amount",
+        "approvedEmpty": "No approvals",
+        "approvalRate": "Approval rate",
+        "approvalRateEmpty": "No decisions",
+        "approvalRateFootnote": "across {decisions} decisions",
+        "documentsToReview": "Documents to review",
+        "documentsFootnote": "Current state, not the period"
+      },
+      "attention": {
+        "title": "Needs attention",
+        "allClear": "Nothing needs attention right now.",
+        "documentsToReview": "{count, plural, =1 {# document awaiting review} other {# documents awaiting review}}",
+        "overdueFollowUps": "{count, plural, =1 {# overdue follow-up} other {# overdue follow-ups}}",
+        "stalledLeads": "{count, plural, =1 {# stalled application (over 72h without activity)} other {# stalled applications (over 72h without activity)}}",
+        "abandonedLeads": "{count, plural, =1 {# abandoned application (over 7 days without activity)} other {# abandoned applications (over 7 days without activity)}}"
+      },
+      "leadHealth": {
+        "title": "Opportunity health",
+        "description": "Current state of the leads that arrived in the period. It does not say when they were abandoned.",
+        "active": "Active",
+        "stalled": "Stalled",
+        "abandoned": "Abandoned",
+        "converted": "Converted",
+        "empty": "No portal leads arrived in this period."
+      },
+      "funnel": {
+        "title": "Application funnel",
+        "description": "Unique people who reached and completed each step.",
+        "coverageNotice": "Historical funnel tracking is available from {date}. Anything before that was not measured: the absence of events does not mean nobody reached these steps.",
+        "emptyCovered": "Nobody moved through the form in this period.",
+        "emptyUncovered": "This period is not covered by funnel tracking, so there is no journey to show.",
+        "reachedCompleted": "{reached} reached · {completed} completed",
+        "conversion": "{rate} conversion",
+        "steps": {
+          "applicant_data": "Personal details",
+          "loan_selection": "Loan selection",
+          "financial_data": "Financial details",
+          "documents": "Documents",
+          "review": "Review and submit"
+        }
+      },
+      "products": {
+        "title": "Products",
+        "description": "Activity by product in the period.",
+        "noActivity": "There was no product activity in this period.",
+        "product": "Product",
+        "created": "Created",
+        "formalized": "Formalised",
+        "approved": "Approved",
+        "declined": "Not eligible",
+        "requested": "Requested",
+        "approvedAmount": "Approved"
+      },
+      "financial": {
+        "title": "Amounts",
+        "description": "What was requested and what ODL decided to approve.",
+        "requestedTotal": "Total requested",
+        "requestedMedian": "Median requested",
+        "approvedTotal": "Total approved",
+        "approvedMedian": "Median approved",
+        "count": "{count, plural, =1 {# application} other {# applications}}",
+        "noApprovals": "No approvals",
+        "noData": "No data",
+        "notDisbursedNote": "The approved amount is a decision by ODL, not money handed over. The gap against the requested amount does not represent pending disbursements: an application may still be under review. The system does not record disbursements yet."
+      },
+      "documents": {
+        "title": "Documents",
+        "description": "What arrived in the period, and the current state of requirements.",
+        "uploadedInPeriod": "Uploaded in the period",
+        "awaitingReviewNow": "Awaiting review now",
+        "slotsNowLabel": "Requirements by status (current state)",
+        "slots": {
+          "pending": "Pending",
+          "submitted": "Submitted",
+          "underReview": "Under review",
+          "satisfied": "Satisfied",
+          "rejected": "Rejected",
+          "waived": "Waived",
+          "missing": "Missing"
+        }
+      },
+      "speed": {
+        "title": "Process times",
+        "description": "Median for the period, with the 90th percentile as context.",
+        "noSamples": "Not enough data",
+        "p90": "p90 {value}",
+        "samples": "{count, plural, =1 {# case} other {# cases}}",
+        "metrics": {
+          "intake_to_submission": "Intake to submission",
+          "submission_to_first_review": "Submission to first review",
+          "submission_to_decision": "Submission to decision",
+          "upload_to_document_review": "Upload to document review"
+        }
+      },
+      "units": {
+        "minutes": "{value} min",
+        "hours": "{value} h",
+        "days": "{value} d"
+      },
+      "acquisition": {
+        "title": "Where applications come from",
+        "description": "How portal applicants arrived.",
+        "coverageNotice": "Campaign attribution is available from {date}. Earlier leads show as “not measured”: how they arrived is unknown, which is not the same as having arrived directly.",
+        "unmeasured": "Not measured",
+        "measuredWithoutUtm": "Direct or organic",
+        "measuredWithUtm": "With campaign",
+        "noCampaigns": "No applications with an identified campaign yet.",
+        "directArrival": "Direct arrival",
+        "leadsCount": "{count, plural, =1 {# lead} other {# leads}}"
+      },
+      "team": {
+        "title": "Team",
+        "description": "Volume and load per person. This is not a performance ranking.",
+        "person": "Person",
+        "assignedOpen": "Open",
+        "formalized": "Formalised",
+        "decisions": "Decisions",
+        "followUpsOpen": "Follow-ups",
+        "noProfiles": "There is no active staff to show.",
+        "noAssignments": "No applications have been assigned to anyone yet."
+      },
+      "followUps": {
+        "title": "Follow-ups",
+        "openNow": "Open now",
+        "overdueNow": "Overdue now",
+        "created": "Created",
+        "completed": "Completed"
+      },
+      "communications": {
+        "title": "Email",
+        "sent": "Sent",
+        "received": "Received",
+        "linked": "Linked",
+        "unlinked": "Unlinked"
+      }
     }
   },
   "clients": {
