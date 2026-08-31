@@ -59,6 +59,25 @@ export type Capability =
   | "requirement:read"
   /** Read the global Document Evidence workspace. */
   | "document_workspace:read"
+  /**
+   * MILESTONE 26B-26C — ver las cifras agregadas del negocio.
+   *
+   * SEPARADA DE TODA CAPACIDAD OPERATIVA, y a propósito. Que alguien pueda
+   * trabajar un expediente no dice nada sobre si debe ver cuánto solicita ODL
+   * al mes, qué campañas funcionan o cómo se reparte la carga del equipo. Son
+   * dos preguntas distintas y merecen dos respuestas.
+   *
+   * SOLO AGREGADOS. Esta capacidad no abre ningún dato personal: la capa de
+   * informes no tiene campos para nombre, correo, cédula ni dirección. La
+   * exportación detallada con PII es 26B-26F y llevará su propia capacidad —
+   * porque «ver totales» y «descargarse la cartera de clientes» no pueden ser
+   * el mismo permiso.
+   *
+   * Se define aquí, antes de que exista la pantalla que la usará (26B-26D),
+   * porque quién puede ver los resultados del negocio es una decisión que
+   * merece tomarse en frío y no con la prisa de una UI a medio hacer.
+   */
+  | "analytics:view"
 
   // --- Self-scoped -------------------------------------------------------
   /**
@@ -410,6 +429,7 @@ export const ROLE_CAPABILITIES = {
     "branch:create",
     "branch:manage",
     "branch:transfer",
+    "analytics:view",
   ],
 
   /**
@@ -443,6 +463,7 @@ export const ROLE_CAPABILITIES = {
     "user:set_language",
     // The operational mailbox, including the unscopeable unlinked queue.
     "email:manage",
+    "analytics:view",
   ],
 
   /**
