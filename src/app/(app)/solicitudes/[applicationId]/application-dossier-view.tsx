@@ -9,6 +9,7 @@ import { ArrowLeft, FileCheck2, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useCapability } from "@/lib/auth/use-capability";
 import { formalizeSolicitudApplication } from "@/app/(app)/solicitudes/actions";
+import { DossierPdfButton } from "@/components/applications/dossier-pdf-button";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { ApplicationReviewPanel } from "@/components/review/application-review-panel";
 import { BranchOriginLabel } from "@/components/shared/branch-origin-label";
@@ -172,10 +173,16 @@ export function ApplicationDossierView({
               {application.clientFullName}
             </Link>
           </div>
-          <StatusBadge
-            label={t(`statuses.applicationStatus.${application.status}`)}
-            className={APPLICATION_STATUS_BADGE_CLASS[application.status]}
-          />
+          <div className="flex flex-wrap items-center gap-3">
+            <StatusBadge
+              label={t(`statuses.applicationStatus.${application.status}`)}
+              className={APPLICATION_STATUS_BADGE_CLASS[application.status]}
+            />
+            {/* MILESTONE 26B-27A — el expediente en papel, para el comité y el
+                archivo. Sirve igual para un borrador que para una solicitud
+                formalizada; el PDF se encarga de decir cuál es cuál. */}
+            <DossierPdfButton applicationId={application.id} />
+          </div>
         </div>
 
         <dl className="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2 lg:grid-cols-4">

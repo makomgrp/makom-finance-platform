@@ -2032,7 +2032,37 @@
     "additionalIncome": "Otros ingresos",
     "additionalIncomeAmount": "Ingreso adicional mensual",
     "additionalIncomeSource": "Fuente del ingreso adicional",
-    "socialNetwork": "Red social principal"
+    "socialNetwork": "Red social principal",
+    "pdf": {
+      "documentTitle": "Solicitud de préstamo",
+      "draft": "Borrador",
+      "draftNotice": "Borrador interno — sin número oficial de solicitud",
+      "sectionSummary": "Resumen de la solicitud",
+      "status": "Estado",
+      "noApprovedAmount": "Sin monto aprobado",
+      "birthDate": "Fecha de nacimiento",
+      "nationality": "Nacionalidad",
+      "address": "Dirección",
+      "clientStatus": "Estado del cliente",
+      "sectionBusiness": "Información de la empresa",
+      "purposeDescription": "Destino del préstamo",
+      "sectionCollateral": "Garantía",
+      "lienBalance": "Saldo del gravamen",
+      "requirement": "Requisito",
+      "required": "Obligatorio",
+      "files": "Archivos",
+      "lastUpload": "Última carga",
+      "yes": "Sí",
+      "no": "No",
+      "reviewStatus": "Estado de la revisión",
+      "recommendationNote": "Motivo de la recomendación",
+      "confidential": "Documento interno y confidencial — ODL Financial Corporation",
+      "pageOf": "Página {page} de {total}",
+      "download": "Descargar solicitud PDF",
+      "downloading": "Generando…",
+      "downloadError": "No se pudo generar el PDF. Inténtalo de nuevo.",
+      "downloadTitle": "Incluye datos personales del solicitante"
+    }
   },
   "pipeline": {
     "stages": {

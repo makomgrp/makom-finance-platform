@@ -2032,7 +2032,37 @@
     "additionalIncome": "Other income",
     "additionalIncomeAmount": "Additional monthly income",
     "additionalIncomeSource": "Source of additional income",
-    "socialNetwork": "Primary social network"
+    "socialNetwork": "Primary social network",
+    "pdf": {
+      "documentTitle": "Loan application",
+      "draft": "Draft",
+      "draftNotice": "Internal draft — no official application number",
+      "sectionSummary": "Application summary",
+      "status": "Status",
+      "noApprovedAmount": "No approved amount",
+      "birthDate": "Date of birth",
+      "nationality": "Nationality",
+      "address": "Address",
+      "clientStatus": "Client status",
+      "sectionBusiness": "Business information",
+      "purposeDescription": "Loan purpose detail",
+      "sectionCollateral": "Collateral",
+      "lienBalance": "Lien balance",
+      "requirement": "Requirement",
+      "required": "Required",
+      "files": "Files",
+      "lastUpload": "Last upload",
+      "yes": "Yes",
+      "no": "No",
+      "reviewStatus": "Review status",
+      "recommendationNote": "Reason for the recommendation",
+      "confidential": "Internal and confidential document — ODL Financial Corporation",
+      "pageOf": "Page {page} of {total}",
+      "download": "Download application PDF",
+      "downloading": "Generating…",
+      "downloadError": "The PDF could not be generated. Please try again.",
+      "downloadTitle": "Contains the applicant's personal data"
+    }
   },
   "pipeline": {
     "stages": {

@@ -207,6 +207,25 @@ export interface TableColumn {
  * cabecera obliga a volver atrás a ver qué columna era cuál.
  */
 export function table(doc: Doc, columns: TableColumn[], rows: string[][]): void {
+  // ANCHURA MÍNIMA — MILESTONE 26B-27A.
+  //
+  // `width` son PUNTOS, pero el tipo es `number` y nada impedía pasar una
+  // fracción. Al hacerlo, `column.width - 12` queda en negativo y pdfkit,
+  // intentando ajustar texto en una caja de ancho negativo, no termina nunca:
+  // concatena cadenas hasta agotar el heap. En el expediente de solicitud eso
+  // se llevó por delante 4 GB y mató el servidor de Next.
+  //
+  // Un error se arregla en un minuto; un proceso muerto sin mensaje cuesta una
+  // tarde. Esto convierte lo segundo en lo primero.
+  for (const column of columns) {
+    if (!Number.isFinite(column.width) || column.width < 24) {
+      throw new Error(
+        `table(): la columna "${column.header}" tiene un ancho de ${column.width}pt. ` +
+          "Las anchuras son PUNTOS y deben sumar como mucho PAGE.contentWidth."
+      );
+    }
+  }
+
   const rowHeight = 18;
   const headerHeight = 20;
 
