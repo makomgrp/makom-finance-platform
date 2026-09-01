@@ -1,4 +1,5 @@
 import { BUSINESS_TIME_ZONE } from "../../config/business-time.ts";
+import { reportDateRange, safeDownloadName } from "../filename.ts";
 import type { Locale } from "../../../i18n/config.ts";
 
 /**
@@ -15,6 +16,11 @@ import type { Locale } from "../../../i18n/config.ts";
  *   2. Es una función pura sobre fechas. No tiene por qué vivir dentro del
  *      módulo que dibuja.
  *
+ * 26B-26F: el cálculo del rango y el saneado se mudaron a
+ * `src/lib/reporting/filename.ts` cuando el Excel necesitó lo mismo. Aquí queda
+ * lo único que es propio del PDF —su prefijo y su extensión—; la frontera de
+ * seguridad se comparte, que es donde tiene que estar.
+ *
  * Imports relativos y con extensión, como el resto de módulos que se ejercitan
  * con `node --test`.
  */
@@ -25,13 +31,6 @@ import type { Locale } from "../../../i18n/config.ts";
  * SIN NOMBRES DE PERSONAS. Ni de quien lo genera ni de ningún cliente: el
  * archivo se reenvía y se archiva, y su nombre no debe cargar con nada que no
  * sea el período que cubre.
- *
- * LAS FECHAS SE RESUELVEN EN HORA DE PANAMÁ, no en la del servidor. Vercel
- * corre en UTC: un informe de agosto generado a las nueve de la noche del 31 se
- * llamaría «septiembre» si el nombre se calculara con el reloj del runtime.
- *
- * El saneado final no es decorativo — es lo que hace imposible que un carácter
- * de control llegue a la cabecera HTTP.
  */
 export function executiveReportFilename(
   from: Date,
@@ -40,20 +39,6 @@ export function executiveReportFilename(
   locale: Locale,
   timeZone: string = BUSINESS_TIME_ZONE
 ): string {
-  const iso = (date: Date) =>
-    new Intl.DateTimeFormat("en-CA", {
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      timeZone,
-    }).format(date);
-
-  const start = iso(from);
-  // Se resta un instante porque el fin es exclusivo: el archivo se nombra por
-  // el último día que el informe cubre de verdad.
-  const end = iso(new Date(to.getTime() - 1));
   const stem = locale === "en" ? "ODL-Executive-Report" : "ODL-Informe-Ejecutivo";
-  const range = start === end ? start : `${start}_${end}`;
-
-  return `${stem}-${range}.pdf`.replace(/[^A-Za-z0-9._-]/g, "");
+  return safeDownloadName(`${stem}-${reportDateRange(from, to, timeZone)}.pdf`);
 }

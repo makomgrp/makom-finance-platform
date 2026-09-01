@@ -13,6 +13,7 @@ import {
 } from "./analytics-primitives";
 import { PeriodSelector } from "./period-selector";
 import { PdfDownloadButton } from "./pdf-download-button";
+import { ExcelDownloadButton } from "./excel-download-button";
 import {
   AcquisitionSection,
   DocumentSection,
@@ -56,6 +57,16 @@ interface AnalyticsSectionProps {
   activeKind: ReportingPeriodKind;
   /** Nombres del personal, resueltos aparte — la capa agregada no lleva PII. */
   nameByProfileId: Record<string, string>;
+  /**
+   * MILESTONE 26B-26F — ¿puede esta persona descargar el detalle con PII?
+   *
+   * Lo resuelve la página con `requireCapability("reports:export_sensitive")`,
+   * que es una capacidad DISTINTA de la que abre esta sección. Llega como un
+   * booleano ya decidido en el servidor: este componente no vuelve a mirar el
+   * rol, porque una segunda comprobación es una segunda oportunidad de
+   * discrepar con la primera.
+   */
+  canExportSensitive: boolean;
 }
 
 /** Los cinco pasos del embudo, en el orden del recorrido real. */
@@ -71,6 +82,7 @@ export async function AnalyticsSection({
   data,
   activeKind,
   nameByProfileId,
+  canExportSensitive,
 }: AnalyticsSectionProps) {
   const t = await getTranslations("dashboard.analytics");
   const locale = await getLocale();
@@ -147,6 +159,9 @@ export async function AnalyticsSection({
           <div className="flex flex-wrap items-center gap-3">
             <PeriodSelector activeKind={activeKind} rangeLabel={rangeLabel} />
             <PdfDownloadButton />
+            {/* 26B-26F. Junto al PDF y bajo su propio permiso: ver los totales
+                y llevarse los datos de las personas no son el mismo acto. */}
+            {canExportSensitive && <ExcelDownloadButton />}
           </div>
         </div>
 

@@ -152,6 +152,15 @@ export default async function DashboardPage({
   // ---------------------------------------------------------------------------
   const analyticsAuth = await requireCapability("analytics:view");
   const canSeeAnalytics = analyticsAuth.status === "authorized";
+
+  // MILESTONE 26B-26F — una segunda puerta, para una pregunta distinta.
+  //
+  // Ver los agregados no da derecho a descargar la cartera de clientes. Se
+  // resuelve aquí, en el servidor, y baja como booleano hasta el botón: la ruta
+  // `/api/exportacion-detallada` vuelve a exigir la misma capacidad, así que
+  // esconder el control es una cortesía y no la defensa.
+  const exportAuth = await requireCapability("reports:export_sensitive");
+  const canExportSensitive = exportAuth.status === "authorized";
   const periodSelection = resolvePeriodFromParams(params);
 
   const [applicationsResult, clientsResult, operationsResult, reportingResult, profilesResult] =
@@ -292,6 +301,7 @@ export default async function DashboardPage({
                 data={reporting}
                 activeKind={periodSelection.kind}
                 nameByProfileId={nameByProfileId}
+                canExportSensitive={canExportSensitive}
               />
             )
           )}

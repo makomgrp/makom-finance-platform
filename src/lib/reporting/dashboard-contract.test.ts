@@ -146,6 +146,11 @@ test("los textos visibles en ES y EN tampoco lo afirman", () => {
         const negaciones = [
           analytics.financial.notDisbursedNote as string,
           analytics.pdf?.methodApprovedNotDisbursed as string | undefined,
+          // 26B-26F. La nota de metodología del Excel, que dice exactamente lo
+          // mismo: que ODL no registra desembolsos y que este número no es
+          // cartera. Se descuenta por lo que hace —negar el dato—, no por dónde
+          // vive.
+          analytics.excel?.methodology?.approved as string | undefined,
         ].filter(Boolean) as string[];
         let outside = flat;
         for (const negacion of negaciones) outside = outside.replace(negacion.toLowerCase(), "");

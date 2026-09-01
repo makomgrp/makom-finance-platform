@@ -78,6 +78,44 @@ export type Capability =
    * merece tomarse en frío y no con la prisa de una UI a medio hacer.
    */
   | "analytics:view"
+  /**
+   * MILESTONE 26B-26F — descargar el detalle operativo con datos personales.
+   *
+   * ============================================================================
+   * POR QUÉ NO BASTA `analytics:view`
+   * ============================================================================
+   * Son dos preguntas distintas y la diferencia es toda la PII de ODL.
+   *
+   *   analytics:view          «¿cuántas solicitudes hubo en agosto?»
+   *   reports:export_sensitive «dame nombre, cédula, teléfono y correo de cada
+   *                             una, en un archivo que sale del CRM»
+   *
+   * Lo primero es una cifra que no identifica a nadie: la capa de informes de
+   * 26B-26C no tiene un solo campo de persona. Lo segundo es un extracto de la
+   * cartera de clientes de una financiera panameña, que una vez descargado vive
+   * en un portátil, en un correo o en un pendrive, fuera de todo control de
+   * acceso, de todo registro y de toda revocación. Un permiso que cubriera las
+   * dos cosas convertiría «quiero ver el resumen del mes» en «me llevo la base
+   * de datos», y nadie lo habría decidido.
+   *
+   * SE CONCEDE A administrador Y gerente — hoy, los mismos dos que tienen
+   * `analytics:view`. Eso NO la hace redundante: son dos filas separadas de la
+   * matriz, y esa separación es lo que permite que un día se muevan por su
+   * cuenta. El día que ODL quiera que un analista vea los totales sin poder
+   * exportar identidades, es una línea; con una sola capacidad sería un
+   * rediseño.
+   *
+   * NO DELEGABLE. Ausente de DELEGATABLE_CAPABILITIES y de
+   * profile_capability_grants_capability_check: quién puede sacar datos
+   * personales de la empresa no es una tarea que se delegue de paso mientras
+   * alguien está de viaje. Se cambia con el rol, a la vista.
+   *
+   * CADA EJERCICIO SE AUDITA. La ruta de exportación escribe un evento en
+   * `crm_events` (`sensitive_export_generated`) con quién, cuándo, qué período y
+   * cuántas filas — porque una capacidad que permite llevarse PII y no deja
+   * rastro de haberse usado no es un control, es una puerta.
+   */
+  | "reports:export_sensitive"
 
   // --- Self-scoped -------------------------------------------------------
   /**
@@ -430,6 +468,7 @@ export const ROLE_CAPABILITIES = {
     "branch:manage",
     "branch:transfer",
     "analytics:view",
+    "reports:export_sensitive",
   ],
 
   /**
@@ -464,6 +503,12 @@ export const ROLE_CAPABILITIES = {
     // The operational mailbox, including the unscopeable unlinked queue.
     "email:manage",
     "analytics:view",
+    // 26B-26F. El gerente dirige la operación y necesita el detalle para
+    // trabajarlo fuera de la pantalla; es la misma población que ya puede abrir
+    // cualquiera de esos expedientes uno a uno dentro del CRM. Lo que cambia al
+    // exportar es el FORMATO y la trazabilidad, no el alcance — de ahí el
+    // evento de auditoría, no una restricción adicional de rol.
+    "reports:export_sensitive",
   ],
 
   /**
