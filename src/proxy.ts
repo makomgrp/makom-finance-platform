@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { isMachineAuthenticatedPath, isPublicPath } from "@/lib/auth/route-access";
 
 /**
  * Milestone 4: proxy.ts is the fast, coarse outer gate — not the
@@ -20,51 +21,13 @@ import { NextResponse, type NextRequest } from "next/server";
  * catch the common, cheap case ("no session at all") early; anything more
  * subtle (valid session, no/inactive profile) is the layout's job, not
  * this one's. See the Auth migration plan.
+ *
+ * MILESTONE 26B-26G.2 — qué rutas cruzan esta puerta sin sesión vive ahora en
+ * `src/lib/auth/route-access.ts`. Se movió allí para poder ejercitarlo con
+ * `node --test` ruta por ruta: aquí dentro no se podía importar sin arrastrar
+ * Next entero, así que la única comprobación posible era leer el fuente y
+ * confiar. La decisión y la redirección siguen siendo de este fichero.
  */
-const PUBLIC_PATHS = [
-  "/",
-  "/login",
-  "/forgot-password",
-  "/reset-password",
-  "/auth/callback",
-  // Milestone 15C: the public website loan-application form. Genuinely
-  // public — a prospective applicant has no CRM session, and this is the
-  // whole point of the page. Moved to /solicitud-clasico by 26B-1, which
-  // gave /solicitud to the customer portal.
-  "/solicitud-clasico",
-];
-
-// MILESTONE 26B-1 — the public customer portal.
-//
-// A PREFIX rather than an exact path, because the portal is a multi-page flow:
-// /solicitud, /solicitud/continuar/<token> and every later step share one
-// public boundary. Listing each page separately would mean a future step
-// silently redirecting customers to /login the day it is added.
-//
-// Safe as a prefix precisely because nothing authenticated lives under it: the
-// CRM's own application screens are /solicitudes (plural), a different path
-// that this check does not match — `startsWith("/solicitud/")` requires the
-// trailing slash, and "/solicitudes" does not contain it at that position.
-const PORTAL_PATH = "/solicitud";
-
-// Milestone 15C: every public-facing API route lives under this prefix,
-// so future public channel adapters (this app's own future website
-// features, never WhatsApp/email — those hit the Intake Engine through
-// their own out-of-band transport, not this Next.js app's HTTP surface)
-// don't each need their own PUBLIC_PATHS entry. Everything under here is
-// untrusted-internet-facing by design; each route is responsible for its
-// own input validation (see src/app/api/public/application-intake/route.ts).
-const PUBLIC_API_PREFIX = "/api/public/";
-
-function isPublicPath(pathname: string): boolean {
-  return (
-    PUBLIC_PATHS.some((path) => pathname === path) ||
-    pathname === PORTAL_PATH ||
-    pathname.startsWith(`${PORTAL_PATH}/`) ||
-    pathname.startsWith(PUBLIC_API_PREFIX)
-  );
-}
-
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });
 
@@ -100,7 +63,13 @@ export async function proxy(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user && !isPublicPath(request.nextUrl.pathname)) {
+  const { pathname } = request.nextUrl;
+
+  // Las dos excepciones se comprueban por separado y significan cosas
+  // distintas: una ruta pública no exige nada a nadie; una de máquina exige un
+  // secreto que este proxy no conoce y no debe conocer — comprobarlo es trabajo
+  // de su handler.
+  if (!user && !isPublicPath(pathname) && !isMachineAuthenticatedPath(pathname)) {
     const loginUrl = new URL("/login", request.url);
     return NextResponse.redirect(loginUrl);
   }
