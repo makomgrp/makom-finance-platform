@@ -82,22 +82,42 @@ const FORBIDDEN_KEYS = new Set(
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
- * El ÚNICO identificador con forma de UUID que puede vivir en un cierre.
+ * Las DOS ÚNICAS rutas donde puede vivir un UUID dentro de un cierre.
  *
  * `team[].profileId` es la clave técnica de un miembro del PERSONAL, no de un
  * cliente ni de una solicitud. El contrato agregado de 26B-26C ya lo lleva —es
  * su único identificador de persona— y el Dashboard, el PDF y el Excel lo
- * resuelven a nombre antes de pintar, sin mostrarlo jamás.
+ * resuelven a nombre antes de pintar, sin mostrarlo jamás. Sin él las filas de
+ * equipo quedan anónimas y no se pueden comparar entre meses.
  *
- * Se conserva por dos razones concretas: sin él las filas de equipo quedan
- * anónimas y no se pueden comparar entre meses, y quitarlo obligaría a recortar
- * el snapshot oficial antes de guardarlo, que es justo la cirugía que este
- * milestone evita. La prohibición de PII protege datos de CLIENTES; un FK de
- * personal en un registro de auditoría interna es otra cosa.
+ * `products[].productId` identifica una entrada del CATÁLOGO de productos de
+ * ODL — cuatro productos de préstamo. No es una persona, ni un cliente, ni una
+ * solicitud, ni un documento: no hay nada que identificar ahí salvo el propio
+ * producto. Se añadió en 26B-26G.P-B.1, cuando el bootstrap de agosto reveló
+ * que esta lista se había escrito sin comprobar qué contiene de verdad el
+ * contrato oficial.
  *
- * Cualquier otro UUID en cualquier otra ruta es un fallo.
+ * En los dos casos la razón es la misma: quitarlos obligaría a recortar el
+ * snapshot antes de guardarlo, que es justo la cirugía que este milestone
+ * evita. La prohibición de PII protege datos de CLIENTES.
+ *
+ * ----------------------------------------------------------------------------
+ * ESTO NO DICE QUE LOS UUID SEAN SEGUROS
+ * ----------------------------------------------------------------------------
+ * Son dos rutas EXACTAS, con índice numérico. No `*.productId`, no «cualquier
+ * cosa bajo products», no «los UUID de catálogo». Un `clientId` dentro de un
+ * producto, un `productId` en la raíz o un identificador en una ruta que nadie
+ * ha revisado siguen siendo un fallo — y hay pruebas que lo fijan. Si alguien
+ * simplifica esto a una regla general, el validador deja de proteger nada.
  */
-const ALLOWED_UUID_PATH = /^snapshot\.team\.\d+\.profileId$/;
+const ALLOWED_UUID_PATHS = [
+  /^snapshot\.team\.\d+\.profileId$/,
+  /^snapshot\.products\.\d+\.productId$/,
+];
+
+function isAllowedUuidPath(path: string): boolean {
+  return ALLOWED_UUID_PATHS.some((allowed) => allowed.test(path));
+}
 
 /** Los cuatro productos oficiales de ODL. Un cierre los lleva todos. */
 export const OFFICIAL_PRODUCT_CODES = [
@@ -205,7 +225,7 @@ export function validateClosurePayload(payload: MonthlyClosurePayload): ClosureV
     if (FORBIDDEN_KEYS.has(key.toLowerCase())) {
       problems.push(`campo prohibido en ${path}`);
     }
-    if (typeof value === "string" && UUID_RE.test(value) && !ALLOWED_UUID_PATH.test(path)) {
+    if (typeof value === "string" && UUID_RE.test(value) && !isAllowedUuidPath(path)) {
       problems.push(`identificador interno en ${path}`);
     }
   });

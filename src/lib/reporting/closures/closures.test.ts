@@ -632,3 +632,163 @@ test("ninguna ruta puede sobrescribir un cierre existente", () => {
     }
   }
 });
+
+// ---------------------------------------------------------------------------
+// 11. 26B-26G.P-B.1 — LOS UUID DEL CATÁLOGO DE PRODUCTOS
+// ---------------------------------------------------------------------------
+
+/**
+ * El bootstrap oficial de agosto falló con cuatro hallazgos idénticos:
+ * `products.0..3.productId`. La lista de UUID permitidos se había escrito sin
+ * comprobar qué contiene de verdad el contrato — `reporting_product_metrics`
+ * devuelve `product_id` para los cuatro productos.
+ *
+ * Estas pruebas fijan las dos mitades: que el catálogo pase, y que el permiso
+ * no se extienda ni un milímetro más allá.
+ */
+
+/** Los cuatro UUID reales del catálogo de productos de Production. */
+const PRODUCT_UUIDS = [
+  "42173181-8fe0-4a5c-b645-58d6868aba2c",
+  "540e26aa-3776-474a-97c7-2834232c5345",
+  "69a7fc94-7a17-4934-971f-cbe3beef1924",
+  "a2da85d6-1182-48a2-be49-bda72645ea05",
+];
+
+/** El snapshot base, con los productos llevando su identificador de catálogo. */
+function snapshotConProductos(): Record<string, unknown> {
+  const snapshot = snapshotBase();
+  snapshot.products = OFFICIAL_PRODUCT_CODES.map((productCode, index) => ({
+    productId: PRODUCT_UUIDS[index],
+    productCode,
+    applicationCode: ["N", "D", "V", "E"][index],
+    created: 0,
+    formalized: 0,
+    approved: 0,
+    declined: 0,
+    requestedTotal: 0,
+    approvedTotal: 0,
+    approvalRate: null,
+  }));
+  return snapshot;
+}
+
+function conSnapshot(snapshot: Record<string, unknown>): MonthlyClosurePayload {
+  return {
+    snapshot: snapshot as unknown as MonthlyClosurePayload["snapshot"],
+    metadata: {
+      currentStateFields: [...CURRENT_STATE_FIELDS],
+      capturedCurrentStateAt: "2026-09-01T20:17:00.000Z",
+    },
+  };
+}
+
+test("los cuatro identificadores del catálogo de productos pasan, no solo el primero", () => {
+  const payload = conSnapshot(snapshotConProductos());
+  const result = validateClosurePayload(payload);
+  assert.deepEqual(result, { valid: true });
+
+  // Y están de verdad en el payload: la prueba no pasa por haberlos quitado.
+  const products = (payload.snapshot as unknown as { products: { productId: string }[] }).products;
+  assert.equal(products.length, 4);
+  for (const [index, uuid] of PRODUCT_UUIDS.entries()) {
+    assert.equal(products[index].productId, uuid);
+  }
+});
+
+test("el permiso es de RUTA EXACTA: otro campo del producto con UUID se rechaza", () => {
+  for (const campo of ["clientId", "applicationId", "ownerId", "otroId"]) {
+    const snapshot = snapshotConProductos();
+    (snapshot.products as Record<string, unknown>[])[0][campo] =
+      "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
+    const result = validateClosurePayload(conSnapshot(snapshot));
+    assert.equal(result.valid, false, `products[0].${campo} deberia rechazarse`);
+  }
+});
+
+test("«productId» fuera de products no hereda el permiso", () => {
+  // En la raiz, en otro bloque y en un objeto anidado dentro del producto.
+  const enOtroBloque = snapshotConProductos();
+  (enOtroBloque.leads as Record<string, unknown>).productId = PRODUCT_UUIDS[0];
+  assert.equal(validateClosurePayload(conSnapshot(enOtroBloque)).valid, false);
+
+  const anidado = snapshotConProductos();
+  (anidado.products as Record<string, unknown>[])[0].detalle = { productId: PRODUCT_UUIDS[0] };
+  assert.equal(validateClosurePayload(conSnapshot(anidado)).valid, false);
+
+  const enEquipo = snapshotConProductos();
+  (enEquipo.team as Record<string, unknown>[])[0].productId = PRODUCT_UUIDS[0];
+  assert.equal(validateClosurePayload(conSnapshot(enEquipo)).valid, false);
+});
+
+test("team[].profileId sigue permitido exactamente como antes", () => {
+  const snapshot = snapshotConProductos();
+  assert.equal(validateClosurePayload(conSnapshot(snapshot)).valid, true);
+
+  // Y sigue siendo la unica ruta de persona: otro uuid en team se rechaza.
+  (snapshot.team as Record<string, unknown>[])[0].supervisorId =
+    "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
+  assert.equal(validateClosurePayload(conSnapshot(snapshot)).valid, false);
+});
+
+test("no se introdujo un permiso general de UUID", () => {
+  const validador = read("./validate.ts");
+  // Dos rutas, ambas con indice numerico. Ni comodines ni «cualquier catalogo».
+  assert.ok(validador.includes("/^snapshot\\.team\\.\\d+\\.profileId$/"));
+  assert.ok(validador.includes("/^snapshot\\.products\\.\\d+\\.productId$/"));
+  assert.ok(!validador.includes(".*productId"), "sin comodin de campo");
+  assert.ok(!/ALLOWED_UUID_PATHS\s*=\s*\[\s*\/\^\.\*/.test(validador), "sin comodin de ruta");
+
+  const rutas = validador.match(/\/\^snapshot\\\.[^/]+\//g) ?? [];
+  assert.equal(rutas.length, 2, "solo deben existir dos rutas permitidas");
+});
+
+test("las guardas de datos personales siguen intactas", () => {
+  // El parche amplía UNA lista de rutas. Nada de lo prohibido puede haberse
+  // relajado de paso.
+  for (const campo of [
+    "fullName",
+    "identificationNumber",
+    "email",
+    "phone",
+    "address",
+    "note",
+    "signedUrl",
+    "storagePath",
+    "applicationNumber",
+    "clientId",
+  ]) {
+    const snapshot = snapshotConProductos();
+    (snapshot.leads as Record<string, unknown>)[campo] = "x";
+    assert.equal(
+      validateClosurePayload(conSnapshot(snapshot)).valid,
+      false,
+      `${campo} deberia seguir bloqueado`
+    );
+  }
+});
+
+test("REPRODUCCIÓN: el snapshot real de agosto ya no produce hallazgos", () => {
+  // Los mismos valores que devolvió Production el 2026-09-01, con los nombres
+  // de campo del contrato. Antes del parche: 4 hallazgos. Ahora: ninguno.
+  const agosto = snapshotConProductos();
+  agosto.leads = {
+    leads: 16, uniquePeople: 11, unresolvedIntakes: 1, converted: 4,
+    activeNow: 1, stalledNow: 11, abandonedNow: 0, resumedEvents: 0,
+  };
+  agosto.newClients = { total: 11, fromPortal: 11, manual: 0, otherChannels: 0 };
+  agosto.applications = {
+    created: 15, formalized: 4, approved: 0, declined: 0, cancelled: 0,
+    decisions: 0, openAtPeriodEnd: 15, approvalRate: null,
+  };
+  agosto.financial = {
+    requestedCount: 15, requestedTotal: 720000, requestedAverage: 48000,
+    requestedMedian: 10000, approvedCount: 0,
+    // NULL, no cero: no hubo aprobaciones que promediar.
+    approvedTotal: null, approvedAverage: null, approvedMedian: null,
+  };
+  agosto.attributionCoverage = { unmeasured: 16, measuredWithoutUtm: 0, measuredWithUtm: 0 };
+
+  const result = validateClosurePayload(conSnapshot(agosto));
+  assert.deepEqual(result, { valid: true });
+});
