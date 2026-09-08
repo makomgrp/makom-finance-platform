@@ -1,0 +1,38 @@
+-- ============================================================================
+-- REVOKE TRUNCATE ON monthly_management_closures
+-- ============================================================================
+--
+-- A corrective follow-up to 20260901010000, found by a read-only privilege
+-- audit. A SEPARATE MIGRATION, NOT AN EDIT: 20260901010000 is already applied,
+-- and this schema's standing discipline is that an applied migration is never
+-- rewritten, only corrected forward.
+--
+-- WHAT WAS WRONG. 20260901010000 revoked everything from anon and
+-- authenticated and then granted service_role SELECT only, so that
+-- monthly_management_closures would be immutable by withheld privilege on top
+-- of its BEFORE UPDATE / BEFORE DELETE row-level triggers. But
+-- REVOKE ... FROM anon, authenticated does not touch service_role, and
+-- Supabase's default privileges had already granted service_role TRUNCATE on
+-- the new table. Row-level triggers never fire on TRUNCATE, so the grant was
+-- left standing as the one way to erase every closure at once that neither
+-- the privilege revocation nor the immutability triggers actually covered.
+--
+-- The same correction 26A-4A made for application_declarations and
+-- public_application_tokens (and 26B-6A for application_follow_ups), applied
+-- to the same class of promise: a table whose entire value is that its rows,
+-- once written, are history.
+--
+-- HOW EXPLOITABLE WAS IT? Not remotely. PostgREST exposes no TRUNCATE verb, so
+-- nothing reachable over the API could have issued one, and anon/authenticated
+-- hold no privileges on this table at all. The exposure was to server-side
+-- code holding the secret key — a future mistake, not an attacker. Still worth
+-- closing, because the entire point of enforcing immutability through
+-- privilege and triggers together is that neither depends on anyone
+-- remembering the other's gap.
+--
+-- TRIGGER and REFERENCES are left in place deliberately: they match crm_events
+-- and the other append-only tables, they cannot destroy or alter data, and
+-- revoking them would break the ability to add a foreign key or trigger later
+-- without buying any safety.
+
+revoke truncate on table public.monthly_management_closures from service_role;
