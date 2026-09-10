@@ -22,11 +22,13 @@ import { PipelineOverviewCard } from "@/components/dashboard/pipeline-overview-c
 import { AdvisorWorkloadCard } from "@/components/dashboard/advisor-workload-card";
 import { MyFollowUpsCard } from "@/components/dashboard/my-follow-ups-card";
 import { MyDocumentRequestsCard } from "@/components/dashboard/my-document-requests-card";
+import { ReadyForReviewCard } from "@/components/dashboard/ready-for-review-card";
 import { AttentionCard } from "@/components/dashboard/attention-card";
 import { getClients } from "@/lib/services/clients";
 import { getApplications } from "@/lib/services/applications";
 import { getDashboardOperations } from "@/lib/services/dashboard-operations";
 import { getMyOutstandingDocumentRequests } from "@/lib/services/document-requests";
+import { getMyReadyForReviewApplications } from "@/lib/services/document-completeness-workflow";
 import { getProfiles } from "@/lib/services/profiles";
 import { requireCapability } from "@/lib/auth/authorize";
 import { getReportingComparison } from "@/lib/services/reporting";
@@ -173,6 +175,7 @@ export default async function DashboardPage({
     reportingResult,
     profilesResult,
     myDocumentRequests,
+    myReadyForReview,
   ] = await Promise.all([
     getApplications(scope),
     getClients(scope),
@@ -190,6 +193,10 @@ export default async function DashboardPage({
     // describiría su propio trabajo.
     typeof workloadFor === "object"
       ? getMyOutstandingDocumentRequests(scope, workloadFor.selfProfileId)
+      : Promise.resolve([]),
+    // MILESTONE 2.4 — misma puerta.
+    typeof workloadFor === "object"
+      ? getMyReadyForReviewApplications(scope, workloadFor.selfProfileId)
       : Promise.resolve([]),
   ]);
 
@@ -310,6 +317,13 @@ export default async function DashboardPage({
       {typeof workloadFor === "object" && (
         <div className="mt-6">
           <MyDocumentRequestsCard items={myDocumentRequests} />
+        </div>
+      )}
+
+      {/* MILESTONE 2.4 — misma puerta. */}
+      {typeof workloadFor === "object" && (
+        <div className="mt-6">
+          <ReadyForReviewCard items={myReadyForReview} />
         </div>
       )}
 

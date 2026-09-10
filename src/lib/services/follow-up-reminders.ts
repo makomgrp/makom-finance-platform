@@ -2,6 +2,7 @@ import "server-only";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import {
   selectReminderCandidates,
+  type FollowUpApplicationStatus,
   type FollowUpReminderCandidate,
 } from "./follow-up-reminder-eligibility.ts";
 
@@ -57,13 +58,14 @@ import {
 const CANDIDATE_SELECT =
   "id, application_id, next_action, next_action_at, completed_at, internal_reminder_sent_at, " +
   "application:applications!application_follow_ups_application_id_fkey(" +
-  "application_number, assigned_advisor_profile_id, " +
+  "application_number, assigned_advisor_profile_id, status, " +
   "client:clients!applications_client_id_fkey(full_name)" +
   ")";
 
 interface CandidateApplication {
   application_number: string | null;
   assigned_advisor_profile_id: string | null;
+  status: FollowUpApplicationStatus;
   client: { full_name: string } | null;
 }
 
@@ -83,14 +85,22 @@ function toCandidate(row: CandidateRow): FollowUpReminderCandidate | null {
   // rather than trusting it silently, matching logFollowUp's own convention.
   if (!row.next_action || !row.next_action_at) return null;
 
+  // `application_id` is a NOT NULL, ON DELETE RESTRICT foreign key — the
+  // embed should never actually be absent. Skipping rather than guessing a
+  // status is the fail-safe choice if it somehow were: MILESTONE 2.4's
+  // terminal-application check must never silently treat "unknown" as
+  // "still open" or vice versa.
+  if (!row.application) return null;
+
   return {
     id: row.id,
     applicationId: row.application_id,
     nextAction: row.next_action,
     nextActionAt: row.next_action_at,
-    advisorProfileId: row.application?.assigned_advisor_profile_id ?? null,
-    applicationNumber: row.application?.application_number ?? undefined,
-    clientFullName: row.application?.client?.full_name ?? "",
+    advisorProfileId: row.application.assigned_advisor_profile_id,
+    applicationNumber: row.application.application_number ?? undefined,
+    clientFullName: row.application.client?.full_name ?? "",
+    applicationStatus: row.application.status,
   };
 }
 
@@ -109,6 +119,7 @@ export interface ProcessDueFollowUpRemindersResult {
   claimed: number;
   skippedUnassigned: number;
   skippedNotDueYet: number;
+  skippedTerminalApplication: number;
   notifyFailures: number;
 }
 
@@ -163,6 +174,7 @@ export async function processDueFollowUpReminders(
       claimed: 0,
       skippedUnassigned: 0,
       skippedNotDueYet: 0,
+      skippedTerminalApplication: 0,
       notifyFailures: 0,
     };
   }
@@ -170,10 +182,8 @@ export async function processDueFollowUpReminders(
   const rows = (data ?? []) as unknown as CandidateRow[];
   const candidates = rows.map(toCandidate).filter((c): c is FollowUpReminderCandidate => c !== null);
 
-  const { toClaim, skippedUnassigned, skippedNotDueYet } = selectReminderCandidates(
-    candidates,
-    now
-  );
+  const { toClaim, skippedUnassigned, skippedNotDueYet, skippedTerminalApplication } =
+    selectReminderCandidates(candidates, now);
 
   if (toClaim.length === 0) {
     return {
@@ -181,6 +191,7 @@ export async function processDueFollowUpReminders(
       claimed: 0,
       skippedUnassigned,
       skippedNotDueYet,
+      skippedTerminalApplication,
       notifyFailures: 0,
     };
   }
@@ -207,6 +218,7 @@ export async function processDueFollowUpReminders(
       claimed: 0,
       skippedUnassigned,
       skippedNotDueYet,
+      skippedTerminalApplication,
       notifyFailures: 0,
     };
   }
@@ -234,6 +246,7 @@ export async function processDueFollowUpReminders(
     claimed: won.length,
     skippedUnassigned,
     skippedNotDueYet,
+    skippedTerminalApplication,
     notifyFailures,
   };
 }

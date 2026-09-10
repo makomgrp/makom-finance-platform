@@ -3,6 +3,7 @@ import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { applyBranchScope, isBranchDeniedError, isEmptyScope, withScopedParent } from "@/lib/services/branch-scope-query";
 import { REQUIREMENT_SLOT_STATUS_TRANSITIONS } from "@/lib/config/requirement-slot";
 import { getApplicationById } from "@/lib/services/applications";
+import { evaluateDocumentsCompleteWorkflow } from "./document-completeness-workflow.ts";
 import type {
   BranchScope,
   DocumentEvidence,
@@ -458,6 +459,25 @@ export async function setRequirementSlotStatus(
       readError?.message ?? "no row returned"
     );
     return { status: "error", code: "UPDATE_FAILED" };
+  }
+
+  // MILESTONE 2.4 — satisfied/waived are the only two states this codebase's
+  // own transition graph treats as terminal for a slot, which makes them the
+  // only moments the applicant's document package can newly become complete
+  // (see document-completeness.ts). Awaited rather than fired through
+  // `after()`: unlike the portal's confirmation email, this touches no
+  // external network — two small internal queries — so the added latency is
+  // negligible and awaiting keeps the effect visible before this call
+  // returns. Never allowed to turn a successful status change into a
+  // reported failure: the workflow function swallows its own errors, and
+  // this catch is a second, defensive guarantee of that same contract.
+  if (targetStatus === "satisfied" || targetStatus === "waived") {
+    await evaluateDocumentsCompleteWorkflow(updated.application_id).catch((error) => {
+      console.error(
+        "[requirement-slots service] documents-complete workflow failed:",
+        error instanceof Error ? error.message : "unknown error"
+      );
+    });
   }
 
   return { status: "ok", requirementSlot: toRequirementSlot(updated) };

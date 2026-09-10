@@ -58,6 +58,7 @@ export async function GET(request: NextRequest) {
       claimed: result.claimed,
       skippedUnassigned: result.skippedUnassigned,
       skippedNotDueYet: result.skippedNotDueYet,
+      skippedTerminalApplication: result.skippedTerminalApplication,
       notifyFailures: result.notifyFailures,
     },
     { status: 200, headers: { "Cache-Control": "no-store" } }

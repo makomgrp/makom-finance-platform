@@ -160,6 +160,12 @@
       "requestPending": "Aún no se ha generado una solicitud",
       "toast": "Documento pendiente para {name}"
     },
+    "readyForReview": {
+      "title": "Listos para revisar",
+      "empty": "No tienes expedientes listos para revisar.",
+      "readySince": "Listo desde {date}",
+      "toast": "Expediente listo para revisar: {name}"
+    },
     "analytics": {
       "title": "Informe de gestión",
       "error": "No se pudieron cargar las cifras de gestión. Vuelve a intentarlo en unos minutos.",

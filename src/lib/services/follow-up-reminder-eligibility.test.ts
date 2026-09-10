@@ -27,6 +27,7 @@ function candidate(overrides: Partial<FollowUpReminderCandidate> = {}): FollowUp
     advisorProfileId: "advisor-1",
     applicationNumber: "ODL-10SEP26-0001-N",
     clientFullName: "Juan Pérez",
+    applicationStatus: "in_review",
     ...overrides,
   };
 }
@@ -60,7 +61,12 @@ test("sin asesor asignado: se cuenta y no se reclama", () => {
 
 test("cero candidatos: resultado seguro, todo en cero", () => {
   const result = selectReminderCandidates([], NOW);
-  assert.deepEqual(result, { toClaim: [], skippedUnassigned: 0, skippedNotDueYet: 0 });
+  assert.deepEqual(result, {
+    toClaim: [],
+    skippedUnassigned: 0,
+    skippedNotDueYet: 0,
+    skippedTerminalApplication: 0,
+  });
 });
 
 test("un follow-up ya completado no se reclama, aunque venga en la lista", () => {
@@ -101,4 +107,41 @@ test("una mezcla de filas produce los conteos correctos para cada una", () => {
   );
   assert.equal(result.skippedNotDueYet, 1);
   assert.equal(result.skippedUnassigned, 1);
+});
+
+// ---------------------------------------------------------------------------
+// MILESTONE 2.4 — LIMPIEZA DE RECORDATORIOS SOBRE SOLICITUDES TERMINALES
+// ---------------------------------------------------------------------------
+
+test("solicitud activa (in_review) sigue siendo elegible, sin cambios", () => {
+  const result = selectReminderCandidates([candidate({ applicationStatus: "in_review" })], NOW);
+  assert.equal(result.toClaim.length, 1);
+  assert.equal(result.skippedTerminalApplication, 0);
+});
+
+test("solicitud approved: se ignora, no se genera un nuevo recordatorio", () => {
+  const result = selectReminderCandidates([candidate({ applicationStatus: "approved" })], NOW);
+  assert.equal(result.toClaim.length, 0);
+  assert.equal(result.skippedTerminalApplication, 1);
+});
+
+test("solicitud not_eligible: se ignora", () => {
+  const result = selectReminderCandidates([candidate({ applicationStatus: "not_eligible" })], NOW);
+  assert.equal(result.toClaim.length, 0);
+  assert.equal(result.skippedTerminalApplication, 1);
+});
+
+test("solicitud cancelled: se ignora", () => {
+  const result = selectReminderCandidates([candidate({ applicationStatus: "cancelled" })], NOW);
+  assert.equal(result.toClaim.length, 0);
+  assert.equal(result.skippedTerminalApplication, 1);
+});
+
+test("solicitud terminal tiene prioridad sobre 'no asignado': se cuenta como terminal, no como sin asesor", () => {
+  const result = selectReminderCandidates(
+    [candidate({ applicationStatus: "cancelled", advisorProfileId: null })],
+    NOW
+  );
+  assert.equal(result.skippedTerminalApplication, 1);
+  assert.equal(result.skippedUnassigned, 0);
 });

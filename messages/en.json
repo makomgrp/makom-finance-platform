@@ -160,6 +160,12 @@
       "requestPending": "No request generated yet",
       "toast": "Pending document for {name}"
     },
+    "readyForReview": {
+      "title": "Ready for review",
+      "empty": "You have no cases ready for review.",
+      "readySince": "Ready since {date}",
+      "toast": "Case ready for review: {name}"
+    },
     "analytics": {
       "title": "Management report",
       "error": "The management figures could not be loaded. Please try again in a few minutes.",

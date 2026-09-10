@@ -104,6 +104,21 @@ interface DocumentRequestPayload {
   slotNameEn: string;
 }
 
+/**
+ * MILESTONE 2.4 — un cuarto aviso en el MISMO canal por-persona.
+ *
+ * Mismo razonamiento que los tres anteriores: reutiliza `chat:user:{profileId}`
+ * en vez de abrir un canal nuevo, con su propio evento
+ * (`requirement.documents_complete`) y su propia deduplicación
+ * (`seenDocumentsCompleteIds`).
+ */
+interface DocumentsCompletePayload {
+  applicationId: string;
+  applicationNumber?: string;
+  advisorProfileId: string;
+  clientFullName: string;
+}
+
 interface ChatNotificationsValue {
   /** Suma de no leídos de todas las conversaciones. 0 => sin badge. */
   unreadTotal: number;
@@ -203,6 +218,7 @@ export function ChatNotificationsProvider({
   const seenMessageIds = useRef<Set<string>>(new Set());
   const seenFollowUpIds = useRef<Set<string>>(new Set());
   const seenDocumentRequestIds = useRef<Set<string>>(new Set());
+  const seenDocumentsCompleteIds = useRef<Set<string>>(new Set());
   const colleagueRef = useRef<Record<string, string>>(colleagueByConversation);
 
   const setActiveConversation = useCallback((conversationRealId: string | null) => {
@@ -293,6 +309,24 @@ export function ChatNotificationsProvider({
 
         toast(t("dashboard.myDocumentRequests.toast", { name: data.clientFullName }), {
           description: slotName,
+          action: {
+            label: t("chat.notifications.open"),
+            onClick: () => router.push(`/solicitudes/${data.applicationId}`),
+          },
+        });
+      })
+      .on("broadcast", { event: "requirement.documents_complete" }, ({ payload }) => {
+        const data = payload as DocumentsCompletePayload;
+
+        // Deduplicado por aplicación: el guard de la base de datos ya
+        // garantiza como mucho un envío por solicitud, esto es solo defensa
+        // adicional ante una entrega duplicada del mismo broadcast.
+        if (seenDocumentsCompleteIds.current.has(data.applicationId)) return;
+        seenDocumentsCompleteIds.current.add(data.applicationId);
+
+        playNotificationSound();
+
+        toast(t("dashboard.readyForReview.toast", { name: data.clientFullName }), {
           action: {
             label: t("chat.notifications.open"),
             onClick: () => router.push(`/solicitudes/${data.applicationId}`),
