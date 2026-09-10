@@ -153,6 +153,13 @@
       "empty": "You have no pending follow-ups.",
       "reminderToast": "Pending follow-up with {name}"
     },
+    "myDocumentRequests": {
+      "title": "Pending documents",
+      "empty": "You have no pending documents on your cases.",
+      "requestSent": "Internal request already generated",
+      "requestPending": "No request generated yet",
+      "toast": "Pending document for {name}"
+    },
     "analytics": {
       "title": "Management report",
       "error": "The management figures could not be loaded. Please try again in a few minutes.",

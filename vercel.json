@@ -8,6 +8,10 @@
     {
       "path": "/api/recordatorios-seguimiento",
       "schedule": "0 13 * * *"
+    },
+    {
+      "path": "/api/recordatorios-documentos",
+      "schedule": "0 14 * * *"
     }
   ]
 }

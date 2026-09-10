@@ -153,6 +153,13 @@
       "empty": "No tienes seguimientos pendientes.",
       "reminderToast": "Seguimiento pendiente con {name}"
     },
+    "myDocumentRequests": {
+      "title": "Documentos pendientes",
+      "empty": "No tienes documentos pendientes en tus casos.",
+      "requestSent": "Solicitud interna generada",
+      "requestPending": "Aún no se ha generado una solicitud",
+      "toast": "Documento pendiente para {name}"
+    },
     "analytics": {
       "title": "Informe de gestión",
       "error": "No se pudieron cargar las cifras de gestión. Vuelve a intentarlo en unos minutos.",

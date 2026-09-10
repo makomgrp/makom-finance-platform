@@ -11,7 +11,7 @@ import {
   type ReactNode,
 } from "react";
 import { useRouter } from "next/navigation";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import type { ConversationUnread } from "@/lib/services/chat";
@@ -85,6 +85,23 @@ interface FollowUpReminderPayload {
   clientFullName: string;
   nextAction: string;
   nextActionAt: string;
+}
+
+/**
+ * MILESTONE 2.3 — un tercer aviso en el MISMO canal por-persona.
+ *
+ * Mismo razonamiento que `FollowUpReminderPayload`: reutiliza el canal
+ * `chat:user:{profileId}` ya vivo en vez de abrir uno nuevo, con su propio
+ * evento (`document.request_generated`) y su propia deduplicación
+ * (`seenDocumentRequestIds`).
+ */
+interface DocumentRequestPayload {
+  requirementSlotId: string;
+  applicationId: string;
+  applicationNumber?: string;
+  clientFullName: string;
+  slotNameEs: string;
+  slotNameEn: string;
 }
 
 interface ChatNotificationsValue {
@@ -167,6 +184,7 @@ export function ChatNotificationsProvider({
   children: ReactNode;
 }) {
   const t = useTranslations();
+  const locale = useLocale();
   const router = useRouter();
 
   // Por conversación, no un total suelto: al leer UNA hay que descontar sólo
@@ -184,6 +202,7 @@ export function ChatNotificationsProvider({
   const activeConversationRef = useRef<string | null>(null);
   const seenMessageIds = useRef<Set<string>>(new Set());
   const seenFollowUpIds = useRef<Set<string>>(new Set());
+  const seenDocumentRequestIds = useRef<Set<string>>(new Set());
   const colleagueRef = useRef<Record<string, string>>(colleagueByConversation);
 
   const setActiveConversation = useCallback((conversationRealId: string | null) => {
@@ -262,12 +281,30 @@ export function ChatNotificationsProvider({
           },
         });
       })
+      .on("broadcast", { event: "document.request_generated" }, ({ payload }) => {
+        const data = payload as DocumentRequestPayload;
+
+        if (seenDocumentRequestIds.current.has(data.requirementSlotId)) return;
+        seenDocumentRequestIds.current.add(data.requirementSlotId);
+
+        playNotificationSound();
+
+        const slotName = locale === "en" ? data.slotNameEn : data.slotNameEs;
+
+        toast(t("dashboard.myDocumentRequests.toast", { name: data.clientFullName }), {
+          description: slotName,
+          action: {
+            label: t("chat.notifications.open"),
+            onClick: () => router.push(`/solicitudes/${data.applicationId}`),
+          },
+        });
+      })
       .subscribe();
 
     return () => {
       void supabase.removeChannel(channel);
     };
-  }, [profileId, router, t]);
+  }, [profileId, router, t, locale]);
 
   const unreadTotal = useMemo(
     () => Object.values(unreadByConversation).reduce((sum, n) => sum + n, 0),

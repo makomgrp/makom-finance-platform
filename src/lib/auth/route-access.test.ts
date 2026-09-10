@@ -195,3 +195,23 @@ test("el handler del recordatorio también falla cerrado con el mismo patrón", 
   assert.ok(route.includes("status: 401"));
   assert.ok(!/process\.env\.NODE_ENV/.test(route));
 });
+
+// ---------------------------------------------------------------------------
+// 12. MILESTONE 2.3 — LA SOLICITUD DE DOCUMENTOS ES LA MISMA EXCEPCIÓN,
+//     NO UNA TERCERA
+// ---------------------------------------------------------------------------
+
+test("la ruta de solicitud de documentos atraviesa el proxy sin sesión de persona", () => {
+  assert.equal(isMachineAuthenticatedPath("/api/recordatorios-documentos"), true);
+});
+
+test("pero tampoco es pública (documentos)", () => {
+  assert.equal(isPublicPath("/api/recordatorios-documentos"), false);
+});
+
+test("el handler de solicitud de documentos también falla cerrado con el mismo patrón", () => {
+  const route = read("../../app/api/recordatorios-documentos/route.ts");
+  assert.ok(route.includes("if (!cronSecret || authorization !== `Bearer ${cronSecret}`)"));
+  assert.ok(route.includes("status: 401"));
+  assert.ok(!/process\.env\.NODE_ENV/.test(route));
+});

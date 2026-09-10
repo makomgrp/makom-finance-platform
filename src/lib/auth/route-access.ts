@@ -91,6 +91,9 @@ const MACHINE_AUTHENTICATED_PATHS = [
   // Authorization: Bearer ${CRON_SECRET}, y su handler es la autoridad.
   // Ver src/app/api/recordatorios-seguimiento.
   "/api/recordatorios-seguimiento",
+  // MILESTONE 2.3 — solicitud interna automática de documentos faltantes.
+  // Misma excepción, mismo mecanismo. Ver src/app/api/recordatorios-documentos.
+  "/api/recordatorios-documentos",
 ];
 
 /** Rutas que no exigen nada a nadie. */

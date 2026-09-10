@@ -21,10 +21,12 @@ import { StatusDistributionCard } from "@/components/dashboard/status-distributi
 import { PipelineOverviewCard } from "@/components/dashboard/pipeline-overview-card";
 import { AdvisorWorkloadCard } from "@/components/dashboard/advisor-workload-card";
 import { MyFollowUpsCard } from "@/components/dashboard/my-follow-ups-card";
+import { MyDocumentRequestsCard } from "@/components/dashboard/my-document-requests-card";
 import { AttentionCard } from "@/components/dashboard/attention-card";
 import { getClients } from "@/lib/services/clients";
 import { getApplications } from "@/lib/services/applications";
 import { getDashboardOperations } from "@/lib/services/dashboard-operations";
+import { getMyOutstandingDocumentRequests } from "@/lib/services/document-requests";
 import { getProfiles } from "@/lib/services/profiles";
 import { requireCapability } from "@/lib/auth/authorize";
 import { getReportingComparison } from "@/lib/services/reporting";
@@ -164,20 +166,32 @@ export default async function DashboardPage({
   const canExportSensitive = exportAuth.status === "authorized";
   const periodSelection = resolvePeriodFromParams(params);
 
-  const [applicationsResult, clientsResult, operationsResult, reportingResult, profilesResult] =
-    await Promise.all([
-      getApplications(scope),
-      getClients(scope),
-      getDashboardOperations(scope, workloadFor),
-      // Una sola llamada: el servicio ya paraleliza sus catorce RPC por período
-      // y resuelve el actual y el anterior a la vez. Nada aquí itera.
-      canSeeAnalytics ? getReportingComparison(periodSelection.period) : Promise.resolve(null),
-      // Los nombres del personal se resuelven APARTE, contra el directorio que
-      // este perfil ya puede leer. La capa agregada lleva `profileId` y ningún
-      // dato personal, y así debe seguir: un informe de dirección no es el sitio
-      // donde ampliar el acceso a datos de personas.
-      canSeeAnalytics ? getProfiles() : Promise.resolve(null),
-    ]);
+  const [
+    applicationsResult,
+    clientsResult,
+    operationsResult,
+    reportingResult,
+    profilesResult,
+    myDocumentRequests,
+  ] = await Promise.all([
+    getApplications(scope),
+    getClients(scope),
+    getDashboardOperations(scope, workloadFor),
+    // Una sola llamada: el servicio ya paraleliza sus catorce RPC por período
+    // y resuelve el actual y el anterior a la vez. Nada aquí itera.
+    canSeeAnalytics ? getReportingComparison(periodSelection.period) : Promise.resolve(null),
+    // Los nombres del personal se resuelven APARTE, contra el directorio que
+    // este perfil ya puede leer. La capa agregada lleva `profileId` y ningún
+    // dato personal, y así debe seguir: un informe de dirección no es el sitio
+    // donde ampliar el acceso a datos de personas.
+    canSeeAnalytics ? getProfiles() : Promise.resolve(null),
+    // MILESTONE 2.3 — solo para quien tiene fila propia (un asesor); un
+    // supervisor ve la carga del equipo arriba, no una cola personal que no
+    // describiría su propio trabajo.
+    typeof workloadFor === "object"
+      ? getMyOutstandingDocumentRequests(scope, workloadFor.selfProfileId)
+      : Promise.resolve([]),
+  ]);
 
   const reporting = reportingResult?.status === "ok" ? reportingResult.data : null;
   const reportingFailed = canSeeAnalytics && reportingResult?.status !== "ok";
@@ -289,6 +303,13 @@ export default async function DashboardPage({
       {workloadFor !== "all" && workloadFor !== "none" && operations && (
         <div className="mt-6">
           <MyFollowUpsCard items={operations.myFollowUps} />
+        </div>
+      )}
+
+      {/* MILESTONE 2.3 — misma puerta que MyFollowUpsCard. */}
+      {typeof workloadFor === "object" && (
+        <div className="mt-6">
+          <MyDocumentRequestsCard items={myDocumentRequests} />
         </div>
       )}
 
