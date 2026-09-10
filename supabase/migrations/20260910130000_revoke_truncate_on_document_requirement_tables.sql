@@ -1,0 +1,50 @@
+-- ============================================================================
+-- REVOKE TRUNCATE ON DOCUMENT/REQUIREMENT TABLES (anon, authenticated)
+-- ============================================================================
+--
+-- Found during the Milestone 2.3 (Automatic Document Requests) architecture
+-- audit, by a read-only privilege check of the tables that milestone would
+-- build on. A SEPARATE MIGRATION, NOT AN EDIT: the three creation migrations
+-- below are already applied, and this schema's standing discipline is that an
+-- applied migration is never rewritten, only corrected forward.
+--
+-- WHAT WAS WRONG. Unlike most tables in this project, the creation migrations
+-- for these three tables never included a `revoke all from anon, authenticated`
+-- step at all:
+--
+--   20260808110000_create_dossier_documents_table.sql
+--   20260809130000_create_requirement_templates_table.sql
+--   20260809140000_create_requirement_slots_table.sql
+--
+-- Each relies entirely on RLS-with-zero-policies to keep `anon` and
+-- `authenticated` out — which is correct for SELECT/INSERT/UPDATE/DELETE, all
+-- of which RLS does gate. TRUNCATE is the one operation RLS does not gate at
+-- all, and Supabase's default privileges had already granted it to both roles
+-- on all three tables at creation time. The same class of gap already closed
+-- for application_declarations, public_application_tokens,
+-- application_follow_ups, portal_funnel_events/tracking, profiles,
+-- profile_capability_grants, branches, and monthly_management_closures.
+--
+-- HOW EXPLOITABLE WAS IT? Not remotely. PostgREST exposes no TRUNCATE verb, so
+-- nothing reachable over the public API — including the portal, which holds
+-- `anon` and touches `dossier_documents`/`requirement_slots` legitimately for
+-- reads the RLS-and-service-layer already govern — could have issued one. The
+-- exposure was to server-side code holding either key, a future mistake rather
+-- than an attacker. Still worth closing for the same reason as every prior
+-- instance: the value of enforcing access through privilege does not depend on
+-- anyone remembering a gap that predates this audit.
+--
+-- SCOPE, DELIBERATELY NARROW. This migration touches only the unsafe grant on
+-- `anon`/`authenticated`. `service_role` also currently holds TRUNCATE on these
+-- three tables — the same default-grant artifact — but revoking it is NOT
+-- included here: it was flagged separately, pending explicit confirmation,
+-- rather than assumed.
+--
+-- TRIGGER and REFERENCES are left in place deliberately: they match every
+-- other table already corrected this way, they cannot destroy or alter data,
+-- and revoking them would break the ability to add a foreign key or trigger
+-- later without buying any safety.
+
+revoke truncate on table public.dossier_documents from anon, authenticated;
+revoke truncate on table public.requirement_slots from anon, authenticated;
+revoke truncate on table public.requirement_templates from anon, authenticated;
