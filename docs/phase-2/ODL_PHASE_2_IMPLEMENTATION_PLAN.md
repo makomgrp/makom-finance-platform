@@ -217,7 +217,7 @@ ODL must remain the owner of its Meta, WhatsApp and business assets. Makom may r
 
 ## 2.2 Automatic Customer Follow-up & Smart Reminders
 
-**Status:** NEXT / READY FOR ARCHITECTURE AUDIT
+**Status:** COMPLETED
 
 ### Objective
 
@@ -279,11 +279,42 @@ Do NOT hard-code unconfirmed business timings such as “contact customer after 
 - Production deployment verified;
 - no real customer communications are triggered from unconfirmed rules.
 
+### Completion record
+
+```text
+Milestone: 2.2
+Status: COMPLETED
+Commit: 49b86e837d049a9d1c42c4b2fddc62ef519cecaf
+Production deployment: dpl_BEYtHKh4NdRwgW65PJAQNMytCBEU
+Production verified: 2026-09-10
+ODL notification prepared: YES
+ODL notified: NO
+Notes:
+- Internal automated follow-up reminder engine
+- Persistent "My Follow-ups" dashboard experience
+- Pending / due-today / overdue follow-up visibility
+- Advisor-specific reminders
+- Idempotent daily automation
+- Daily schedule at 08:00 Panama
+- Realtime/toast as complementary notification
+- No customer email activated
+- No WhatsApp communication activated
+- Future communication-channel foundation preserved
+- No unconfirmed ODL business timing rules hard-coded
+- Production verification passed
+- 318/318 tests PASS
+- ES/EN parity 2012/2012, drift 0
+- Verification note: the authenticated dashboard was not visually verified
+  during the automated Production verification because no staff credentials
+  were used. The deployed component passed build/regression validation. This
+  is a non-blocking verification note, not an open implementation defect.
+```
+
 ---
 
 ## 2.3 Automatic Document Requests
 
-**Status:** PLANNED
+**Status:** NEXT / READY FOR ARCHITECTURE AUDIT
 
 ### Objective
 
@@ -733,15 +764,14 @@ Dependencies:
 - account ownership confirmation
 
 2.2 Automatic Customer Follow-up & Smart Reminders
-STATUS: NEXT
-Next action:
-- perform read-only architecture audit
-- identify reusable follow-up/notification infrastructure
-- define minimal implementation
-- implement only after audit is reviewed/authorized
+STATUS: COMPLETED
+Completion date: 2026-09-10
+Commit: 49b86e837d049a9d1c42c4b2fddc62ef519cecaf
+Production deployment: dpl_BEYtHKh4NdRwgW65PJAQNMytCBEU
+See § 2.2 Completion record for full detail.
 
 2.3 Automatic Document Requests
-STATUS: PLANNED
+STATUS: NEXT / READY FOR ARCHITECTURE AUDIT
 
 2.4 Workflow Automation
 STATUS: PLANNED
@@ -779,7 +809,7 @@ STATUS: PLANNED
 
 The immediate next action is:
 
-## PHASE 2 — 2.2 PRE-FLIGHT + READ-ONLY ARCHITECTURE AUDIT
+## PHASE 2 — 2.3 PRE-FLIGHT + READ-ONLY ARCHITECTURE AUDIT
 
 Before writing implementation code:
 
@@ -788,7 +818,7 @@ Before writing implementation code:
 3. verify Vercel access and Production visibility;
 4. verify current branch/baseline;
 5. verify build/lint/tests;
-6. inspect existing 2.2-related architecture;
+6. inspect existing 2.3-related architecture;
 7. propose the minimal non-duplicative implementation.
 
 Only after the audit is reviewed should implementation begin.
