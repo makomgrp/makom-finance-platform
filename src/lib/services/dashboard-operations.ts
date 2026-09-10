@@ -8,7 +8,7 @@ import {
 } from "@/lib/config/pipeline";
 import { getPipelineCards } from "./pipeline";
 import { getProfiles } from "./profiles";
-import type { BranchScope, PipelineCard, PipelineStage } from "@/types";
+import type { BranchScope, NextActionUrgency, PipelineCard, PipelineStage } from "@/types";
 
 /**
  * ============================================================================
@@ -68,6 +68,22 @@ export interface AdvisorWorkloadRow {
   byStage: Record<PipelineStage, number>;
 }
 
+/**
+ * MILESTONE 2.2 — one of the viewer's own outstanding commitments, ready to
+ * act on. Built from the same pipeline cards `getDashboardOperations` already
+ * reads for `followUpsToday`/`followUpsOverdue` — no second query, and
+ * `nextActionUrgency` is the exact value the pipeline board already derives,
+ * so a badge here and a badge there can never disagree.
+ */
+export interface MyFollowUpItem {
+  applicationId: string;
+  applicationNumber?: string;
+  clientFullName: string;
+  nextAction: string;
+  nextActionAt: string;
+  nextActionUrgency: NextActionUrgency;
+}
+
 export interface DashboardOperations {
   /** Every stage, including terminal ones, for the pipeline strip. */
   stageCounts: Record<PipelineStage, number>;
@@ -106,6 +122,14 @@ export interface DashboardOperations {
    * is a work queue, "17 slots" is noise.
    */
   applicationsWithDocumentsToReview: number;
+
+  /**
+   * MILESTONE 2.2 — the viewer's OWN outstanding commitments, oldest due
+   * first. Empty unless `workloadFor` carried a `selfProfileId` — a
+   * supervisor viewing "all" gets no personal queue here, same posture as
+   * `AdvisorWorkloadCard`'s own selfOnly split.
+   */
+  myFollowUps: MyFollowUpItem[];
 }
 
 export type GetDashboardOperationsResult =
@@ -207,6 +231,27 @@ export async function getDashboardOperations(
     (card) => card.kind === "application" && card.documentsReceived > card.documentsReviewed
   ).length;
 
+  // MILESTONE 2.2 — same loop's source data, one more reduction. Sorted
+  // oldest-due-first for the same reason FollowUpSummary.nextAction already
+  // is: whichever commitment came due first is the one someone is late on.
+  const myFollowUps: MyFollowUpItem[] =
+    typeof workloadFor === "object"
+      ? activeCards
+          .filter(
+            (card) =>
+              card.advisorProfileId === workloadFor.selfProfileId && card.followUp?.nextAction
+          )
+          .map((card) => ({
+            applicationId: card.id,
+            applicationNumber: card.applicationNumber,
+            clientFullName: card.fullName,
+            nextAction: card.followUp!.nextAction!,
+            nextActionAt: card.followUp!.nextActionAt!,
+            nextActionUrgency: card.followUp!.nextActionUrgency!,
+          }))
+          .sort((a, b) => a.nextActionAt.localeCompare(b.nextActionAt))
+      : [];
+
   const operations: DashboardOperations = {
     stageCounts,
     activeLeads,
@@ -217,6 +262,7 @@ export async function getDashboardOperations(
     followUpsOverdue,
     withoutNextAction,
     applicationsWithDocumentsToReview,
+    myFollowUps,
   };
 
   const workload = await buildAdvisorWorkload(activeCards, workloadFor);

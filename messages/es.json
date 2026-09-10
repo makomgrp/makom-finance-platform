@@ -148,6 +148,11 @@
       "unassigned": "{count, plural, one {# proceso activo sin asesor} other {# procesos activos sin asesor}}",
       "documentsToReview": "{count, plural, one {# solicitud con documentos por revisar} other {# solicitudes con documentos por revisar}}"
     },
+    "myFollowUps": {
+      "title": "Mis seguimientos",
+      "empty": "No tienes seguimientos pendientes.",
+      "reminderToast": "Seguimiento pendiente con {name}"
+    },
     "analytics": {
       "title": "Informe de gestión",
       "error": "No se pudieron cargar las cifras de gestión. Vuelve a intentarlo en unos minutos.",

@@ -86,6 +86,11 @@ const PUBLIC_API_PREFIX = "/api/public/";
 const MACHINE_AUTHENTICATED_PATHS = [
   // Cierre gerencial mensual automático. Ver src/app/api/cierres-mensuales.
   "/api/cierres-mensuales",
+  // MILESTONE 2.2 — recordatorio interno automático de seguimiento. Mismo
+  // mecanismo: Vercel Cron invoca sin cookie de sesión, con
+  // Authorization: Bearer ${CRON_SECRET}, y su handler es la autoridad.
+  // Ver src/app/api/recordatorios-seguimiento.
+  "/api/recordatorios-seguimiento",
 ];
 
 /** Rutas que no exigen nada a nadie. */

@@ -148,6 +148,11 @@
       "unassigned": "{count, plural, one {# active process with no advisor} other {# active processes with no advisor}}",
       "documentsToReview": "{count, plural, one {# application with documents to review} other {# applications with documents to review}}"
     },
+    "myFollowUps": {
+      "title": "My follow-ups",
+      "empty": "You have no pending follow-ups.",
+      "reminderToast": "Pending follow-up with {name}"
+    },
     "analytics": {
       "title": "Management report",
       "error": "The management figures could not be loaded. Please try again in a few minutes.",

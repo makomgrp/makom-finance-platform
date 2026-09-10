@@ -67,6 +67,26 @@ interface ChatNotificationPayload {
   createdAt: string;
 }
 
+/**
+ * MILESTONE 2.2 — un aviso DISTINTO en el MISMO canal por-persona.
+ *
+ * No es chat, pero el canal `chat:user:{profileId}` ya es exactamente lo que
+ * este recordatorio necesita: una suscripción por persona, viva mientras dure
+ * la sesión, que sobrevive a la navegación entre módulos. Abrir un segundo
+ * canal solo para esto repetiría la razón por la que este ya existe. Vive con
+ * su propio evento (`followup.reminder`) y su propia deduplicación
+ * (`seenFollowUpIds`), separada de la de chat, para que un aviso nunca
+ * interfiera con el otro.
+ */
+interface FollowUpReminderPayload {
+  followUpId: string;
+  applicationId: string;
+  applicationNumber?: string;
+  clientFullName: string;
+  nextAction: string;
+  nextActionAt: string;
+}
+
 interface ChatNotificationsValue {
   /** Suma de no leídos de todas las conversaciones. 0 => sin badge. */
   unreadTotal: number;
@@ -163,6 +183,7 @@ export function ChatNotificationsProvider({
   // provocar que el canal se cierre y se vuelva a abrir al cambiar.
   const activeConversationRef = useRef<string | null>(null);
   const seenMessageIds = useRef<Set<string>>(new Set());
+  const seenFollowUpIds = useRef<Set<string>>(new Set());
   const colleagueRef = useRef<Record<string, string>>(colleagueByConversation);
 
   const setActiveConversation = useCallback((conversationRealId: string | null) => {
@@ -218,6 +239,26 @@ export function ChatNotificationsProvider({
             // Navegación interna, misma pestaña. El chat lee este parámetro
             // para abrir directamente la conversación correspondiente.
             onClick: () => router.push(`/chat?con=${data.senderProfileId}`),
+          },
+        });
+      })
+      .on("broadcast", { event: "followup.reminder" }, ({ payload }) => {
+        const data = payload as FollowUpReminderPayload;
+
+        // Misma deduplicación que chat, pero en su propio set: un mensaje de
+        // chat y un recordatorio de seguimiento nunca comparten identificador,
+        // pero tampoco deben compartir el mismo Set por si alguna vez lo
+        // hicieran por coincidencia.
+        if (seenFollowUpIds.current.has(data.followUpId)) return;
+        seenFollowUpIds.current.add(data.followUpId);
+
+        playNotificationSound();
+
+        toast(t("dashboard.myFollowUps.reminderToast", { name: data.clientFullName }), {
+          description: data.nextAction,
+          action: {
+            label: t("chat.notifications.open"),
+            onClick: () => router.push(`/solicitudes/${data.applicationId}`),
           },
         });
       })

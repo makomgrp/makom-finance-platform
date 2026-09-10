@@ -20,6 +20,7 @@ import { KpiCard } from "@/components/dashboard/kpi-card";
 import { StatusDistributionCard } from "@/components/dashboard/status-distribution-card";
 import { PipelineOverviewCard } from "@/components/dashboard/pipeline-overview-card";
 import { AdvisorWorkloadCard } from "@/components/dashboard/advisor-workload-card";
+import { MyFollowUpsCard } from "@/components/dashboard/my-follow-ups-card";
 import { AttentionCard } from "@/components/dashboard/attention-card";
 import { getClients } from "@/lib/services/clients";
 import { getApplications } from "@/lib/services/applications";
@@ -281,6 +282,15 @@ export default async function DashboardPage({
         )}
         <StatusDistributionCard applications={applications} />
       </div>
+
+      {/* MILESTONE 2.2 — only for a viewer with their own row (an asesor):
+          a supervisor sees the team's workload above, not a personal queue
+          that would not describe their own job. */}
+      {workloadFor !== "all" && workloadFor !== "none" && operations && (
+        <div className="mt-6">
+          <MyFollowUpsCard items={operations.myFollowUps} />
+        </div>
+      )}
 
       {/* MILESTONE 26B-26D — el informe de dirección, bajo `analytics:view`.
           Va DEBAJO de lo operativo a propósito: quien abre el CRM por la mañana

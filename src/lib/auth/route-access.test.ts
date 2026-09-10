@@ -175,3 +175,23 @@ test("la redirección sigue existiendo y solo se salta por las dos excepciones",
   );
   assert.ok(PROXY.includes("NextResponse.redirect(loginUrl)"));
 });
+
+// ---------------------------------------------------------------------------
+// 11. MILESTONE 2.2 — EL RECORDATORIO DE SEGUIMIENTO ES LA MISMA EXCEPCIÓN,
+//     NO UNA SEGUNDA
+// ---------------------------------------------------------------------------
+
+test("la ruta del recordatorio de seguimiento atraviesa el proxy sin sesión de persona", () => {
+  assert.equal(isMachineAuthenticatedPath("/api/recordatorios-seguimiento"), true);
+});
+
+test("pero tampoco es pública", () => {
+  assert.equal(isPublicPath("/api/recordatorios-seguimiento"), false);
+});
+
+test("el handler del recordatorio también falla cerrado con el mismo patrón", () => {
+  const route = read("../../app/api/recordatorios-seguimiento/route.ts");
+  assert.ok(route.includes("if (!cronSecret || authorization !== `Bearer ${cronSecret}`)"));
+  assert.ok(route.includes("status: 401"));
+  assert.ok(!/process\.env\.NODE_ENV/.test(route));
+});
