@@ -1,0 +1,47 @@
+-- ============================================================================
+-- REVOKE TRUNCATE ON application_intakes, dossier_notes, dossier_alerts
+-- ============================================================================
+--
+-- Found during the Milestone 2.4 (Workflow Automation) architecture audit, by
+-- the same read-only privilege check already applied to the document/
+-- requirement tables in the 2.3 audit. A SEPARATE MIGRATION, NOT AN EDIT: the
+-- three creation migrations below are already applied.
+--
+-- WHAT WAS WRONG. Same class of gap, same root cause, as every prior instance
+-- (monthly_management_closures; dossier_documents/requirement_slots/
+-- requirement_templates in 2.3):
+--
+--   20260808090000_create_dossier_notes_table.sql
+--   20260808100000_create_dossier_alerts_table.sql
+--   20260811000100_create_application_intakes_table.sql (+ 20260811000300)
+--
+-- Each grants service_role exactly `select, insert[, update]` and never
+-- revokes anything from anon/authenticated at all — relying entirely on
+-- RLS-with-zero-policies, which correctly gates SELECT/INSERT/UPDATE/DELETE
+-- but not TRUNCATE. Supabase's default privileges had already granted
+-- TRUNCATE to anon, authenticated, AND service_role on all three tables at
+-- creation time.
+--
+-- CONFIRMED NO DEPENDENCY, READ-ONLY, BEFORE WRITING THIS MIGRATION:
+--   * each creation migration's own grant line lists only
+--     select/insert(/update) — TRUNCATE was never requested;
+--   * a search of every function body in the public schema
+--     (`pg_proc.prosrc ilike '%truncate%'` combined with each table name)
+--     returns zero matches;
+--   * a repository-wide search of application code finds no reference to
+--     TRUNCATE involving these three tables (only unrelated CSS
+--     `truncate` utility-class matches).
+--
+-- SCOPE, DELIBERATELY NARROW. Only TRUNCATE, only these three tables, all
+-- three roles it was found on (anon, authenticated, service_role — matching
+-- the 2.3 precedent where all three needed it revoked). SELECT/INSERT/UPDATE/
+-- REFERENCES/TRIGGER are untouched. RLS and its policies are untouched.
+--
+-- NOTE: the same audit also found TRUNCATE granted on public.applications to
+-- all three roles. That finding is deliberately NOT included here — it is
+-- reported separately, pending its own explicit authorization, rather than
+-- folded into this migration.
+
+revoke truncate on table public.application_intakes from anon, authenticated, service_role;
+revoke truncate on table public.dossier_notes from anon, authenticated, service_role;
+revoke truncate on table public.dossier_alerts from anon, authenticated, service_role;
