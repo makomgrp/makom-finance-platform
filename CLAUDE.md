@@ -5,6 +5,12 @@ Es el documento autoritativo del proyecto: identidad, estado actual, arquitectur
 real, reglas de negocio, invariantes de seguridad, base de datos, estado de
 Production, backlog y el procedimiento read-only de arranque (PHASE 0).
 
+**Antes de cualquier trabajo de Phase 2, lee además
+[`docs/phase-2/ODL_PHASE_2_IMPLEMENTATION_PLAN.md`](docs/phase-2/ODL_PHASE_2_IMPLEMENTATION_PLAN.md)** —
+alcance aprobado, milestones 2.1–2.11 y su estado, reglas de negocio aún
+pendientes de confirmación de ODL, metodología de ejecución/QA/deploy y el
+pre-flight de acceso obligatorio de Phase 2.
+
 Este sistema está **EN PRODUCCIÓN con clientes reales** y no tiene entorno de
 staging. Tres reglas que no admiten excepción:
 
