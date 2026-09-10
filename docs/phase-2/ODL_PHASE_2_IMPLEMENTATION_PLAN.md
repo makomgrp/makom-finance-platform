@@ -314,7 +314,7 @@ Notes:
 
 ## 2.3 Automatic Document Requests
 
-**Status:** NEXT / READY FOR ARCHITECTURE AUDIT
+**Status:** COMPLETED
 
 ### Objective
 
@@ -333,11 +333,53 @@ Use the existing product-specific requirement infrastructure to identify and req
 
 Phase 2 may determine that a requirement is missing based on CRM state. Phase 2 does NOT include intelligent reading of uploaded documents. OCR, automatic classification, data extraction and file-content validation belong to Phase 3.
 
+### Completion record
+
+```text
+Milestone: 2.3
+Status: COMPLETED
+Commit: 07682f3
+Related security commits: 3b053b0, 3ecfd5e
+Production deployment: dpl_6KptD58ephcTSqoAbGeg25WpPFtf
+Production verified: 2026-09-09
+ODL notification prepared: YES
+ODL notified: NO
+Notes:
+- Deterministic internal document-request automation using the existing
+  requirement_templates -> requirement_slots -> dossier_documents model.
+- No OCR or AI document processing.
+- Eligibility limited to required, applicant-visible, client-facing,
+  application-level requirements in pending/missing status.
+- Atomic/idempotent claim prevents duplicate internal requests.
+- Daily automation configured for 09:00 Panama.
+- Assigned advisor receives complementary internal Realtime notification.
+- Persistent document-request visibility added to the CRM/dashboard.
+- Customer-facing email is NOT activated.
+- WhatsApp delivery is NOT activated.
+- Future communication-channel compatibility preserved.
+- Security remediation: the milestone audit discovered and remediated a
+  pre-existing default-grant TRUNCATE exposure on dossier_documents,
+  requirement_slots and requirement_templates. TRUNCATE was removed from
+  anon, authenticated, and service_role. Normal required service_role
+  SELECT/INSERT/UPDATE privileges remain intact. Not a breach or incident —
+  a default-privilege gap with no evidence of exploitation, closed as a
+  precaution, the same class already remediated for
+  monthly_management_closures, which remained intact throughout this
+  milestone's Production verification.
+- Production deployment verified; 336/336 tests PASS; build PASS; lint PASS;
+  ES/EN parity 2017/2017, drift 0; cron route fail-closed in Production; no
+  customer outbound communication activated.
+- Verification note: authenticated dashboard/document visual verification
+  was not performed during the automated Production verification because
+  staff credentials were not used. Non-blocking — not an implementation
+  defect.
+```
+
 ---
 
 ## 2.4 Workflow Automation
 
-**Status:** PLANNED
+**Status:** NEXT / READY FOR ARCHITECTURE AUDIT
 
 ### Objective
 
@@ -771,10 +813,15 @@ Production deployment: dpl_BEYtHKh4NdRwgW65PJAQNMytCBEU
 See § 2.2 Completion record for full detail.
 
 2.3 Automatic Document Requests
-STATUS: NEXT / READY FOR ARCHITECTURE AUDIT
+STATUS: COMPLETED
+Completion date: 2026-09-09
+Commit: 07682f3
+Related security commits: 3b053b0, 3ecfd5e
+Production deployment: dpl_6KptD58ephcTSqoAbGeg25WpPFtf
+See § 2.3 Completion record for full detail.
 
 2.4 Workflow Automation
-STATUS: PLANNED
+STATUS: NEXT / READY FOR ARCHITECTURE AUDIT
 
 2.5 DTI & Capacity Engine
 STATUS: PLANNED
@@ -809,7 +856,7 @@ STATUS: PLANNED
 
 The immediate next action is:
 
-## PHASE 2 — 2.3 PRE-FLIGHT + READ-ONLY ARCHITECTURE AUDIT
+## PHASE 2 — 2.4 PRE-FLIGHT + READ-ONLY ARCHITECTURE AUDIT
 
 Before writing implementation code:
 
@@ -818,7 +865,7 @@ Before writing implementation code:
 3. verify Vercel access and Production visibility;
 4. verify current branch/baseline;
 5. verify build/lint/tests;
-6. inspect existing 2.3-related architecture;
+6. inspect existing 2.4-related architecture;
 7. propose the minimal non-duplicative implementation.
 
 Only after the audit is reviewed should implementation begin.
