@@ -379,7 +379,7 @@ Notes:
 
 ## 2.4 Workflow Automation
 
-**Status:** NEXT / READY FOR ARCHITECTURE AUDIT
+**Status:** COMPLETED
 
 ### Objective
 
@@ -396,6 +396,59 @@ Automate defined operational actions and stage transitions while preserving huma
 - auditable workflow events.
 
 Do not automatically approve or disburse credit.
+
+### Completion record
+
+```text
+Milestone: 2.4
+Status: COMPLETED
+Feature commit: d4939ca17556515dfeed6cf5074b6cc354f9200d
+Security commits: a4c17ae3cff75d9993d499970ba1fb331e6cb077,
+  80ac2aec6074974a147d4061dc62c641d4854acf
+Production deployment: dpl_FmsqUn4xEKFQ5fbKfyjBMXkPkcDq
+Production verified: 2026-09-11
+ODL notification prepared: YES
+ODL notified: NO
+Notes:
+- Event-driven operational workflow automation added to the existing
+  requirement-status lifecycle.
+- When an applicant-facing required document package becomes structurally
+  complete, the CRM detects the condition automatically.
+- Document completeness uses the existing requirement model and accepted
+  completion semantics.
+- Zero relevant required requirements are NOT treated as a complete package.
+- The workflow uses an atomic durable marker on the application to prevent
+  duplicate ready-for-review processing.
+- Assigned staff receive an internal Realtime notification and persistent
+  dashboard visibility showing that the case is ready for human review.
+- The workflow does NOT change applications.status.
+- The workflow does NOT complete an application review.
+- The workflow does NOT approve, reject or otherwise make a credit decision.
+- Applications already in terminal states no longer generate new automatic
+  follow-up reminder claims.
+- Historical follow-up records remain untouched.
+- Customer-facing email and WhatsApp were NOT activated.
+- Security remediation: the milestone audit discovered and remediated
+  pre-existing default-grant TRUNCATE exposure on application_intakes,
+  dossier_notes, dossier_alerts and applications. TRUNCATE was removed from
+  anon, authenticated, and service_role. Normal required service_role
+  privileges remained intact. Not a breach or incident — a default-privilege
+  gap with no evidence of exploitation, closed as a precaution, the same
+  class already remediated for monthly_management_closures, dossier_documents,
+  requirement_slots and requirement_templates, all of which were reverified
+  intact in Production during this milestone's verification.
+- Production deployment verified on exact Git SHA; Vercel Production Ready;
+  correct ODL Supabase project verified; migrations present remotely;
+  relevant RLS state unchanged; no Production test rows created; no
+  unexplained business-data modification; 353/353 tests PASS; build PASS;
+  lint PASS; ES/EN parity 2021/2021, drift 0; no customer outbound
+  communication activated; no automatic credit decision; no cross-project
+  Supabase access.
+- Verification note: the authenticated dashboard was not visually verified
+  during the automated Production verification because staff credentials
+  were not available. This is a non-blocking verification note, not an
+  implementation defect.
+```
 
 ---
 
@@ -821,10 +874,16 @@ Production deployment: dpl_6KptD58ephcTSqoAbGeg25WpPFtf
 See § 2.3 Completion record for full detail.
 
 2.4 Workflow Automation
-STATUS: NEXT / READY FOR ARCHITECTURE AUDIT
+STATUS: COMPLETED
+Completion date: 2026-09-11
+Feature commit: d4939ca17556515dfeed6cf5074b6cc354f9200d
+Security commits: a4c17ae3cff75d9993d499970ba1fb331e6cb077,
+  80ac2aec6074974a147d4061dc62c641d4854acf
+Production deployment: dpl_FmsqUn4xEKFQ5fbKfyjBMXkPkcDq
+See § 2.4 Completion record for full detail.
 
 2.5 DTI & Capacity Engine
-STATUS: PLANNED
+STATUS: NEXT / READY FOR ARCHITECTURE AUDIT
 DEPENDENCY: final ODL policy confirmation before activation
 
 2.6 Credit Score & Risk Classification Engine
